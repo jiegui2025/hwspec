@@ -104,3 +104,22 @@ func TestDDR5FormFactors(t *testing.T) {
 		}
 	}
 }
+
+// A 3DS (stacked) module holds several dies per package: a single-rank x4
+// module of 16 Gbit dies in 4-high stacks holds 128 GiB.
+func TestStackedDiesMultiplyCapacity(t *testing.T) {
+	b := ddr4Image()
+	b[4], b[6], b[12], b[13] = 0x86, 0x32, 0x00, 0x03 // 16 Gb, 3DS 4 dies, x4, 64-bit
+	if i, _ := Parse(b); i.SizeBytes != 128<<30 {
+		t.Errorf("3DS = %d GiB", i.SizeBytes>>30)
+	}
+}
+
+// A manufacture date that isn't BCD is left unset, not misread.
+func TestNonBCDDatesAreUnset(t *testing.T) {
+	b := ddr4Image()
+	b[323], b[324] = 0x2A, 0x1F
+	if i, _ := Parse(b); i.ManufactureYear != 0 || i.ManufactureWeek != 0 {
+		t.Errorf("date = %d-W%d", i.ManufactureYear, i.ManufactureWeek)
+	}
+}

@@ -66,3 +66,10 @@ func TestParseRejectsGarbage(t *testing.T) {
 		t.Error("short block: expected error")
 	}
 }
+
+// Projectors and some TVs report no physical size: no diagonal is made up.
+func TestNoSizeMeansNoDiagonal(t *testing.T) {
+	if d := (&Info{WidthMM: 0, HeightMM: 340}).DiagonalInches(); d != 0 {
+		t.Errorf("diagonal = %v", d)
+	}
+}
