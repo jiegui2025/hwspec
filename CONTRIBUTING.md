@@ -62,7 +62,15 @@ Pushes to `main` run everything.
 
 ## Tests
 
-Tests describe **behaviour**, not lines: "a laptop whose battery holds 80% of its design capacity reports 80% health", not "call `batteries()`". Collectors are tested against fixture `/sys` and `/proc` trees under `testdata/`, one per representative machine; add a fixture (or extend one) when you add hardware coverage. CI fails below the coverage threshold in `.github/workflows/ci.yml`.
+Tests describe **behaviour**, not lines: "a laptop whose battery holds 80% of its design capacity reports 80% health", not "call `batteries()`". Collectors are tested three ways:
+
+| How | Where | When to add one |
+|---|---|---|
+| Recorded machines | `internal/collect/testdata/machines/<name>/` (record with `go run ./tools/snapshot internal/collect/testdata/machines/<name>/root`, then add facts in `machines_facts_test.go` and run `go test ./internal/collect -run RecordedMachines -update`) | new hardware you own; review the recording, `TestRecordingsHoldNoIdentifiers` checks it too |
+| Synthetic machines | `internal/collect/scenarios_test.go` | hardware you can describe but not record (root-only data, other architectures) |
+| Real kernel | `internal/collect/kernel_test.go` | thin wrappers around syscalls |
+
+Tests whose coverage depends on the machine's hardware call `hostTest(t)`; CI's coverage run sets `HWSPEC_SKIP_HOST_TESTS=1` so the gate measures the same code everywhere, and runs them in a separate step. CI fails below the coverage threshold in `.github/workflows/ci.yml`.
 
 ## File format
 
