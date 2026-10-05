@@ -232,3 +232,86 @@ func TestProductDoesNotRepeatTheVendor(t *testing.T) {
 		}
 	}
 }
+
+// A two-socket workstation in a VM, with everything the text output can
+// show: each feature's line, in the words a reader expects.
+func TestTextDescribesAFullyFeaturedMachine(t *testing.T) {
+	off, out, prop := false, false, true
+	used, left := 30.0, 70.0
+	r := sample()
+	r.OS.Virtualization = "vm"
+	r.CPU = report.CPU{
+		Identity: &report.Identity{Model: "Xeon w5-2455X"}, Codename: "Sapphire Rapids", Microarchitecture: "Golden Cove",
+		Sockets: 2, Cores: 24, Threads: 48, CoreTypes: []report.CoreType{{Name: "performance", Threads: 48}},
+		MinFreqMHz: 800, MaxFreqMHz: 4600, Driver: &report.Driver{Name: "intel_pstate", Builtin: true},
+		Caches: []report.Cache{{Level: 1, Type: "Data", SizeBytes: 48 << 10, Instances: 24}, {Level: 2, Type: "Unified", SizeBytes: 2 << 20, Instances: 24}},
+		Health: &report.Health{Status: report.StatusWarning},
+	}
+	r.Memory = report.Memory{TotalBytes: 250 << 30, InstalledBytes: 256 << 30, Slots: 16, MaxCapacityBytes: 4 << 40, Modules: []report.MemoryModule{
+		{Locator: "DIMM_A1", SizeBytes: 128 << 30, Type: "DDR5", FormFactor: "RDIMM", ConfiguredMTs: 4400, SpeedMTs: 4800,
+			Identity: &report.Identity{Vendor: "Samsung", PartNumber: "M321R8GA0BB0", ManufactureDate: "2023-W12"}, DRAMVendor: "SK Hynix",
+			Health: &report.Health{Status: report.StatusFailing, Reasons: []string{"1 uncorrectable memory errors since boot: replace this module"}}},
+		{Locator: "DIMM_B1", SizeBytes: 128 << 30, ConfiguredMTs: 4800, Identity: &report.Identity{Vendor: "Samsung"}, DRAMVendor: "Samsung"},
+		{Locator: "DIMM_C1", SpeedMTs: 5600},
+	}}
+	r.Storage = []report.Disk{
+		{Name: "sda", Type: "unknown", Transport: "usb", SizeBytes: 1 << 40, Identity: &report.Identity{Vendor: "WD"}},
+		{Name: "sr0", Type: "optical", Transport: "sata"},
+	}
+	r.GPUs = []report.GPU{{PCIAddress: "0000:01:00.0", Identity: &report.Identity{Vendor: "NVIDIA", Model: "RTX A4000"}, VRAMBytes: 16 << 30,
+		Driver: &report.Driver{Name: "nvidia", Module: "nvidia", Version: "580.95.05", InTree: &out, Proprietary: &prop}}}
+	r.Bluetooth = []report.BluetoothController{{Name: "hci0", Identity: &report.Identity{Model: "AX211"}, Powered: &off}}
+	r.Batteries = []report.Battery{{Name: "BAT0", Health: &report.Health{Status: report.StatusOK, LifeUsedPercent: &used, LifeRemainingPercent: &left,
+		Estimate: &report.Estimate{What: "charge cycles until 80% of design capacity", Value: 420, Unit: "cycles", Method: "m"}}}}
+
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	text := buf.String()
+	for _, want := range []string{
+		"Runs in    vm",
+		"Codename   Sapphire Rapids (Golden Cove cores)",
+		"2 sockets, 24 cores / 48 threads, 48 performance threads",
+		"800–4600 MHz (intel_pstate built in)",
+		"L1d 48 KiB×24, L2 2 MiB×24",
+		"256 GiB installed, 250 GiB usable",
+		"3 used of 16, max 4 TiB",
+		"128 GiB DDR5 RDIMM 4400 MT/s (rated 4800) Samsung M321R8GA0BB0, made 2023-W12, SK Hynix chips, health FAILING",
+		"128 GiB 4800 MT/s Samsung",
+		"5600 MT/s",
+		"WD 1 TiB via usb",
+		"16 GiB VRAM",
+		"nvidia out-of-tree, proprietary, 580.95.05",
+		"AX211, off",
+		"30% worn (70% life left)",
+		"~420 charge cycles until 80% of design capacity",
+		"- WARNING CPU",
+		"- FAILING memory DIMM_A1: 1 uncorrectable",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "Samsung chips") {
+		t.Error("DRAM maker repeated when it's the module maker")
+	}
+	r.CPU.Codename, r.CPU.Microarchitecture = "Raptor Lake", ""
+	buf.Reset()
+	_ = Write(&buf, r, "text")
+	if !strings.Contains(buf.String(), "Codename   Raptor Lake\n") {
+		t.Errorf("codename alone:\n%s", buf.String())
+	}
+	if err := Write(&buf, r, "xml"); err == nil || !strings.Contains(err.Error(), `unknown format "xml"`) {
+		t.Errorf("unknown format: %v", err)
+	}
+}
+
+// Captures are read whether they're JSON or YAML, and garbage is refused.
+func TestReadRefusesMalformedCaptures(t *testing.T) {
+	for name, data := range map[string]string{"json": `{"schema_version": "one"}`, "yaml": "schema_version: [1\n", "yaml type": "- a\n- b\n"} {
+		if _, err := Read([]byte(data)); err == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+}
