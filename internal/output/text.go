@@ -186,7 +186,7 @@ func writeText(w io.Writer, r *report.Report) error {
 			if bt.Version != "" {
 				s += ", Bluetooth " + bt.Version
 			}
-			if f := strings.Fields(bt.Manufacturer); len(f) > 0 && !strings.Contains(s, f[0]) {
+			if f := strings.Fields(bt.Manufacturer); len(f) > 0 && !strings.Contains(strings.ToLower(s), strings.ToLower(f[0])) {
 				s += ", chip by " + bt.Manufacturer
 			}
 			if bt.Powered != nil && !*bt.Powered {
@@ -270,7 +270,7 @@ func product(id *report.Identity) string {
 	return join(id.Vendor, id.Model)
 }
 
-// brand is the vendor's first word without trailing punctuation: "Dell" for
+// brand is the vendor's first word without a trailing '.' or ',': "Dell" for
 // "Dell Inc.", "VMware" for "VMware, Inc.". Models name the brand, not the
 // company ("Dell G15 5520", "VMware Virtual Platform").
 func brand(vendor string) string {

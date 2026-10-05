@@ -162,6 +162,30 @@ func TestNeedsAttentionGroupsWarningsAndFailures(t *testing.T) {
 	}
 }
 
+// A Bluetooth line names the chip maker only when the adapter's name doesn't
+// already, in any case.
+func TestBluetoothChipMakerNamedOnce(t *testing.T) {
+	for _, c := range []struct {
+		id    *report.Identity
+		maker string
+		chip  bool
+	}{
+		{&report.Identity{Vendor: "Intel Corp.", Model: "INTEL AX200 Bluetooth"}, "Intel Corp.", false},
+		{&report.Identity{Vendor: "Intel Corp.", Model: "AX200 Bluetooth"}, "Intel Corp.", false},
+		{&report.Identity{Vendor: "Foxconn", Model: "T77H"}, "Qualcomm", true},
+	} {
+		r := sample()
+		r.Bluetooth = []report.BluetoothController{{Name: "hci0", Identity: c.id, Manufacturer: c.maker}}
+		var buf bytes.Buffer
+		if err := Write(&buf, r, "text"); err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(buf.String(), "chip by"); got != c.chip {
+			t.Errorf("%+v with maker %q: chip by shown = %v, want %v:\n%s", c.id, c.maker, got, c.chip, buf.String())
+		}
+	}
+}
+
 // Built-in drivers say so, and a battery's capacity is shown in Wh.
 func TestBuiltInDriversAndBatteryCapacity(t *testing.T) {
 	r := sample()
@@ -179,7 +203,7 @@ func TestBuiltInDriversAndBatteryCapacity(t *testing.T) {
 	}
 }
 
-func TestMachineNameDoesNotRepeatTheVendor(t *testing.T) {
+func TestProductDoesNotRepeatTheVendor(t *testing.T) {
 	for _, c := range []struct {
 		id   *report.Identity
 		want string
@@ -198,7 +222,8 @@ func TestMachineNameDoesNotRepeatTheVendor(t *testing.T) {
 		{&report.Identity{Vendor: "ASUS", Model: "AS"}, "ASUS AS"},
 		{&report.Identity{Vendor: "HP", Model: "  HP Z2 G9 "}, "HP Z2 G9"},
 		{&report.Identity{Vendor: "MSI", Model: "MSI1 X"}, "MSI MSI1 X"},
-		{&report.Identity{Vendor: "Société", Model: "SOCIÉTÉ X"}, "SOCIÉTÉ X"}, {&report.Identity{Vendor: "", Model: "Z2 G9"}, "Z2 G9"},
+		{&report.Identity{Vendor: "Société", Model: "SOCIÉTÉ X"}, "SOCIÉTÉ X"},
+		{&report.Identity{Vendor: "", Model: "Z2 G9"}, "Z2 G9"},
 		{&report.Identity{Vendor: "Dell Inc.", Model: ""}, "Dell Inc."},
 		{nil, "unknown"},
 	} {
