@@ -186,6 +186,12 @@ func TestMachineNameDoesNotRepeatTheVendor(t *testing.T) {
 	}{
 		{&report.Identity{Vendor: "HP", Model: "HP EliteDesk 800 G5 Desktop Mini"}, "HP EliteDesk 800 G5 Desktop Mini"},
 		{&report.Identity{Vendor: "LENOVO", Model: "ThinkPad T14"}, "LENOVO ThinkPad T14"},
+		{&report.Identity{Vendor: "LENOVO", Model: "Lenovo ThinkCentre M720q"}, "Lenovo ThinkCentre M720q"},
+		{&report.Identity{Vendor: "HP", Model: "HPE ProLiant DL360"}, "HP HPE ProLiant DL360"},
+		{&report.Identity{Vendor: "HP", Model: "HP-EliteBook 840"}, "HP-EliteBook 840"},
+		{&report.Identity{Vendor: " HP ", Model: "HP Z2 G9"}, "HP Z2 G9"},
+		{&report.Identity{Vendor: "Framework", Model: "framework"}, "framework"},
+		{&report.Identity{Vendor: "", Model: "Z2 G9"}, "Z2 G9"},
 		{&report.Identity{Vendor: "Dell Inc.", Model: ""}, "Dell Inc."},
 		{nil, "unknown"},
 	} {

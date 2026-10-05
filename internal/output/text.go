@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/jiegui2025/hwspec/internal/report"
 )
@@ -256,15 +257,26 @@ func writeText(w io.Writer, r *report.Report) error {
 }
 
 // product is "vendor model", without repeating the vendor when the model
-// already starts with it ("HP HP EliteDesk").
+// already starts with it as a whole word, ignoring case ("HP HP EliteDesk").
+// Vendor "HP" with model "HPE ProLiant" keeps both: they're different makers.
 func product(id *report.Identity) string {
 	if id == nil {
 		return "unknown"
 	}
-	if id.Vendor != "" && strings.HasPrefix(strings.ToLower(id.Model), strings.ToLower(id.Vendor)) {
+	if startsWithWord(strings.TrimSpace(id.Model), strings.TrimSpace(id.Vendor)) {
 		return join(id.Model)
 	}
 	return join(id.Vendor, id.Model)
+}
+
+// startsWithWord reports whether s starts with word, ignoring case, and the
+// match ends at a word boundary: "HP EliteDesk" starts with "hp", "HPE" doesn't.
+func startsWithWord(s, word string) bool {
+	if word == "" || len(s) < len(word) || !strings.EqualFold(s[:len(word)], word) {
+		return false
+	}
+	next, _ := utf8.DecodeRuneInString(s[len(word):])
+	return next == utf8.RuneError || !unicode.IsLetter(next) && !unicode.IsDigit(next)
 }
 
 func model(id *report.Identity) string {
