@@ -257,16 +257,28 @@ func writeText(w io.Writer, r *report.Report) error {
 }
 
 // product is "vendor model", without repeating the vendor when the model
-// already starts with it as a whole word, ignoring case ("HP HP EliteDesk").
-// Vendor "HP" with model "HPE ProLiant" keeps both: they're different makers.
+// already starts with the vendor's brand as a whole word, ignoring case:
+// "HP HP EliteDesk" and "Dell Inc. Dell G15" print the brand once. Vendor "HP"
+// with model "HPE ProLiant" keeps both: they're different makers.
 func product(id *report.Identity) string {
 	if id == nil {
 		return "unknown"
 	}
-	if startsWithWord(strings.TrimSpace(id.Model), strings.TrimSpace(id.Vendor)) {
+	if startsWithWord(strings.TrimSpace(id.Model), brand(id.Vendor)) {
 		return join(id.Model)
 	}
 	return join(id.Vendor, id.Model)
+}
+
+// brand is the vendor's first word without trailing punctuation: "Dell" for
+// "Dell Inc.", "VMware" for "VMware, Inc.". Models name the brand, not the
+// company ("Dell G15 5520", "VMware Virtual Platform").
+func brand(vendor string) string {
+	f := strings.Fields(vendor)
+	if len(f) == 0 {
+		return ""
+	}
+	return strings.TrimRight(f[0], ".,")
 }
 
 // startsWithWord reports whether s starts with word, ignoring case, and the
@@ -275,8 +287,12 @@ func startsWithWord(s, word string) bool {
 	if word == "" || len(s) < len(word) || !strings.EqualFold(s[:len(word)], word) {
 		return false
 	}
-	next, _ := utf8.DecodeRuneInString(s[len(word):])
-	return next == utf8.RuneError || !unicode.IsLetter(next) && !unicode.IsDigit(next)
+	rest := s[len(word):]
+	if rest == "" {
+		return true
+	}
+	next, _ := utf8.DecodeRuneInString(rest)
+	return !unicode.IsLetter(next) && !unicode.IsDigit(next)
 }
 
 func model(id *report.Identity) string {

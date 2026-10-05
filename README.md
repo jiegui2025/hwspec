@@ -26,7 +26,7 @@ Storage
   nvme0n1    SAMSUNG MZVLB256HAHQ-000L7 238.5 GiB nvme, health OK, 4% worn, 2541 h on
 
 Graphics
-  Display    Dell Inc. DELL S2721QS, 3840×2160 @ 60 Hz, 27.0" (card1-DP-3)
+  Display    DELL S2721QS, 3840×2160 @ 60 Hz, 27.0" (card1-DP-3)
 
 Bluetooth
   hci0       Intel Corp. AX200 Bluetooth, Bluetooth 5.2
