@@ -1,0 +1,535 @@
+package main
+
+import (
+	"bytes"
+	"compress/gzip"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jiegui2025/hwspec/internal/ids"
+)
+
+// genids builds the databases hwspec ships and the signed weekly bundle.
+// Each test runs a command the Makefile or the ids workflow runs.
+
+func runOK(t *testing.T, args ...string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	if code := run(args, &buf, io.Discard); code != 0 {
+		t.Fatalf("genids %s: exit %d", strings.Join(args, " "), code)
+	}
+	return buf.String()
+}
+
+func write(t *testing.T, path, content string) string {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func gunzip(t *testing.T, path string) string {
+	t.Helper()
+	gz, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(gz))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(zr)
+	return string(b)
+}
+
+func TestUsageAndUnknownCommands(t *testing.T) {
+	for _, c := range []struct {
+		args []string
+		code int
+	}{
+		{nil, 2}, {[]string{"jedec"}, 2}, {[]string{"frob", "x"}, 1}, {[]string{"jedec", "a"}, 1},
+		{[]string{"cpu", "a", "b"}, 1}, {[]string{"jedec", "/nonexistent", "out.gz"}, 1},
+	} {
+		if code := run(c.args, io.Discard, io.Discard); code != c.code {
+			t.Errorf("%v: exit %d, want %d", c.args, code, c.code)
+		}
+	}
+}
+
+// The converters turn each upstream format into hwspec's "KEY<TAB>Name"
+// lines, deterministically.
+func TestConvertersProduceIDFiles(t *testing.T) {
+	dir := t.TempDir()
+	jedecSrc := write(t, filepath.Join(dir, "decode-dimms"), `my @vendors = (
+["AMD", "AMI", "Fairchild"],
+["Cdk \"quoted\"", "Hynix"]);
+`)
+	out := filepath.Join(dir, "jedec.ids.gz")
+	runOK(t, "jedec", jedecSrc, out)
+	if got := gunzip(t, out); !strings.Contains(got, "1 01\tAMD\n1 02\tAMI\n1 03\tFairchild\n2 01\tCdk \"quoted\"\n2 02\tHynix\n") {
+		t.Errorf("jedec:\n%s", got)
+	}
+	first, _ := os.ReadFile(out)
+	runOK(t, "jedec", jedecSrc, out)
+	if again, _ := os.ReadFile(out); !bytes.Equal(first, again) {
+		t.Error("output isn't deterministic")
+	}
+
+	ouiSrc := write(t, filepath.Join(dir, "oui.txt"), "OUI/MA-L\n\n00-00-0C   (hex)\t\tCisco Systems, Inc\n00000C     (base 16)\t\tCisco Systems, Inc\n\nfcfbfb     (base 16)\t\tCisco\n12345      (base 16)\t\tToo short\n")
+	runOK(t, "oui", ouiSrc, filepath.Join(dir, "oui.ids.gz"))
+	if got := gunzip(t, filepath.Join(dir, "oui.ids.gz")); !strings.Contains(got, "00000C\tCisco Systems, Inc\nFCFBFB\tCisco\n") || strings.Contains(got, "Too short") {
+		t.Errorf("oui:\n%s", got)
+	}
+
+	btSrc := write(t, filepath.Join(dir, "bt.yaml"), "company_identifiers:\n  - value: 0x0002\n    name: 'Intel Corp.'\n  - value: 0x0000\n    name: 'Ericsson AB'\n")
+	runOK(t, "bluetooth", btSrc, filepath.Join(dir, "bt.ids.gz"))
+	if got := gunzip(t, filepath.Join(dir, "bt.ids.gz")); !strings.Contains(got, "0000\tEricsson AB\n0002\tIntel Corp.\n") {
+		t.Errorf("bluetooth:\n%s", got)
+	}
+
+	runOK(t, "gzip", ouiSrc, filepath.Join(dir, "copy.gz"))
+	if got := gunzip(t, filepath.Join(dir, "copy.gz")); !strings.Contains(got, "(base 16)") {
+		t.Error("gzip changed the content")
+	}
+
+	for name, src := range map[string]string{"jedec, no table": "nothing", "jedec, unterminated": "@vendors = ([\"A\"]", "bluetooth, not yaml": "{"} {
+		path := write(t, filepath.Join(dir, "bad"), src)
+		kind := strings.Split(name, ",")[0]
+		if code := run([]string{kind, path, filepath.Join(dir, "x.gz")}, io.Discard, io.Discard); code != 1 {
+			t.Errorf("%s: exit %d", name, code)
+		}
+	}
+}
+
+// Kernel sources shaped like intel-family.h and amd.c.
+func intelFamily() string {
+	var b strings.Builder
+	b.WriteString(`#define INTEL_ANY			IFM(X86_FAMILY_ANY, X86_MODEL_ANY)
+#define INTEL_PENTIUM_PRO		IFM(6, 0x01)
+#define INTEL_CORE2_MEROM		IFM(6, 0x0F)
+#define INTEL_NEHALEM			IFM(6, 0x1E) /* Auburndale / Havendale */
+#define INTEL_SKYLAKE			IFM(6, 0x5E) /* Sky Lake */
+#define INTEL_SKYLAKE_X			IFM(6, 0x55)
+#define INTEL_KABYLAKE			IFM(6, 0x9E)
+#define INTEL_ICELAKE_X			IFM(6, 0x6A) /* Sunny Cove */
+#define INTEL_ALDERLAKE_N		IFM(6, 0xBE) /* Alderlake N */
+#define INTEL_ATOM_GOLDMONT		IFM(6, 0x5C) /* Apollo Lake */
+#define INTEL_SAPPHIRERAPIDS_X		IFM(6, 0x8F) /* Golden Cove */
+#define INTEL_FAM6_LAST			IFM(6, 0xFF)
+`)
+	for i := 0; i < 45; i++ {
+		fmt.Fprintf(&b, "#define INTEL_FILLER%d IFM(15, 0x%02X)\n", i, i)
+	}
+	return b.String()
+}
+
+const amdC = `
+	/* Figure out Zen generations: */
+	switch (c->x86) {
+	case 0x17:
+		switch (c->x86_model) {
+		case 0x00 ... 0x2f:
+		case 0x50 ... 0x5f:
+			setup_force_cpu_cap(X86_FEATURE_ZEN1);
+			break;
+		case 0x30 ... 0x4f:
+			setup_force_cpu_cap(X86_FEATURE_ZEN2);
+			break;
+		default:
+			goto warn;
+		}
+		break;
+
+	case 0x19:
+		/* the model switch follows */
+		switch (c->x86_model) {
+		case 0x00 ... 0x0f:
+			setup_force_cpu_cap(X86_FEATURE_ZEN3);
+			break;
+		case 0x10 ... 0x1f:
+		case 0x61:
+			setup_force_cpu_cap(X86_FEATURE_ZEN4);
+			break;
+		default:
+			goto warn;
+		}
+		break;
+
+	case 0x1a:
+		switch (c->x86_model) {
+		case 0x00 ... 0x2f:
+			setup_force_cpu_cap(X86_FEATURE_ZEN5);
+			break;
+		default:
+			goto warn;
+		}
+		break;
+	default:
+		break;
+	}
+`
+
+func TestCPUCodenamesFromKernelSourcesAndTheCuratedList(t *testing.T) {
+	dir := t.TempDir()
+	intel := write(t, filepath.Join(dir, "intel-family.h"), intelFamily())
+	amd := write(t, filepath.Join(dir, "amd.c"), amdC)
+	curated := write(t, filepath.Join(dir, "curated.ids"), "# curated\n\nintel 6 9E 10-13\tCoffee Lake\tSkylake\namd 19 61\tRaphael\t\n")
+	out := filepath.Join(dir, "cpu.ids.gz")
+	runOK(t, "cpu", intel, amd, curated, out)
+	got := gunzip(t, out)
+	for _, want := range []string{
+		"intel:6:01\tPentium Pro\tPentium Pro",
+		"intel:6:0f\tCore 2 Merom\tCore 2 Merom",
+		"intel:6:1e\tAuburndale / Havendale\tNehalem",
+		"intel:6:5e\tSkylake\tSkylake",
+		"intel:6:55\tSkylake-X\tSkylake",
+		"intel:6:9e\tKaby Lake\tKaby Lake",
+		"intel:6:9e:12\tCoffee Lake\tSkylake",
+		"intel:6:6a\tIce Lake-X\tSunny Cove",
+		"intel:6:be\tAlder Lake-N\tAlder Lake",
+		"intel:6:5c\tApollo Lake\tGoldmont",
+		"intel:6:8f\tSapphire Rapids-X\tGolden Cove",
+		"amd:17:00\t\tZen",
+		"amd:17:5a\t\tZen",
+		"amd:17:31\t\tZen 2",
+		"amd:19:61\tRaphael\tZen 4",
+		"amd:1a:2f\t\tZen 5",
+	} {
+		if !strings.Contains(got, want+"\n") {
+			t.Errorf("cpu.ids lacks %q", want)
+		}
+	}
+	if strings.Contains(got, "intel:6:ff") || strings.Contains(got, "ANY") {
+		t.Error("range markers were kept")
+	}
+
+	for name, files := range map[string][3]string{
+		"too few Intel models":  {write(t, filepath.Join(dir, "few.h"), "#define INTEL_X IFM(6, 0x01)\n"), amd, curated},
+		"no Zen table":          {intel, write(t, filepath.Join(dir, "nozen.c"), "int x;\n"), curated},
+		"too few Zen":           {intel, write(t, filepath.Join(dir, "fewzen.c"), "Figure out Zen generations\ncase 0x17:\nswitch (c->x86_model) {\ncase 0x01:\nX86_FEATURE_ZEN1\n"), curated},
+		"malformed curated":     {intel, amd, write(t, filepath.Join(dir, "bad1.ids"), "intel 6\n")},
+		"bad stepping range":    {intel, amd, write(t, filepath.Join(dir, "bad2.ids"), "intel 6 9e 5-2\tX\n")},
+		"missing Intel source":  {filepath.Join(dir, "none.h"), amd, curated},
+		"missing AMD source":    {intel, filepath.Join(dir, "none.c"), curated},
+		"missing curated list":  {intel, amd, filepath.Join(dir, "none.ids")},
+		"family before its Zen": {intel, write(t, filepath.Join(dir, "order.c"), strings.Replace(amdC, "setup_force_cpu_cap(X86_FEATURE_ZEN2);", "", 1)), curated},
+	} {
+		if _, err := cpu(files[0], files[1], files[2]); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}
+
+func TestMarketingNames(t *testing.T) {
+	for in, want := range map[string]string{"KABYLAKE": "Kaby Lake", "SAPPHIRERAPIDS": "Sapphire Rapids", "XEON PHI KNL": "Xeon Phi KNL",
+		"PENTIUM III": "Pentium III", "LAKEFIELD": "Lakefield", "GOLDMONT PLUS": "Goldmont Plus"} {
+		if got := pretty(in); got != want {
+			t.Errorf("pretty(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if b, s := splitSuffix("HASWELL"); b != "HASWELL" || s != "" {
+		t.Errorf("splitSuffix = %q %q", b, s)
+	}
+	if got := title("PRO"); got != "Pro" {
+		t.Errorf("title(PRO) = %q", got)
+	}
+}
+
+// A bundle directory built from the databases hwspec embeds.
+func bundle(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	src, _ := filepath.Glob("../../internal/ids/data/*.ids.gz")
+	if len(src) != len(ids.Kinds) {
+		t.Fatalf("embedded databases: %v", src)
+	}
+	for _, s := range src {
+		b, err := os.ReadFile(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		write(t, filepath.Join(dir, filepath.Base(s)), string(b))
+	}
+	return dir
+}
+
+func gz(t *testing.T, content string) string {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	zw.Write([]byte(content))
+	zw.Close()
+	return buf.String()
+}
+
+// The workflow builds a manifest, re-verifies the bundle independently,
+// and only then signs it.
+func TestManifestThenVerify(t *testing.T) {
+	dir := bundle(t)
+	if out := runOK(t, "manifest", dir); !strings.Contains(out, "pci.ids.gz") {
+		t.Errorf("manifest output: %s", out)
+	}
+	if out := runOK(t, "verify", dir); !strings.Contains(out, fmt.Sprintf("verified %d databases", len(ids.Kinds))) {
+		t.Errorf("verify output: %s", out)
+	}
+	// With the same content, a file without a header date keeps the
+	// previous bundle's date.
+	prev := filepath.Join(t.TempDir(), "prev.json")
+	m := readManifest(t, dir)
+	f := m.Files["jedec.ids.gz"]
+	f.Date = "2025-01-01"
+	m.Files["jedec.ids.gz"] = f
+	writeManifest(t, prev, m)
+	runOK(t, "manifest", dir, prev)
+	if got := readManifest(t, dir).Files["jedec.ids.gz"].Date; got != "2025-01-01" {
+		t.Errorf("unchanged file's date = %s", got)
+	}
+	runOK(t, "verify", dir, prev)
+	runOK(t, "manifest", dir, filepath.Join(t.TempDir(), "no-previous-bundle.json"))
+}
+
+func readManifest(t *testing.T, dir string) *ids.Manifest {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := ids.ParseManifest(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func writeManifest(t *testing.T, path string, m *ids.Manifest) {
+	t.Helper()
+	b, _ := json.Marshal(m)
+	write(t, path, string(b))
+}
+
+// What the manifest step refuses to publish.
+func TestManifestRefusesBadDatabases(t *testing.T) {
+	for name, mutate := range map[string]func(t *testing.T, dir string) string{
+		"unknown file": func(t *testing.T, dir string) string { write(t, filepath.Join(dir, "x.ids.gz"), gz(t, "x")); return "" },
+		"not gzip":     func(t *testing.T, dir string) string { write(t, filepath.Join(dir, "pci.ids.gz"), "plain"); return "" },
+		"too few names": func(t *testing.T, dir string) string {
+			write(t, filepath.Join(dir, "pci.ids.gz"), gz(t, "8086  Intel\n"))
+			return ""
+		},
+		"future date": func(t *testing.T, dir string) string {
+			content := gunzip(t, filepath.Join(dir, "pci.ids.gz"))
+			future := time.Now().AddDate(1, 0, 0).Format("2006.01.02")
+			write(t, filepath.Join(dir, "pci.ids.gz"), gz(t, "# Version: "+future+"\n"+content))
+			return ""
+		},
+		"missing database": func(t *testing.T, dir string) string { os.Remove(filepath.Join(dir, "oui.ids.gz")); return "" },
+		"shrank": func(t *testing.T, dir string) string {
+			prev := filepath.Join(t.TempDir(), "prev.json")
+			writeManifest(t, prev, &ids.Manifest{Format: ids.ManifestFormat, GeneratedAt: time.Now(),
+				Files: map[string]ids.ManifestFile{"pci.ids.gz": {Entries: 10_000_000, SHA256: strings.Repeat("0", 64), Size: 1, Date: "2026-01-01"}}})
+			return prev
+		},
+		"unreadable previous manifest": func(t *testing.T, dir string) string { return write(t, filepath.Join(t.TempDir(), "p.json"), "{") },
+	} {
+		dir := bundle(t)
+		prev := mutate(t, dir)
+		if err := manifest(io.Discard, dir, prev); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	t.Setenv("HWSPEC_ALLOW_SHRINK", "1")
+	dir := bundle(t)
+	prev := filepath.Join(t.TempDir(), "prev.json")
+	writeManifest(t, prev, &ids.Manifest{Format: ids.ManifestFormat, GeneratedAt: time.Now(),
+		Files: map[string]ids.ManifestFile{"pci.ids.gz": {Entries: 10_000_000, SHA256: strings.Repeat("0", 64), Size: 1, Date: "2026-01-01"}}})
+	if err := manifest(io.Discard, dir, prev); err != nil {
+		t.Errorf("HWSPEC_ALLOW_SHRINK=1: %v", err)
+	}
+}
+
+// What the independent verification catches between building and signing.
+func TestVerifyCatchesTamperedBundles(t *testing.T) {
+	for name, mutate := range map[string]func(t *testing.T, dir string) string{
+		"no manifest":     func(t *testing.T, dir string) string { os.Remove(filepath.Join(dir, "manifest.json")); return "" },
+		"broken manifest": func(t *testing.T, dir string) string { write(t, filepath.Join(dir, "manifest.json"), "{"); return "" },
+		"file swapped": func(t *testing.T, dir string) string {
+			write(t, filepath.Join(dir, "pnp.ids.gz"), gz(t, "XXX\tY\n"))
+			return ""
+		},
+		"file added": func(t *testing.T, dir string) string { write(t, filepath.Join(dir, "extra.ids.gz"), "x"); return "" },
+		"stale manifest": func(t *testing.T, dir string) string {
+			m := readManifest(t, dir)
+			m.GeneratedAt = time.Now().AddDate(0, 0, -3)
+			writeManifest(t, filepath.Join(dir, "manifest.json"), m)
+			return ""
+		},
+		"date in future": func(t *testing.T, dir string) string {
+			return withEntry(t, dir, "pci.ids.gz", func(f *ids.ManifestFile) { f.Date = "2999-01-01" })
+		},
+		"wrong entry count": func(t *testing.T, dir string) string {
+			return withEntry(t, dir, "pci.ids.gz", func(f *ids.ManifestFile) { f.Entries++ })
+		},
+		"unknown file listed": func(t *testing.T, dir string) string {
+			m := readManifest(t, dir)
+			m.Files["x.ids.gz"] = m.Files["pci.ids.gz"]
+			delete(m.Files, "pci.ids.gz")
+			writeManifest(t, filepath.Join(dir, "manifest.json"), m)
+			os.Rename(filepath.Join(dir, "pci.ids.gz"), filepath.Join(dir, "x.ids.gz"))
+			return ""
+		},
+		"shrank": func(t *testing.T, dir string) string {
+			prev := filepath.Join(t.TempDir(), "prev.json")
+			writeManifest(t, prev, &ids.Manifest{Format: ids.ManifestFormat, GeneratedAt: time.Now(),
+				Files: map[string]ids.ManifestFile{"usb.ids.gz": {Entries: 10_000_000, SHA256: strings.Repeat("0", 64), Size: 1, Date: "2026-01-01"}}})
+			return prev
+		},
+		"unreadable previous manifest": func(t *testing.T, dir string) string { return write(t, filepath.Join(t.TempDir(), "p.json"), "{") },
+	} {
+		dir := bundle(t)
+		if err := manifest(io.Discard, dir, ""); err != nil {
+			t.Fatal(err)
+		}
+		prev := mutate(t, dir)
+		if err := verify(io.Discard, dir, prev); err == nil {
+			t.Errorf("%s: verified", name)
+		}
+	}
+}
+
+// withEntry rewrites one manifest entry, keeping its file's real hash.
+func withEntry(t *testing.T, dir, name string, change func(*ids.ManifestFile)) string {
+	t.Helper()
+	m := readManifest(t, dir)
+	f := m.Files[name]
+	change(&f)
+	m.Files[name] = f
+	writeManifest(t, filepath.Join(dir, "manifest.json"), m)
+	return ""
+}
+
+// Control characters in a database (an escape sequence planted upstream)
+// stop the bundle.
+func TestVerifyRefusesControlCharacters(t *testing.T) {
+	dir := bundle(t)
+	content := gunzip(t, filepath.Join(dir, "pnp.ids.gz"))
+	write(t, filepath.Join(dir, "pnp.ids.gz"), gz(t, content+"ZZZ\tEvil\x1b[2J Corp\n"))
+	if err := manifest(io.Discard, dir, ""); err != nil {
+		t.Skipf("Validate already refuses it: %v", err)
+	}
+	if err := verify(io.Discard, dir, ""); err == nil || !strings.Contains(err.Error(), "control characters") {
+		t.Errorf("verify: %v", err)
+	}
+}
+
+// Signing checks the result against the keys hwspec trusts, so a wrong
+// secret in the workflow fails the job instead of publishing a bundle no
+// one can verify.
+func TestSignCatchesAWrongKey(t *testing.T) {
+	dir := t.TempDir()
+	path := write(t, filepath.Join(dir, "manifest.json"), `{"format":1}`)
+	t.Setenv("HWSPEC_IDS_SIGNING_KEY", "not base64!")
+	if err := sign(path); err == nil || !strings.Contains(err.Error(), "base64") {
+		t.Errorf("garbage key: %v", err)
+	}
+	_, priv, _ := ed25519.GenerateKey(rand.Reader)
+	t.Setenv("HWSPEC_IDS_SIGNING_KEY", base64.StdEncoding.EncodeToString(priv.Seed()))
+	if err := sign(path); err == nil || !strings.Contains(err.Error(), "trusted") {
+		t.Errorf("untrusted key: %v", err)
+	}
+	if _, err := os.Stat(path + ".sig"); err != nil {
+		t.Errorf("no signature written: %v", err)
+	}
+	if err := sign(filepath.Join(dir, "missing.json")); err == nil {
+		t.Error("signed a missing manifest")
+	}
+}
+
+func TestKeygenWritesAPrivateSeedAndPrintsThePublicKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "key")
+	pub := strings.TrimSpace(runOK(t, "keygen", path))
+	st, err := os.Stat(path)
+	if err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("key file: %v %v", st, err)
+	}
+	seedText, _ := os.ReadFile(path)
+	seed, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(seedText)))
+	if err != nil || len(seed) != ed25519.SeedSize {
+		t.Fatalf("seed: %v", err)
+	}
+	want := base64.StdEncoding.EncodeToString(ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey))
+	if pub != want {
+		t.Errorf("printed %q, want %q", pub, want)
+	}
+	if code := run([]string{"keygen", filepath.Join(t.TempDir(), "missing", "key")}, io.Discard, io.Discard); code != 1 {
+		t.Errorf("unwritable path: exit %d", code)
+	}
+}
+
+// Output and input failures stop the build with the reason.
+func TestReadAndWriteFailures(t *testing.T) {
+	dir := t.TempDir()
+	src := write(t, filepath.Join(dir, "src"), "data")
+	if code := run([]string{"gzip", src, filepath.Join(dir, "missing", "out.gz")}, io.Discard, io.Discard); code != 1 {
+		t.Errorf("unwritable output: exit %d", code)
+	}
+	if code := run([]string{"cpu", src, src, src, filepath.Join(dir, "out.gz")}, io.Discard, io.Discard); code != 1 {
+		t.Errorf("bad cpu sources: exit %d", code)
+	}
+	if _, err := readPrevManifest(dir); err == nil {
+		t.Error("a directory read as the previous manifest")
+	}
+	if err := sign(filepath.Join(dir, "missing", "manifest.json")); err == nil {
+		t.Error("signed a missing manifest")
+	}
+	if err := verify(io.Discard, dir, filepath.Join(dir, "nothing.json")); err == nil {
+		t.Error("verified a bundle without a manifest")
+	}
+	b := bundle(t)
+	if err := manifest(io.Discard, b, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := verify(io.Discard, b, dir); err == nil {
+		t.Error("a directory read as the previous manifest")
+	}
+	os.Chmod(filepath.Join(b, "pci.ids.gz"), 0)
+	t.Cleanup(func() { os.Chmod(filepath.Join(b, "pci.ids.gz"), 0o644) })
+	if os.Geteuid() != 0 {
+		if err := manifest(io.Discard, b, ""); err == nil {
+			t.Error("an unreadable database was listed")
+		}
+		if err := verify(io.Discard, b, ""); err == nil {
+			t.Error("an unreadable database was verified")
+		}
+	}
+}
+
+// The workflow's steps, through the command line: manifest and verify with
+// a previous bundle, keygen, and sign with the secret from the environment.
+func TestWorkflowStepsThroughTheCommandLine(t *testing.T) {
+	dir := bundle(t)
+	prev := filepath.Join(t.TempDir(), "prev.json")
+	runOK(t, "manifest", dir, prev)
+	runOK(t, "verify", dir, prev)
+	t.Setenv("HWSPEC_IDS_SIGNING_KEY", "")
+	if code := run([]string{"sign", filepath.Join(dir, "manifest.json")}, io.Discard, io.Discard); code != 1 {
+		t.Errorf("sign without a key: exit %d", code)
+	}
+	for _, args := range [][]string{{"jedec", "a", "b", "c"}, {"cpu", "a"}} {
+		if code := run(args, io.Discard, io.Discard); code != 1 {
+			t.Errorf("%v: exit %d", args, code)
+		}
+	}
+}
