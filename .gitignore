@@ -5,3 +5,6 @@ mise.local.toml
 /hwspec
 *.test
 coverage.out
+
+# An interrupted tools/snapshot recording (unscrubbed; never commit it)
+.snapshot-*/
