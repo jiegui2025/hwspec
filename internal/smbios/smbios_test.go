@@ -3,22 +3,11 @@ package smbios
 import (
 	"encoding/binary"
 	"testing"
+
+	"github.com/jiegui2025/hwspec/internal/smbios/smbiostest"
 )
 
-func structure(typ byte, length int, set func(f []byte), strs ...string) []byte {
-	f := make([]byte, length)
-	f[0], f[1] = typ, byte(length)
-	set(f)
-	out := f
-	for _, s := range strs {
-		out = append(out, s...)
-		out = append(out, 0)
-	}
-	if len(strs) == 0 {
-		out = append(out, 0)
-	}
-	return append(out, 0)
-}
+var structure = smbiostest.Structure
 
 func testTable() []byte {
 	var t []byte
@@ -120,5 +109,89 @@ func TestChassisType(t *testing.T) {
 		if got := ChassisType(n); got != want {
 			t.Errorf("ChassisType(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+// Firmware from older SMBIOS versions writes shorter structures, and large
+// values move to extended fields: both are read correctly.
+func TestShortStructuresAndExtendedFields(t *testing.T) {
+	var table []byte
+	// A 2.1-era array: too short for the extended capacity it points to.
+	table = append(table, structure(16, 0x0F, func(f []byte) {
+		binary.LittleEndian.PutUint16(f[0x02:], 0x1000)
+		f[0x05], f[0x06] = 0x03, 0x05
+		binary.LittleEndian.PutUint32(f[0x07:], 0x80000000)
+	})...)
+	// A 2.7+ array with a 4 TiB extended maximum.
+	table = append(table, structure(16, 0x17, func(f []byte) {
+		binary.LittleEndian.PutUint16(f[0x02:], 0x1001)
+		f[0x05] = 0x03
+		binary.LittleEndian.PutUint32(f[0x07:], 0x80000000)
+		binary.LittleEndian.PutUint64(f[0x0F:], 4<<40)
+	})...)
+	// 64 GiB through the extended size, 8 MiB in KiB units, extended speeds.
+	table = append(table, structure(17, 0x5C, func(f []byte) {
+		binary.LittleEndian.PutUint16(f[0x04:], 0x1001)
+		binary.LittleEndian.PutUint16(f[0x0C:], 0x7FFF)
+		binary.LittleEndian.PutUint32(f[0x1C:], 64<<10)
+		binary.LittleEndian.PutUint16(f[0x15:], 0xFFFF)
+		binary.LittleEndian.PutUint32(f[0x54:], 70000)
+		binary.LittleEndian.PutUint16(f[0x20:], 0xFFFF)
+		binary.LittleEndian.PutUint32(f[0x58:], 68000)
+		f[0x10], f[0x18] = 1, 2
+	}, "DIMM 1", "00000000")...)
+	table = append(table, structure(17, 0x1C, func(f []byte) {
+		binary.LittleEndian.PutUint16(f[0x04:], 0x1001)
+		binary.LittleEndian.PutUint16(f[0x0C:], 0x8000|8192) // 8192 KiB (KiB units cover small chips)
+		binary.LittleEndian.PutUint16(f[0x15:], 0xFFFF)      // extended speed field absent
+		f[0x10], f[0x17] = 1, 9                              // string 9 doesn't exist
+	}, "DIMM 2")...)
+	// A truncated memory device: just the header and handle.
+	table = append(table, structure(17, 0x06, func(f []byte) {
+		binary.LittleEndian.PutUint16(f[0x04:], 0x1001)
+	})...)
+	table = append(table, structure(127, 4, func([]byte) {})...)
+
+	structs := Parse(table)
+	arrays := MemoryArrays(structs)
+	if len(arrays) != 2 || arrays[0].MaxCapacityBytes != 0 || arrays[0].ErrorCorrection != "Single-bit ECC" || arrays[1].MaxCapacityBytes != 4<<40 {
+		t.Errorf("arrays = %+v", arrays)
+	}
+	devs := MemoryDevices(structs)
+	if len(devs) != 3 {
+		t.Fatalf("devices = %+v", devs)
+	}
+	if d := devs[0]; d.SizeBytes != 64<<30 || d.SpeedMTs != 70000 || d.ConfiguredMTs != 68000 || d.Serial != "" {
+		t.Errorf("extended = %+v", d)
+	}
+	if d := devs[1]; d.SizeBytes != 8<<20 || d.SpeedMTs != 0 || d.Manufacturer != "" || d.Locator != "DIMM 2" {
+		t.Errorf("KiB units = %+v", d)
+	}
+	if d := devs[2]; d != (MemoryDevice{}) {
+		t.Errorf("truncated = %+v", d)
+	}
+}
+
+func TestChassisTypeIgnoresTheLockBit(t *testing.T) {
+	for n, want := range map[int]string{0x8A: "Notebook", 0x0A: "Notebook", 0: "", 0x7F: "", 35: "Mini PC"} {
+		if got := ChassisType(n); got != want {
+			t.Errorf("ChassisType(%#x) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+// A table that ends early or is malformed yields what was complete.
+func TestTruncatedTables(t *testing.T) {
+	full := append(structure(1, 0x08, func([]byte) {}, "Vendor"), structure(127, 4, func([]byte) {})...)
+	for name, table := range map[string][]byte{
+		"empty": nil, "header only": full[:3], "bad length": {1, 2, 0, 0}, "length past end": {1, 0x40, 0, 0},
+		"no string terminator": full[:0x08+3],
+	} {
+		if got := Parse(table); len(got) != 0 {
+			t.Errorf("%s: %d structures", name, len(got))
+		}
+	}
+	if got := Parse(full); len(got) != 2 || got[0].Strings[0] != "Vendor" {
+		t.Errorf("full = %+v", got)
 	}
 }
