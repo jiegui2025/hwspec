@@ -25,7 +25,7 @@ func writeText(w io.Writer, r *report.Report) error {
 	b.WriteString("\n")
 
 	section("System")
-	line("Machine", "%s", join(r.System.Vendor, r.System.Product, r.System.Version))
+	line("Machine", "%s", join(vendorUnlessInProduct(r.System.Vendor, r.System.Product), r.System.Product, r.System.Version))
 	if r.System.ChassisType != "" {
 		line("Chassis", "%s", r.System.ChassisType)
 	}
@@ -195,6 +195,18 @@ func writeText(w io.Writer, r *report.Report) error {
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// vendorUnlessInProduct returns vendor, or "" when product already starts with
+// it (case-insensitively). Many OEMs repeat their name in the DMI product name
+// ("HP" + "HP EliteDesk 800 G5 Desktop Mini"), and prefixing it again would
+// print the vendor twice.
+func vendorUnlessInProduct(vendor, product string) string {
+	v, p := strings.TrimSpace(vendor), strings.TrimSpace(product)
+	if v != "" && len(p) >= len(v) && strings.EqualFold(p[:len(v)], v) {
+		return ""
+	}
+	return vendor
 }
 
 func join(parts ...string) string {

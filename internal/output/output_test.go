@@ -56,6 +56,32 @@ func TestText(t *testing.T) {
 	}
 }
 
+func TestTextMachineLineNamesVendorOnce(t *testing.T) {
+	for _, tc := range []struct{ vendor, product, version, want string }{
+		{"HP", "HP EliteDesk 800 G5 Desktop Mini", "", "HP EliteDesk 800 G5 Desktop Mini"},
+		{"LENOVO", "Lenovo ThinkCentre M90q", "", "Lenovo ThinkCentre M90q"},
+		{"HP", "HP EliteDesk 800 G5", "SFF", "HP EliteDesk 800 G5 SFF"},
+		{"Dell Inc.", "Latitude 5420", "", "Dell Inc. Latitude 5420"},
+		{"", "Latitude 5420", "", "Latitude 5420"},
+	} {
+		r := sample()
+		r.System = report.System{Vendor: tc.vendor, Product: tc.product, Version: tc.version}
+		var buf bytes.Buffer
+		if err := Write(&buf, r, "text"); err != nil {
+			t.Fatal(err)
+		}
+		var got string
+		for _, l := range strings.Split(buf.String(), "\n") {
+			if f := strings.Fields(l); len(f) > 0 && f[0] == "Machine" {
+				got = strings.Join(f[1:], " ")
+			}
+		}
+		if got != tc.want {
+			t.Errorf("vendor %q, product %q: Machine line = %q, want %q", tc.vendor, tc.product, got, tc.want)
+		}
+	}
+}
+
 func TestRedact(t *testing.T) {
 	r := sample()
 	r.Redact()
