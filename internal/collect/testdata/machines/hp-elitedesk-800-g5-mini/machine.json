@@ -1,0 +1,59 @@
+{
+  "arch": "x86_64",
+  "ethtool": {
+    "eno1": "0.5-4",
+    "wlan0": "77.8dbafb52.0 cc-a0-77.ucode"
+  },
+  "bluetooth": {
+    "hci0": {
+      "address": "60:F2:62:00:00:01",
+      "version": "5.2",
+      "manufacturer_id": 2,
+      "powered": true,
+      "name": "fixture"
+    }
+  },
+  "empty_dirs": [
+    "/proc/asound/card0",
+    "/proc/driver",
+    "/run/systemd",
+    "/sys/bus/pci/drivers/dw_dmac_pci",
+    "/sys/bus/pci/drivers/ehci-pci",
+    "/sys/bus/pci/drivers/i2c-designware-pci",
+    "/sys/bus/pci/drivers/intel_pmc_ssram_telemetry",
+    "/sys/bus/pci/drivers/intel_scu",
+    "/sys/bus/pci/drivers/intel_vsec",
+    "/sys/bus/pci/drivers/iosf_mbi_pci",
+    "/sys/bus/pci/drivers/ohci-pci",
+    "/sys/bus/pci/drivers/pci-stub",
+    "/sys/bus/pci/drivers/shpchp",
+    "/sys/bus/pci/drivers/snd_soc_avs",
+    "/sys/bus/pci/drivers/sof-audio-pci-intel-cnl",
+    "/sys/bus/pci/drivers/thunderbolt",
+    "/sys/bus/pci/drivers/uhci_hcd",
+    "/sys/bus/pci/drivers/virtio-pci",
+    "/sys/bus/pci/drivers/xen-platform-pci",
+    "/sys/bus/pci/drivers/xhci-pci-prom21",
+    "/sys/bus/platform",
+    "/sys/class/nvme",
+    "/sys/class/thermal",
+    "/sys/devices/pci0000:00/0000:00:1c.0/0000:02:00.0/net/wlan0/wireless",
+    "/sys/devices/system/edac/mc",
+    "/sys/devices/virtual/net/lo",
+    "/sys/firmware/dmi",
+    "/sys/module/8250_pci",
+    "/sys/module/pcieportdrv",
+    "/sys/module/usbcore",
+    "/sys/module/usbhid",
+    "/sys/module/xhci_pci"
+  ],
+  "unreadable": {
+    "/sys/class/dmi/id/board_serial": 13,
+    "/sys/class/dmi/id/chassis_serial": 13,
+    "/sys/class/dmi/id/product_serial": 13,
+    "/sys/class/dmi/id/product_uuid": 13,
+    "/sys/class/hwmon/hwmon5/temp1_input": 61,
+    "/sys/class/net/wlan0/speed": 22,
+    "/sys/firmware/dmi/tables/DMI": 13
+  }
+}

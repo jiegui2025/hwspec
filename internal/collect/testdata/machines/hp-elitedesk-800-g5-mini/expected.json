@@ -1,0 +1,1155 @@
+{
+  "schema_version": 1,
+  "tool": {
+    "name": "hwspec",
+    "version": "test",
+    "id_databases": null
+  },
+  "captured_at": "0001-01-01T00:00:00Z",
+  "hostname": "recorded",
+  "privileged": false,
+  "redacted": false,
+  "os": {
+    "name": "CachyOS Linux",
+    "id": "cachyos",
+    "id_like": "arch",
+    "pretty_name": "CachyOS",
+    "kernel": "7.2.8-1-cachyos",
+    "arch": "x86_64",
+    "init": "systemd",
+    "virtualization": "none",
+    "boot_mode": "uefi",
+    "secure_boot": false
+  },
+  "system": {
+    "identity": {
+      "vendor": "HP",
+      "model": "HP EliteDesk 800 G5 Desktop Mini",
+      "part_number": "7LL88UT#ABA",
+      "revision": "SBKPFV3"
+    },
+    "family": "103C_53307F HP EliteDesk",
+    "chassis_type": "Mini Tower",
+    "chassis_vendor": "HP",
+    "firmware": {
+      "vendor": "HP",
+      "version": "R21 Ver. 02.27.00",
+      "date": "07/28/2026",
+      "release": "27.0",
+      "source": "dmi"
+    }
+  },
+  "board": {
+    "identity": {
+      "vendor": "HP",
+      "model": "8595",
+      "revision": "KBC Version 08.09.22"
+    }
+  },
+  "cpu": {
+    "identity": {
+      "vendor": "GenuineIntel",
+      "model": "Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz"
+    },
+    "family": 6,
+    "model_id": 158,
+    "stepping": 10,
+    "codename": "Coffee Lake",
+    "microarchitecture": "Skylake",
+    "sockets": 1,
+    "cores": 6,
+    "threads": 6,
+    "min_freq_mhz": 800,
+    "max_freq_mhz": 3700,
+    "governor": "powersave",
+    "caches": [
+      {
+        "level": 1,
+        "type": "Data",
+        "size_bytes": 32768,
+        "instances": 6
+      },
+      {
+        "level": 1,
+        "type": "Instruction",
+        "size_bytes": 32768,
+        "instances": 6
+      },
+      {
+        "level": 2,
+        "type": "Unified",
+        "size_bytes": 262144,
+        "instances": 6
+      },
+      {
+        "level": 3,
+        "type": "Unified",
+        "size_bytes": 9437184,
+        "instances": 1
+      }
+    ],
+    "virtualization": "vmx",
+    "flags": [
+      "3dnowprefetch",
+      "abm",
+      "acpi",
+      "adx",
+      "aes",
+      "aperfmperf",
+      "apic",
+      "arat",
+      "arch_capabilities",
+      "arch_perfmon",
+      "art",
+      "avx",
+      "avx2",
+      "bmi1",
+      "bmi2",
+      "bts",
+      "clflush",
+      "clflushopt",
+      "cmov",
+      "constant_tsc",
+      "cpuid",
+      "cpuid_fault",
+      "cx16",
+      "cx8",
+      "de",
+      "ds_cpl",
+      "dtes64",
+      "dtherm",
+      "dts",
+      "epb",
+      "ept",
+      "ept_ad",
+      "erms",
+      "est",
+      "f16c",
+      "flexpriority",
+      "flush_l1d",
+      "fma",
+      "fpu",
+      "fsgsbase",
+      "fxsr",
+      "ht",
+      "hwp",
+      "hwp_act_window",
+      "hwp_epp",
+      "hwp_notify",
+      "ibpb",
+      "ibrs",
+      "ida",
+      "intel_pt",
+      "invpcid",
+      "lahf_lm",
+      "lm",
+      "mca",
+      "mce",
+      "md_clear",
+      "mmx",
+      "monitor",
+      "movbe",
+      "mpx",
+      "msr",
+      "mtrr",
+      "nonstop_tsc",
+      "nopl",
+      "nx",
+      "pae",
+      "pat",
+      "pbe",
+      "pcid",
+      "pclmulqdq",
+      "pdcm",
+      "pdpe1gb",
+      "pebs",
+      "pge",
+      "pln",
+      "pni",
+      "popcnt",
+      "pse",
+      "pse36",
+      "pti",
+      "pts",
+      "rdrand",
+      "rdseed",
+      "rdtscp",
+      "rep_good",
+      "sdbg",
+      "sep",
+      "smap",
+      "smep",
+      "smx",
+      "ss",
+      "ssbd",
+      "sse",
+      "sse2",
+      "sse4_1",
+      "sse4_2",
+      "ssse3",
+      "stibp",
+      "syscall",
+      "tm",
+      "tm2",
+      "tpr_shadow",
+      "tsc",
+      "tsc_adjust",
+      "tsc_deadline_timer",
+      "vme",
+      "vmx",
+      "vnmi",
+      "vpid",
+      "x2apic",
+      "xgetbv1",
+      "xsave",
+      "xsavec",
+      "xsaveopt",
+      "xsaves",
+      "xtopology",
+      "xtpr"
+    ],
+    "firmware": {
+      "version": "0xfa",
+      "source": "microcode"
+    },
+    "driver": {
+      "name": "intel_pstate",
+      "builtin": true
+    },
+    "health": {
+      "status": "ok",
+      "source": "thermal_throttle",
+      "metrics": {
+        "thermal_throttle_events": 0
+      }
+    }
+  },
+  "memory": {
+    "total_bytes": 33412382720,
+    "swap_bytes": 33411821568,
+    "modules": [
+      {
+        "locator": "SPD 7-0050",
+        "size_bytes": 17179869184,
+        "type": "DDR4",
+        "form_factor": "SODIMM",
+        "identity": {
+          "vendor": "Avant Technology",
+          "part_number": "J642GU44J2320NL",
+          "serial": "12345678"
+        },
+        "manufacturer_raw": "85F7"
+      }
+    ]
+  },
+  "storage": [
+    {
+      "name": "nvme0n1",
+      "wwn": "REDACTED",
+      "size_bytes": 256060514304,
+      "type": "nvme",
+      "transport": "nvme",
+      "rotational": false,
+      "removable": false,
+      "logical_block_bytes": 512,
+      "physical_block_bytes": 512,
+      "partitions": [
+        {
+          "name": "nvme0n1p1",
+          "size_bytes": 4294967296,
+          "filesystem": "vfat",
+          "uuid": "REDACTED",
+          "mount_point": "/boot"
+        },
+        {
+          "name": "nvme0n1p2",
+          "size_bytes": 251763412992,
+          "filesystem": "btrfs",
+          "uuid": "REDACTED",
+          "mount_point": "/"
+        }
+      ],
+      "identity": {
+        "model": "SAMSUNG MZVLB256HAHQ-000L7",
+        "serial": "REDACTED"
+      },
+      "firmware": {
+        "version": "1L2QEXD7",
+        "source": "nvme"
+      },
+      "driver": {
+        "name": "nvme",
+        "module": "nvme",
+        "version": "1.0",
+        "srcversion": "2C72F4EB6FDD12B0635C9B3",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    }
+  ],
+  "gpus": [
+    {
+      "pci_address": "0000:00:02.0",
+      "vendor_id": "8086",
+      "device_id": "3e92",
+      "chip": "CoffeeLake-S GT2 [UHD Graphics 630]",
+      "boot_vga": true,
+      "drm_card": "card1",
+      "outputs": [
+        "DP-1",
+        "DP-2",
+        "DP-3",
+        "HDMI-A-1",
+        "HDMI-A-2",
+        "HDMI-A-3"
+      ],
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "CoffeeLake-S GT2 [UHD Graphics 630]",
+        "revision": "00"
+      },
+      "driver": {
+        "name": "i915",
+        "module": "i915",
+        "srcversion": "4B8798499B75A10CE8C087F",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    }
+  ],
+  "displays": [
+    {
+      "connector": "card1-DP-3",
+      "manufacturer_id": "DEL",
+      "width_mm": 597,
+      "height_mm": 336,
+      "diagonal_in": 27,
+      "native_width": 3840,
+      "native_height": 2160,
+      "native_refresh_hz": 60,
+      "edid_version": "1.4",
+      "identity": {
+        "vendor": "Dell Inc.",
+        "model": "DELL S2721QS",
+        "part_number": "A198",
+        "serial": "REDACTED",
+        "manufacture_date": "2020-W38",
+        "manufacture_date_source": "edid"
+      }
+    }
+  ],
+  "network": [
+    {
+      "name": "eno1",
+      "type": "ethernet",
+      "mac": "04:0e:3c:00:00:01",
+      "mac_vendor": "HP Inc.",
+      "bus": "pci",
+      "bus_address": "0000:00:1f.6",
+      "state": "up",
+      "speed_mbps": 1000,
+      "duplex": "full",
+      "mtu": 1500,
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "Ethernet Connection (7) I219-LM"
+      },
+      "firmware": {
+        "version": "0.5-4",
+        "source": "ethtool"
+      },
+      "driver": {
+        "name": "e1000e",
+        "module": "e1000e",
+        "srcversion": "66912D431A7AA84DBAA9476",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      },
+      "health": {
+        "status": "ok",
+        "source": "statistics",
+        "metrics": {
+          "rx_dropped": 1,
+          "rx_errors": 0,
+          "rx_packets": 99227707,
+          "tx_dropped": 57,
+          "tx_errors": 0,
+          "tx_packets": 15090079
+        }
+      }
+    },
+    {
+      "name": "wlan0",
+      "type": "wireless",
+      "mac": "02:00:00:00:00:01",
+      "bus": "pci",
+      "bus_address": "0000:02:00.0",
+      "state": "down",
+      "mtu": 1500,
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "Wi-Fi 6 AX200"
+      },
+      "firmware": {
+        "version": "77.8dbafb52.0 cc-a0-77.ucode",
+        "source": "ethtool"
+      },
+      "driver": {
+        "name": "iwlwifi",
+        "module": "iwlwifi",
+        "srcversion": "483ED9C9744B630080A98BC",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      },
+      "health": {
+        "status": "ok",
+        "source": "statistics",
+        "metrics": {
+          "rx_dropped": 0,
+          "rx_errors": 0,
+          "rx_packets": 2525,
+          "tx_dropped": 3,
+          "tx_errors": 0,
+          "tx_packets": 1931
+        }
+      }
+    }
+  ],
+  "bluetooth": [
+    {
+      "name": "hci0",
+      "address": "60:F2:62:00:00:01",
+      "address_vendor": "Intel Corporate",
+      "manufacturer_id": 2,
+      "manufacturer": "Intel Corp.",
+      "version": "5.2",
+      "local_name": "fixture",
+      "powered": true,
+      "bus": "usb",
+      "bus_address": "1-14",
+      "identity": {
+        "vendor": "Intel Corp.",
+        "model": "AX200 Bluetooth"
+      },
+      "driver": {
+        "name": "btusb",
+        "module": "btusb",
+        "version": "0.8",
+        "srcversion": "3C9D319DF69F7C1996E9AD4",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    }
+  ],
+  "audio": [
+    {
+      "index": 0,
+      "id": "Webcam",
+      "name": "Lenovo FHD Webcam",
+      "bus": "usb",
+      "bus_address": "1-2",
+      "driver": {
+        "name": "snd-usb-audio",
+        "module": "snd_usb_audio",
+        "srcversion": "BD8FA8FD407E6225ABF5992",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "index": 1,
+      "id": "PCH",
+      "name": "HDA Intel PCH",
+      "bus": "pci",
+      "bus_address": "0000:00:1f.3",
+      "codecs": [
+        {
+          "vendor_id": "14f15098",
+          "subsystem_id": "103c8595",
+          "identity": {
+            "vendor": "Conexant Systems, Inc.",
+            "model": "Conexant CX20632",
+            "revision": "100100"
+          }
+        },
+        {
+          "vendor_id": "8086280b",
+          "subsystem_id": "80860101",
+          "identity": {
+            "vendor": "Intel Corporation",
+            "model": "Intel Kabylake HDMI",
+            "revision": "100000"
+          }
+        }
+      ],
+      "driver": {
+        "name": "snd_hda_intel",
+        "module": "snd_hda_intel",
+        "srcversion": "C8BC17D494D84579AE92AD6",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    }
+  ],
+  "batteries": [],
+  "sensors": [
+    {
+      "chip": "acpitz",
+      "device": "thermal_zone0",
+      "readings": [
+        {
+          "label": "temp1",
+          "kind": "temperature",
+          "value": 30,
+          "unit": "C"
+        }
+      ]
+    },
+    {
+      "chip": "nvme",
+      "device": "nvme0",
+      "readings": [
+        {
+          "label": "Composite",
+          "kind": "temperature",
+          "value": 47.85,
+          "unit": "C",
+          "max": 80.85,
+          "crit": 81.85
+        },
+        {
+          "label": "Sensor 1",
+          "kind": "temperature",
+          "value": 47.85,
+          "unit": "C",
+          "max": 65261.85
+        },
+        {
+          "label": "Sensor 2",
+          "kind": "temperature",
+          "value": 51.85,
+          "unit": "C",
+          "max": 65261.85
+        }
+      ]
+    },
+    {
+      "chip": "pch_cannonlake",
+      "device": "thermal_zone1",
+      "readings": [
+        {
+          "label": "temp1",
+          "kind": "temperature",
+          "value": 55,
+          "unit": "C"
+        }
+      ]
+    },
+    {
+      "chip": "ucsi_source_psy_USBC000:001",
+      "device": "ucsi-source-psy-USBC000:001",
+      "readings": [
+        {
+          "label": "curr1",
+          "kind": "current",
+          "value": 0,
+          "unit": "A"
+        },
+        {
+          "label": "in0",
+          "kind": "voltage",
+          "value": 0,
+          "unit": "V"
+        }
+      ]
+    },
+    {
+      "chip": "coretemp",
+      "device": "coretemp.0",
+      "readings": [
+        {
+          "label": "Package id 0",
+          "kind": "temperature",
+          "value": 79,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        },
+        {
+          "label": "Core 0",
+          "kind": "temperature",
+          "value": 75,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        },
+        {
+          "label": "Core 1",
+          "kind": "temperature",
+          "value": 74,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        },
+        {
+          "label": "Core 2",
+          "kind": "temperature",
+          "value": 75,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        },
+        {
+          "label": "Core 3",
+          "kind": "temperature",
+          "value": 74,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        },
+        {
+          "label": "Core 4",
+          "kind": "temperature",
+          "value": 79,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        },
+        {
+          "label": "Core 5",
+          "kind": "temperature",
+          "value": 74,
+          "unit": "C",
+          "max": 94,
+          "crit": 100
+        }
+      ]
+    }
+  ],
+  "pci": [
+    {
+      "address": "0000:00:00.0",
+      "vendor_id": "8086",
+      "device_id": "3ec2",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "060000",
+      "class": "Host bridge",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "8th Gen Core Processor Host Bridge/DRAM Registers",
+        "revision": "07"
+      },
+      "driver": {
+        "name": "skl_uncore",
+        "module": "intel_uncore",
+        "srcversion": "A2FAA09537620B4BF433446",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:02.0",
+      "vendor_id": "8086",
+      "device_id": "3e92",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "030000",
+      "class": "VGA compatible controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "CoffeeLake-S GT2 [UHD Graphics 630]",
+        "revision": "00"
+      },
+      "driver": {
+        "name": "i915",
+        "module": "i915",
+        "srcversion": "4B8798499B75A10CE8C087F",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:12.0",
+      "vendor_id": "8086",
+      "device_id": "a379",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "118000",
+      "class": "Signal processing controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family Thermal Subsystem",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "intel_pch_thermal",
+        "module": "intel_pch_thermal",
+        "srcversion": "46F30BFDAC95CA7F5F4056E",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:14.0",
+      "vendor_id": "8086",
+      "device_id": "a36d",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "0c0330",
+      "class": "USB controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family USB 3.1 xHCI",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "xhci_hcd",
+        "builtin": true
+      }
+    },
+    {
+      "address": "0000:00:14.2",
+      "vendor_id": "8086",
+      "device_id": "a36f",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "050000",
+      "class": "RAM memory",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family Shared SRAM",
+        "revision": "10"
+      }
+    },
+    {
+      "address": "0000:00:16.0",
+      "vendor_id": "8086",
+      "device_id": "a360",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "078000",
+      "class": "Communication controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family HECI #1",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "mei_me",
+        "module": "mei_me",
+        "srcversion": "9605B195702CB46B6C026C7",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:16.3",
+      "vendor_id": "8086",
+      "device_id": "a363",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "070002",
+      "class": "Serial controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family Keyboard and Text (KT) Redirection",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "serial",
+        "builtin": true
+      }
+    },
+    {
+      "address": "0000:00:17.0",
+      "vendor_id": "8086",
+      "device_id": "a352",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "010601",
+      "class": "SATA controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family SATA Controller (AHCI)",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "ahci",
+        "version": "3.0",
+        "builtin": true
+      }
+    },
+    {
+      "address": "0000:00:1b.0",
+      "vendor_id": "8086",
+      "device_id": "a32c",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "060400",
+      "class": "PCI bridge",
+      "pcie_link": {
+        "speed": "8.0 GT/s PCIe",
+        "width": 4,
+        "max_speed": "8.0 GT/s PCIe",
+        "max_width": 4
+      },
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family PCIe Root Port #21",
+        "revision": "f0"
+      },
+      "driver": {
+        "name": "pcieport",
+        "builtin": true
+      }
+    },
+    {
+      "address": "0000:00:1c.0",
+      "vendor_id": "8086",
+      "device_id": "a33f",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "060400",
+      "class": "PCI bridge",
+      "pcie_link": {
+        "speed": "5.0 GT/s PCIe",
+        "width": 1,
+        "max_speed": "8.0 GT/s PCIe",
+        "max_width": 1
+      },
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family PCIe Root Port #8",
+        "revision": "f0"
+      },
+      "driver": {
+        "name": "pcieport",
+        "builtin": true
+      }
+    },
+    {
+      "address": "0000:00:1f.0",
+      "vendor_id": "8086",
+      "device_id": "a306",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "060100",
+      "class": "ISA bridge",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "Q370 Chipset LPC/eSPI Controller",
+        "revision": "10"
+      }
+    },
+    {
+      "address": "0000:00:1f.3",
+      "vendor_id": "8086",
+      "device_id": "a348",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "040300",
+      "class": "Audio device",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family HD Audio",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "snd_hda_intel",
+        "module": "snd_hda_intel",
+        "srcversion": "C8BC17D494D84579AE92AD6",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:1f.4",
+      "vendor_id": "8086",
+      "device_id": "a323",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "0c0500",
+      "class": "SMBus",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family SMBus",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "i801_smbus",
+        "module": "i2c_i801",
+        "srcversion": "9CEF5F7E9242FA7649406F5",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:1f.5",
+      "vendor_id": "8086",
+      "device_id": "a324",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "0c8000",
+      "class": "Serial bus controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "300/C240 Series Chipset Family SPI (Flash) Controller",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "intel-spi",
+        "module": "spi_intel_pci",
+        "srcversion": "8F099D6C6E7D76E13D70CA7",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:00:1f.6",
+      "vendor_id": "8086",
+      "device_id": "15bb",
+      "subsystem_vendor_id": "103c",
+      "subsystem_device_id": "8595",
+      "class_code": "020000",
+      "class": "Ethernet controller",
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "Ethernet Connection (7) I219-LM",
+        "revision": "10"
+      },
+      "driver": {
+        "name": "e1000e",
+        "module": "e1000e",
+        "srcversion": "66912D431A7AA84DBAA9476",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:01:00.0",
+      "vendor_id": "144d",
+      "device_id": "a808",
+      "subsystem_vendor_id": "144d",
+      "subsystem_device_id": "a801",
+      "class_code": "010802",
+      "class": "Non-Volatile memory controller",
+      "subsystem": "SSD 970 EVO/PRO",
+      "pcie_link": {
+        "speed": "8.0 GT/s PCIe",
+        "width": 4,
+        "max_speed": "8.0 GT/s PCIe",
+        "max_width": 4
+      },
+      "identity": {
+        "vendor": "Samsung Electronics Co Ltd",
+        "model": "NVMe SSD Controller SM981/PM981/PM983",
+        "revision": "00"
+      },
+      "driver": {
+        "name": "nvme",
+        "module": "nvme",
+        "version": "1.0",
+        "srcversion": "2C72F4EB6FDD12B0635C9B3",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    },
+    {
+      "address": "0000:02:00.0",
+      "vendor_id": "8086",
+      "device_id": "2723",
+      "subsystem_vendor_id": "8086",
+      "subsystem_device_id": "0080",
+      "class_code": "028000",
+      "class": "Network controller",
+      "pcie_link": {
+        "speed": "5.0 GT/s PCIe",
+        "width": 1,
+        "max_speed": "5.0 GT/s PCIe",
+        "max_width": 1
+      },
+      "identity": {
+        "vendor": "Intel Corporation",
+        "model": "Wi-Fi 6 AX200",
+        "revision": "1a"
+      },
+      "driver": {
+        "name": "iwlwifi",
+        "module": "iwlwifi",
+        "srcversion": "483ED9C9744B630080A98BC",
+        "in_tree": true,
+        "proprietary": false,
+        "unsigned": false
+      }
+    }
+  ],
+  "usb": [
+    {
+      "bus": 1,
+      "device": 6,
+      "path": "1-14",
+      "vendor_id": "8087",
+      "product_id": "0029",
+      "class_code": "e0",
+      "class": "Wireless",
+      "speed_mbps": 12,
+      "usb_version": "2.01",
+      "identity": {
+        "vendor": "Intel Corp.",
+        "model": "AX200 Bluetooth"
+      },
+      "firmware": {
+        "version": "0.01",
+        "source": "usb"
+      },
+      "drivers": [
+        {
+          "name": "btusb",
+          "module": "btusb",
+          "version": "0.8",
+          "srcversion": "3C9D319DF69F7C1996E9AD4",
+          "in_tree": true,
+          "proprietary": false,
+          "unsigned": false
+        }
+      ]
+    },
+    {
+      "bus": 1,
+      "device": 10,
+      "path": "1-2",
+      "vendor_id": "17ef",
+      "product_id": "4831",
+      "class_code": "ef",
+      "class": "Miscellaneous Device",
+      "speed_mbps": 480,
+      "usb_version": "2.00",
+      "identity": {
+        "vendor": "Lenovo",
+        "model": "Lenovo FHD Webcam",
+        "serial": "REDACTED"
+      },
+      "firmware": {
+        "version": "50.02",
+        "source": "usb"
+      },
+      "drivers": [
+        {
+          "name": "uvcvideo",
+          "module": "uvcvideo",
+          "version": "1.1.1",
+          "srcversion": "CDCB1BF9973BA71B9F9C978",
+          "in_tree": true,
+          "proprietary": false,
+          "unsigned": false
+        },
+        {
+          "name": "snd-usb-audio",
+          "module": "snd_usb_audio",
+          "srcversion": "BD8FA8FD407E6225ABF5992",
+          "in_tree": true,
+          "proprietary": false,
+          "unsigned": false
+        }
+      ]
+    },
+    {
+      "bus": 1,
+      "device": 7,
+      "path": "1-4",
+      "vendor_id": "413c",
+      "product_id": "1010",
+      "class_code": "09",
+      "class": "Hub",
+      "speed_mbps": 480,
+      "usb_version": "2.00",
+      "identity": {
+        "vendor": "Dell Computer Corp.",
+        "model": "USB 2.0 Hub [MTT]"
+      },
+      "firmware": {
+        "version": "32.98",
+        "source": "usb"
+      },
+      "drivers": [
+        {
+          "name": "hub",
+          "builtin": true
+        }
+      ]
+    },
+    {
+      "bus": 1,
+      "device": 9,
+      "path": "1-4.4",
+      "vendor_id": "413c",
+      "product_id": "2110",
+      "class_code": "03",
+      "class": "Human Interface Device",
+      "speed_mbps": 1.5,
+      "usb_version": "1.10",
+      "identity": {
+        "vendor": "Dell Computer Corp.",
+        "model": "Dell Wired Multimedia Keyboard"
+      },
+      "firmware": {
+        "version": "0.06",
+        "source": "usb"
+      },
+      "drivers": [
+        {
+          "name": "usbhid",
+          "builtin": true
+        }
+      ]
+    },
+    {
+      "bus": 1,
+      "device": 8,
+      "path": "1-5",
+      "vendor_id": "0b05",
+      "product_id": "1a9b",
+      "class_code": "03",
+      "class": "Human Interface Device",
+      "speed_mbps": 12,
+      "usb_version": "1.10",
+      "identity": {
+        "vendor": "ASUSTek Computer, Inc.",
+        "model": "TUF GAMING M3 GEN II",
+        "serial": "REDACTED"
+      },
+      "firmware": {
+        "version": "5.43",
+        "source": "usb"
+      },
+      "drivers": [
+        {
+          "name": "usbhid",
+          "builtin": true
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "dmi product_serial, product_uuid, chassis_serial, board_serial: needs root (run with --full)",
+    "drive health (SMART): needs root (run with --full)",
+    "memory modules (SMBIOS): needs root (run with --full)"
+  ]
+}
