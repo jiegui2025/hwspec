@@ -100,6 +100,33 @@ func xdgPath(env, fallback, rel string) string {
 	return filepath.Join(base, rel)
 }
 
+// UseEnvironment re-reads $XDG_DATA_HOME, $XDG_CONFIG_HOME and $HOME for
+// the synced and overrides locations (they are read once at start-up) and
+// drops loaded databases, so the next lookup uses the new locations.
+//
+// UseEnvironment, UseSystemDatabases and UseEmbeddedOnly change where
+// names come from; they must not run concurrently with lookups.
+func UseEnvironment() {
+	syncedDir = xdgPath("XDG_DATA_HOME", ".local/share", "hwspec/ids")
+	overridesPath = xdgPath("XDG_CONFIG_HOME", ".config", "hwspec/overrides.ids")
+	Reset()
+}
+
+// UseSystemDatabases turns the distribution's copies (/usr/share/hwdata,
+// ...) on or off as a source of names.
+func UseSystemDatabases(on bool) {
+	systemEnabled = on
+	Reset()
+}
+
+// UseEmbeddedOnly makes lookups use only the databases built into hwspec:
+// no distribution copies, synced databases or overrides. Names then don't
+// depend on the machine, as tests comparing captures need.
+func UseEmbeddedOnly() {
+	systemEnabled, syncedDir, overridesPath = false, "", ""
+	Reset()
+}
+
 // OverridesPath is where user corrections are read from.
 func OverridesPath() string { return overridesPath }
 
@@ -244,6 +271,9 @@ func embeddedManifest() *Manifest {
 // syncedManifest reads the manifest saved by the last `hwspec ids update`.
 // It returns (nil, nil) when nothing has been synced.
 func syncedManifest() (*Manifest, error) {
+	if syncedDir == "" {
+		return nil, nil // no synced databases (no home directory, or embedded only)
+	}
 	b, err := os.ReadFile(filepath.Join(syncedDir, "manifest.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil

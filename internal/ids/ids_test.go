@@ -293,3 +293,57 @@ func TestLookup(t *testing.T) {
 		}
 	}
 }
+
+// A long-running program (or a test) that changes $XDG_* picks up the new
+// synced and overrides locations.
+func TestUseEnvironmentFollowsXDG(t *testing.T) {
+	oldSynced, oldOv := syncedDir, overridesPath
+	t.Cleanup(func() { syncedDir, overridesPath = oldSynced, oldOv; Reset() })
+	data, config := t.TempDir(), t.TempDir()
+	t.Setenv("XDG_DATA_HOME", data)
+	t.Setenv("XDG_CONFIG_HOME", config)
+	UseEnvironment()
+	if SyncedDir() != filepath.Join(data, "hwspec/ids") || OverridesPath() != filepath.Join(config, "hwspec/overrides.ids") {
+		t.Errorf("synced %s, overrides %s", SyncedDir(), OverridesPath())
+	}
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("HOME", data)
+	UseEnvironment()
+	if SyncedDir() != filepath.Join(data, ".local/share/hwspec/ids") {
+		t.Errorf("without XDG_DATA_HOME: %s", SyncedDir())
+	}
+}
+
+// With only the embedded databases, names don't depend on the machine:
+// distribution copies, synced databases and overrides are all ignored.
+func TestUseEmbeddedOnlyIgnoresTheMachinesSources(t *testing.T) {
+	oldSys, oldSynced, oldOv := systemEnabled, syncedDir, overridesPath
+	t.Cleanup(func() { systemEnabled, syncedDir, overridesPath = oldSys, oldSynced, oldOv; Reset() })
+	overridesPath = write(t, filepath.Join(t.TempDir(), "overrides.ids"), "pci 8086 = Mine\n")
+	Reset()
+	if PCIVendor("8086") != "Mine" {
+		t.Fatal("override not applied before")
+	}
+	UseEmbeddedOnly()
+	for _, k := range Kinds {
+		for _, l := range Layers(k) {
+			if l.Source != "embedded" {
+				t.Errorf("%s uses %s", k, l.Source)
+			}
+		}
+	}
+	if got := PCIVendor("8086"); got != "Intel Corporation" {
+		t.Errorf("PCIVendor = %q", got)
+	}
+	UseSystemDatabases(true)
+	if !systemEnabled {
+		t.Error("system databases not re-enabled")
+	}
+	// Without a synced directory nothing is read from the current one.
+	t.Chdir(t.TempDir())
+	write(t, "manifest.json", "{broken")
+	UseEmbeddedOnly()
+	if at, err := SyncedAt(); err != nil || !at.IsZero() {
+		t.Errorf("SyncedAt = %v, %v", at, err)
+	}
+}
