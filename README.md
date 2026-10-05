@@ -37,14 +37,14 @@ Bluetooth
 
 | | hwspec | lshw | inxi | dmidecode | hwinfo |
 |---|---|---|---|---|---|
-| Install | one static binary | distro package (C++) | distro package (Perl, calls many tools) | distro package (C) | distro package (C) |
-| Same result on every distro (incl. NixOS, Alpine) | ✅ CI-tested on 6 | depends on version | depends on installed tools | ✅ | depends on version |
-| Structured output | JSON/YAML, versioned schema | JSON/XML | JSON (via `--output`) | text | text |
+| Install | one static binary | distro package (C++) | distro package (Perl, calls helper tools) | distro package (C) | distro package (C) |
+| Same result on every distro (incl. NixOS, Alpine) | ✅ CI-tested on 6 | depends on version | depends on installed tools | depends on version | depends on version |
+| Structured output | JSON/YAML, versioned schema | JSON/XML | JSON/XML (`--output`) | text | text |
 | Names hardware offline, signed ID updates | ✅ | distro ID files | distro ID files | — | own database |
 | Keeps raw IDs to re-name old captures | ✅ | IDs in output | partial | — | IDs in output |
-| Coverage: memory modules, NVMe health, EDID, Bluetooth, codecs, CPU codenames | ✅ | partial | partial | memory and firmware tables | partial |
-| Reports what it couldn't read | ✅ per-item `warnings` | root warning | partial | — | — |
-| Share safely | ✅ `--redact` | — | ✅ `-z` filter | — | — |
+| Memory modules, NVMe health, EDID, Bluetooth, codecs, CPU codenames | ✅ all | partial | most, via helper tools | memory and firmware tables | partial |
+| Reports what it couldn't read | ✅ a `warnings` list | root warning | per-field markers | — | — |
+| Share safely | ✅ `--redact` | ✅ `-sanitize` | ✅ `-z` filter | — | — |
 
 ## How it works
 
@@ -67,7 +67,7 @@ It reads the kernel's interfaces directly instead of parsing `lshw`, `dmidecode`
 | Board & BIOS | Board vendor, model, version, serial¹; firmware vendor, version, date |
 | CPU | Model, codename and core microarchitecture (e.g. Coffee Lake / Skylake, Raphael / Zen 4), signature, sockets, cores, threads, P/E core split, clock range, scaling driver, caches, microcode, flags |
 | Memory | Usable and installed size, slots, max capacity, ECC; per module¹: slot, size, type (DDR4/DDR5…), form factor, rated and configured speed, voltage, rank, manufacturer, part number |
-| Storage | Model, serial, firmware, size, type, transport (NVMe/SATA/USB/…), partitions, filesystems, mount points; health¹: NVMe SMART log (wear, hours, data written, errors) or `smartctl` for SATA |
+| Storage | Model, serial, firmware, size, type, transport (NVMe/SATA/USB/…), partitions, filesystems, mount points; health¹: NVMe SMART log (wear, hours, data written, errors) or `smartctl` for SATA and USB drives |
 | Graphics | GPUs with driver, VRAM (amdgpu), PCIe link, outputs; monitors from EDID: maker, model, serial, size, native mode |
 | Network | Physical adapters: type, driver, bus, MAC and its registered vendor, link state, speed |
 | Bluetooth | Controllers: chip maker, Bluetooth version, address and its vendor, power state, the USB/PCI adapter (no root or bluetoothd needed) |
@@ -80,7 +80,7 @@ It reads the kernel's interfaces directly instead of parsing `lshw`, `dmidecode`
 
 | Method | Command |
 |---|---|
-| Release binary (amd64, arm64) | download from [releases](https://github.com/jiegui2025/hwspec/releases), then `sudo install -m755 hwspec /usr/local/bin/` |
+| Release binary (amd64, arm64), from v0.1.0 | download a tarball from [releases](https://github.com/jiegui2025/hwspec/releases), `tar xzf hwspec-*.tar.gz`, then `sudo install -m755 hwspec /usr/local/bin/` |
 | From source (Go 1.26+) | `make build && sudo make install` |
 | Nix flakes / NixOS | `nix run github:jiegui2025/hwspec -- capture -f text` |
 
@@ -111,7 +111,7 @@ sequenceDiagram
   U->>P: capture -f json
   P->>R: run after you approve
   R-->>U: JSON
-  U->>U: your overrides, file written as you (0600)
+  U->>U: your overrides, file written as you (0600 unless redacted)
 ```
 
 | Without root | With `--full` |
@@ -161,7 +161,7 @@ A [weekly workflow](.github/workflows/ids.yml) rebuilds all eight databases from
 | verify the manifest's ed25519 signature | only bundles signed by the key built into hwspec |
 | compare with installed and built-in data | no rollback to older data |
 | download only changed databases; check size, SHA-256, contents | nothing unverified is installed |
-| install atomically | an interrupted update leaves the previous databases working |
+| replace each file atomically, manifest last | an interrupted update leaves only verified files; the next update completes it |
 
 Only the HTTP request leaves the machine; captures never touch the network. `HWSPEC_IDS_URL` (or `--url`) selects a mirror.
 
@@ -203,7 +203,7 @@ oui 04:0E:3C = HP Inc.
 | `internal/resolve` | names from raw IDs, for new and saved captures |
 | `internal/report`, `internal/output` | the file format, redaction, sanitising; JSON/YAML/text |
 | `internal/smbios`, `internal/edid`, `internal/trust` | binary parsers; root-ownership checks |
-| `tools/genids`, `tools/snapshot` | ID bundle builder; fixture recorder for tests |
+| `tools/genids` | ID bundle builder |
 
 ## Contributing
 

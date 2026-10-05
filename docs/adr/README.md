@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Each record captures one significant decision as context → options → decision → consequences, mostly as tables and diagrams. Records aren't edited after acceptance except to mark them superseded; a changed decision gets a new record.
+Each record captures one significant decision as context → options → decision → consequences, mostly as tables and diagrams. A decision isn't changed after acceptance: a new decision gets a new record, and the old one is marked superseded. Records may be reformatted or corrected for accuracy (noted at the top) without changing the decision.
 
 | # | Decision | Status |
 |---|---|---|

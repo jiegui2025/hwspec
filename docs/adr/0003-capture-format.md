@@ -1,6 +1,6 @@
 # 3. JSON capture format with raw IDs, additive schema
 
-**Status:** Accepted (2026-10-05)
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged
 
 ## Context
 

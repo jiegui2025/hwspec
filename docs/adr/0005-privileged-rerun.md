@@ -1,6 +1,6 @@
 # 5. Root access by re-running under pkexec, no daemon
 
-**Status:** Accepted (2026-10-05)
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged
 
 ## Context
 
@@ -24,7 +24,7 @@ sequenceDiagram
   U->>P: pkexec /path/hwspec capture -f json
   P->>R: run as root after authorisation
   R-->>U: JSON on stdout
-  U->>U: apply the user's overrides, write the file as the user (0600)
+  U->>U: apply the user's overrides, write the file as the user (0600 unless redacted)
 ```
 
 ## Consequences

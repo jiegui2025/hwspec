@@ -1,6 +1,6 @@
 # 2. Read kernel interfaces directly, not other tools
 
-**Status:** Accepted (2026-10-05)
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged
 
 ## Context
 

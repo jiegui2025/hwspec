@@ -1,12 +1,12 @@
 # 1. A static Go binary is the capture engine
 
-**Status:** Accepted (2026-10-05)
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged
 
 ## Context
 
 | Need | Constraint |
 |---|---|
-| Run on NixOS, Arch/CachyOS, Fedora, Ubuntu, Mint, Debian/MX, Alpine | NixOS rejects dynamically linked foreign binaries; Alpine uses musl |
+| Run on NixOS, Arch/CachyOS, Fedora, Ubuntu, Mint, Debian/MX, Alpine | dynamically linked binaries built elsewhere often fail on NixOS (no standard loader path); Alpine uses musl |
 | Zero setup for users | Python and other interpreters aren't always installed |
 | Low-level access (ioctls, sockets) | must not need C libraries |
 

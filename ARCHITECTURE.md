@@ -30,7 +30,7 @@ flowchart LR
 | Step | Package | Does | Never does |
 |---|---|---|---|
 | 1 | `collect` | reads raw facts: IDs, sizes, versions, states | names things from databases |
-| 2 | `report` | defines the file format; redaction | carries behaviour beyond redaction |
+| 2 | `report` | defines the file format; redaction; sanitising untrusted strings | names devices or reads hardware |
 | 3 | `resolve` | fills names from raw IDs, after every capture **and** when a saved capture is shown | changes raw IDs |
 | 4 | `ids` | loads ID databases, picks the newest source, applies overrides, signed sync | touches the network outside `ids update` |
 | 5 | `output` | writes JSON, YAML, terminal-safe text; reads captures back | accepts files that aren't hwspec captures |
@@ -39,28 +39,29 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  cmd[cmd/hwspec] --> collect & resolve & output & ids
-  collect[internal/collect] --> report & resolve & smbios & edid & ghw[(ghw)]
+  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust
+  collect[internal/collect] --> report & resolve & smbios & edid & trust & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
-  output[internal/output] --> report
-  genids[tools/genids] --> ids
-  snapshot[tools/snapshot] --> ghw
+  output[internal/output] --> report & yaml[(yaml.v3)]
+  genids[tools/genids] --> ids & yaml
   ids[internal/ids]
   report[internal/report]
   smbios[internal/smbios]
   edid[internal/edid]
+  trust[internal/trust]
 ```
 
 | Package | Responsibility | Depends on |
 |---|---|---|
 | `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring | everything below |
+| `internal/trust` | "can only root change this file?" checks (for `--full` and `smartctl`) | `x/sys/unix` |
 | `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `ghw` |
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |
 | `internal/ids` | ID databases, overrides, sync, decoders (JEDEC, OUI, CPU) | standard library only |
-| `internal/report` | the file format and redaction | standard library only |
-| `internal/output` | serialisation | `report` |
+| `internal/report` | the file format, redaction, sanitising | standard library only |
+| `internal/output` | serialisation | `report`, `yaml.v3` |
 | `internal/smbios`, `internal/edid` | pure parsers for binary tables | standard library only |
-| `tools/genids` | build time: upstream sources → signed ID database bundle | `ids` |
+| `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `yaml.v3` |
 
 ## Choosing an ID database source
 
@@ -75,7 +76,11 @@ flowchart TD
   ov --> done([names])
 ```
 
-Future dates are ignored, and a synced copy without a readable manifest isn't used, so no source can pin itself as newest.
+| Source | Guard against pinning itself as "newest" |
+|---|---|
+| Distro copy | a future header date is ignored; a future file time ranks it oldest |
+| Synced copy | dated only by its signed manifest; unused if the manifest is unreadable; CI refuses future dates before signing |
+| Embedded copy | dated by its manifest, checked by `genids verify` at build time |
 
 ## Rules
 
@@ -89,7 +94,7 @@ Future dates are ignored, and a synced copy without a readable manifest isn't us
 | **Root is opt-in and minimal** | `--full` re-runs a root-owned binary under `pkexec`; the unprivileged parent writes the file and applies the user's overrides |
 | **Untrusted text is sanitised** | names from devices, captures and databases lose control characters before reaching a terminal |
 | **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware |
-| **Testable seams** | collectors read through one root path (fixture trees stand in for machines); syscalls and subprocesses sit behind swappable functions |
+| **Testable seams** | collectors read through one root path and syscalls/subprocesses sit behind swappable functions, so fixture machines can stand in for real ones (fixture tests: [#2](https://github.com/jiegui2025/hwspec/issues/2)) |
 
 ## Distribution
 
