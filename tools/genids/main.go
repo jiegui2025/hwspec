@@ -40,12 +40,19 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, "usage: genids jedec|oui|gzip SRC OUT.gz | manifest DIR [PREV] | sign MANIFEST | keygen KEYFILE")
-		os.Exit(2)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run executes one command (without the program name) and returns the exit
+// status: 0 success, 1 failure (including a command's wrong arguments), 2
+// no command, or a command without any arguments.
+func run(argv []string, stdout, stderr io.Writer) int {
+	if len(argv) < 2 {
+		fmt.Fprintln(stderr, "usage: genids jedec|oui|gzip SRC OUT.gz | manifest DIR [PREV] | sign MANIFEST | keygen KEYFILE")
+		return 2
 	}
 	var err error
-	switch cmd, args := os.Args[1], os.Args[2:]; cmd {
+	switch cmd, args := argv[0], argv[1:]; cmd {
 	case "jedec", "oui", "gzip", "bluetooth":
 		if len(args) != 2 {
 			err = fmt.Errorf("usage: genids %s SRC OUT.gz", cmd)
@@ -66,24 +73,25 @@ func main() {
 		if len(args) > 1 {
 			prev = args[1]
 		}
-		err = manifest(args[0], prev)
+		err = manifest(stdout, args[0], prev)
 	case "verify":
 		prev := ""
 		if len(args) > 1 {
 			prev = args[1]
 		}
-		err = verify(args[0], prev)
+		err = verify(stdout, args[0], prev)
 	case "sign":
 		err = sign(args[0])
 	case "keygen":
-		err = keygen(args[0])
+		err = keygen(stdout, args[0])
 	default:
 		err = fmt.Errorf("unknown command %q", cmd)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "genids:", err)
-		os.Exit(1)
+		fmt.Fprintln(stderr, "genids:", err)
+		return 1
 	}
+	return 0
 }
 
 func convert(kind, src, out string) error {
@@ -183,7 +191,7 @@ func oui(src []byte) ([]byte, error) {
 // manifest validates every *.ids.gz in dir and writes dir/manifest.json.
 // A file without a header date keeps the date recorded for the same
 // content in the previous manifest, or gets today's date if it changed.
-func manifest(dir, prevPath string) error {
+func manifest(stdout io.Writer, dir, prevPath string) error {
 	prev, err := readPrevManifest(prevPath)
 	if err != nil {
 		return err
@@ -235,7 +243,7 @@ func manifest(dir, prevPath string) error {
 			}
 		}
 		m.Files[name] = f
-		fmt.Printf("%-16s %6d entries  %s\n", name, entries, f.Date)
+		fmt.Fprintf(stdout, "%-16s %6d entries  %s\n", name, entries, f.Date)
 	}
 	if len(m.Files) != len(ids.Kinds) {
 		return fmt.Errorf("found %d database files in %s, want %d", len(m.Files), dir, len(ids.Kinds))
@@ -296,7 +304,7 @@ func prevFile(m *ids.Manifest, name string) (ids.ManifestFile, bool) {
 // that size and hash, parses into a plausible database, contains no
 // control characters, and isn't much smaller than in the previous bundle;
 // nothing unlisted is present; no date is in the future.
-func verify(dir, prevPath string) error {
+func verify(stdout io.Writer, dir, prevPath string) error {
 	b, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
 		return err
@@ -356,7 +364,7 @@ func verify(dir, prevPath string) error {
 			return fmt.Errorf("%s: %d entries, down from %d in the previous bundle", name, n, p.Entries)
 		}
 	}
-	fmt.Printf("verified %d databases\n", len(m.Files))
+	fmt.Fprintf(stdout, "verified %d databases\n", len(m.Files))
 	return nil
 }
 
@@ -378,7 +386,7 @@ func sign(manifestPath string) error {
 	return ids.VerifySignature(data, []byte(sig))
 }
 
-func keygen(path string) error {
+func keygen(stdout io.Writer, path string) error {
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
@@ -387,6 +395,6 @@ func keygen(path string) error {
 	if err := os.WriteFile(path, []byte(seed+"\n"), 0o600); err != nil {
 		return err
 	}
-	fmt.Println(base64.StdEncoding.EncodeToString(pub))
+	fmt.Fprintln(stdout, base64.StdEncoding.EncodeToString(pub))
 	return nil
 }
