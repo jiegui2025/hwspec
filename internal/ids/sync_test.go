@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -205,5 +206,118 @@ func TestUpdateRejects(t *testing.T) {
 	// The rollback is allowed when asked for explicitly.
 	if _, err := b.update(UpdateOptions{AllowOlder: true}); err != nil {
 		t.Errorf("AllowOlder: %v", err)
+	}
+}
+
+// Every way an update can fail leaves the installed databases as they were
+// and says why.
+func TestUpdateFailureModes(t *testing.T) {
+	isolate(t)
+	if _, err := Update(context.Background(), UpdateOptions{}); err == nil || !strings.Contains(err.Error(), "no home directory") {
+		t.Errorf("no home: %v", err)
+	}
+	syncedDir = filepath.Join(t.TempDir(), "ids")
+	b := newBundle(t)
+
+	// The mirror is gone, or has no signature.
+	if _, err := Update(context.Background(), UpdateOptions{BaseURL: "http://127.0.0.1:1"}); err == nil {
+		t.Error("unreachable mirror accepted")
+	}
+	os.Rename(filepath.Join(b.dir, "manifest.json.sig"), filepath.Join(b.dir, "sig.bak"))
+	if _, err := b.update(UpdateOptions{}); err == nil || !strings.Contains(err.Error(), "manifest.json.sig: HTTP 404") {
+		t.Errorf("missing signature: %v", err)
+	}
+	os.Rename(filepath.Join(b.dir, "sig.bak"), filepath.Join(b.dir, "manifest.json.sig"))
+
+	// A manifest too large to be real.
+	big, _ := os.ReadFile(filepath.Join(b.dir, "manifest.json"))
+	write(t, filepath.Join(b.dir, "manifest.json"), strings.Repeat(" ", maxManifestBytes+1))
+	if _, err := b.update(UpdateOptions{}); err == nil || !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("huge manifest: %v", err)
+	}
+	write(t, filepath.Join(b.dir, "manifest.json"), string(big))
+
+	// Signed and with the right checksum, but not gzip.
+	write(t, filepath.Join(b.dir, "pci.ids.gz"), "not gzip at all")
+	b.publish(time.Now().UTC(), b.key)
+	if _, err := b.update(UpdateOptions{}); err == nil || !strings.Contains(err.Error(), "pci.ids.gz: gzip") {
+		t.Errorf("not gzip: %v", err)
+	}
+	if _, err := os.Stat(syncedDir); !os.IsNotExist(err) {
+		t.Error("a failed update created the synced directory")
+	}
+}
+
+// The update identifies itself with hwspec's User-Agent, and a database a
+// newer hwspec publishes is ignored by this build.
+func TestUpdateSendsItsUserAgentAndSkipsUnknownDatabases(t *testing.T) {
+	isolate(t)
+	syncedDir = filepath.Join(t.TempDir(), "ids")
+	b := newBundle(t)
+	var agent string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		agent = r.UserAgent()
+		http.ServeFile(w, r, filepath.Join(b.dir, filepath.Base(r.URL.Path)))
+	}))
+	t.Cleanup(srv.Close)
+	m := Manifest{Format: ManifestFormat, GeneratedAt: time.Now().UTC(), Files: map[string]ManifestFile{
+		"future.ids.gz": {SHA256: sha([]byte("x")), Size: 1, Date: "2030-01-01", Entries: 1},
+	}}
+	js, _ := json.Marshal(m)
+	write(t, filepath.Join(b.dir, "manifest.json"), string(js))
+	write(t, filepath.Join(b.dir, "manifest.json.sig"), base64.StdEncoding.EncodeToString(ed25519.Sign(b.key, js)))
+	res, err := Update(context.Background(), UpdateOptions{BaseURL: srv.URL, UserAgent: "hwspec/test"})
+	if err != nil || len(res.Files) != 0 || agent != "hwspec/test" {
+		t.Errorf("future database: %+v, %v, agent %q", res, err, agent)
+	}
+}
+
+// Without a readable local manifest an update can't tell a rollback, so it
+// stops until asked to replace the synced databases.
+func TestUpdateStopsAtAnUnreadableLocalManifest(t *testing.T) {
+	isolate(t)
+	syncedDir = filepath.Join(t.TempDir(), "ids")
+	b := newBundle(t)
+	if err := os.MkdirAll(syncedDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(syncedDir, "manifest.json"), "{broken")
+	if _, err := b.update(UpdateOptions{}); err == nil || !strings.Contains(err.Error(), "--allow-older") {
+		t.Errorf("unreadable local manifest: %v", err)
+	}
+	if _, err := b.update(UpdateOptions{AllowOlder: true}); err != nil {
+		t.Errorf("--allow-older: %v", err)
+	}
+}
+
+// A bundle older than the databases built into hwspec isn't installed.
+func TestUpdateKeepsNewerBuiltInDatabases(t *testing.T) {
+	isolate(t)
+	syncedDir = filepath.Join(t.TempDir(), "ids")
+	b := newBundle(t)
+	b.publish(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), b.key)
+	res, err := b.update(UpdateOptions{})
+	if !errors.Is(err, ErrBuiltInIsNewer) || res != nil {
+		t.Errorf("old bundle: %v, %v", res, err)
+	}
+}
+
+// Installing after verification can still fail (a full disk, a read-only
+// directory): the error says what was already written.
+func TestUpdateReportsAPartialInstall(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can write a read-only directory")
+	}
+	isolate(t)
+	syncedDir = filepath.Join(t.TempDir(), "ids")
+	b := newBundle(t)
+	if err := os.MkdirAll(syncedDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(syncedDir, 0o700) })
+	_, err := b.update(UpdateOptions{})
+	var partial *InstallError
+	if !errors.As(err, &partial) || len(partial.Written) != 0 || !strings.Contains(err.Error(), "permission denied") {
+		t.Errorf("read-only directory: %v", err)
 	}
 }
