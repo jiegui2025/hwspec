@@ -44,6 +44,7 @@ flowchart TD
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(yaml.v3)]
   genids[tools/genids] --> ids & yaml
+  snapshot[tools/snapshot] --> collect & ghw
   ids[internal/ids]
   report[internal/report]
   smbios[internal/smbios]
@@ -63,6 +64,8 @@ flowchart TD
 | `internal/output` | serialisation | `report`, `yaml.v3` |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `yaml.v3` |
+| `tools/snapshot` | development: records a machine as a scrubbed test fixture (`internal/collect/testdata/machines`) | `collect`, `ghw` |
+| `internal/smbios/smbiostest` | tests only: builds SMBIOS tables | standard library only |
 
 ## Choosing an ID database source
 
@@ -95,7 +98,7 @@ flowchart TD
 | **Root is opt-in and minimal** | `--full` re-runs a root-owned binary under `pkexec`; the unprivileged parent writes the file and applies the user's overrides |
 | **Untrusted text is sanitised** | names from devices, captures and databases lose control characters before reaching a terminal |
 | **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware |
-| **Testable seams** | collectors read through one root path and syscalls/subprocesses sit behind swappable functions, so fixture machines can stand in for real ones (fixture tests: [#2](https://github.com/jiegui2025/hwspec/issues/2)) |
+| **Testable seams** | collectors read every file through one root path, and syscalls/subprocesses sit behind swappable functions (saved and restored together, captures serialised). `collect.CollectRecorded` replays a machine recorded by `tools/snapshot`: its files, its answers to calls, its empty directories and unreadable files |
 
 ## Distribution
 
