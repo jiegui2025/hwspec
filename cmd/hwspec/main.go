@@ -219,7 +219,7 @@ func show(args []string) error {
 	if file == "-" {
 		data, err = io.ReadAll(os.Stdin)
 	} else {
-		data, err = os.ReadFile(file)
+		data, err = os.ReadFile(file) //nolint:gosec // G703: reading the file the user named is the point
 	}
 	if err != nil {
 		return err

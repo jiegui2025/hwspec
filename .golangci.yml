@@ -1,0 +1,41 @@
+version: "2"
+
+linters:
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - nolintlint
+    - unconvert
+    - unparam
+  settings:
+    gosec:
+      excludes:
+        - G104 # unhandled errors: errcheck covers this, with its own exclusions
+        - G115 # integer conversions: hardware values are range-checked where it matters
+        - G204 # subprocesses: pkexec and smartctl are invoked with fixed arguments
+        - G304 # file paths from variables: reading sysfs/procfs is the point
+        - G306 # 0644 output files are intended
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - singleCaseSwitch
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters: [gosec, errcheck]
+      - path: ^tools/ # build-time generators reading paths given on the command line
+        linters: [gosec]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jiegui2025/hwspec

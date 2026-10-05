@@ -76,12 +76,12 @@ func nvmeHealth(dev string) (*report.DiskHealth, error) {
 	cmd := nvmePassthruCmd{
 		Opcode:    0x02, // Get Log Page
 		NSID:      0xFFFFFFFF,
-		Addr:      uint64(uintptr(unsafe.Pointer(&log[0]))),
+		Addr:      uint64(uintptr(unsafe.Pointer(&log[0]))), //nolint:gosec // G103: the kernel ABI takes a buffer address
 		DataLen:   uint32(len(log)),
 		Cdw10:     uint32(len(log)/4-1)<<16 | 0x02, // NUMDL, LID 2 = SMART / Health
 		TimeoutMS: 5000,
 	}
-	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), nvmeIoctlAdminCmd, uintptr(unsafe.Pointer(&cmd)))
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), nvmeIoctlAdminCmd, uintptr(unsafe.Pointer(&cmd))) //nolint:gosec // G103: ioctl argument
 	runtime.KeepAlive(log)
 	if errno != 0 {
 		return nil, fmt.Errorf("NVMe get-log-page: %w", errno)

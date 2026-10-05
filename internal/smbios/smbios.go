@@ -68,11 +68,15 @@ func Clean(s string) string {
 			return ""
 		}
 	}
-	// Some firmware pads serials/part numbers with 0x00 or 0xFF bytes.
-	if strings.Trim(s, "0\x00\xff ") == "" {
-		return ""
+	// Some firmware fills unset serials/part numbers with '0', 0x00 or 0xFF.
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '0', 0x00, 0xFF, ' ':
+		default:
+			return s
+		}
 	}
-	return s
+	return ""
 }
 
 // Parse splits the table into structures. It stops at the end-of-table

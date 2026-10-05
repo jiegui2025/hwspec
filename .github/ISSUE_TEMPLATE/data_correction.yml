@@ -1,0 +1,34 @@
+name: Wrong or missing name
+description: A device, CPU codename, memory maker or similar is named wrongly or not at all
+labels: ["type: data", "status: triage"]
+body:
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options: [pci, usb, pnp, oui, jedec, amdgpu, bluetooth, cpu, not sure]
+    validations:
+      required: true
+  - type: input
+    id: id
+    attributes:
+      label: The ID (`hwspec ids lookup KIND ID` shows what hwspec resolves today)
+      placeholder: "cpu intel:6:9e:10 or pci 8086:3e92"
+    validations:
+      required: true
+  - type: input
+    id: correct
+    attributes:
+      label: Correct name
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source (datasheet, vendor page, …)
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Most databases come from upstream projects (pci-ids.ucw.cz, linux-usb.org, IEEE, the Linux kernel, …). Corrections made there reach every tool, and hwspec picks them up in the weekly bundle. The `cpu` curated list and anything hwspec-specific is fixed here.

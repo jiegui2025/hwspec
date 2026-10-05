@@ -1,5 +1,9 @@
 # hwspec
 
+[![CI](https://github.com/jiegui2025/hwspec/actions/workflows/ci.yml/badge.svg)](https://github.com/jiegui2025/hwspec/actions/workflows/ci.yml)
+[![ID databases](https://github.com/jiegui2025/hwspec/actions/workflows/ids.yml/badge.svg)](https://github.com/jiegui2025/hwspec/releases/tag/ids-latest)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+
 **Capture a Linux machine's complete hardware specification to a JSON, YAML or text file. One static binary, any distro, works offline.**
 
 ```console
@@ -159,6 +163,10 @@ make update-ids   # refresh the embedded ID databases from upstream
 | `internal/smbios`, `internal/edid` | SMBIOS (memory modules) and monitor EDID parsers |
 | `internal/report`, `internal/output` | The file format, redaction, JSON/YAML/text writers |
 | `tools/genids` | Converts upstream ID sources into the embedded files |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development, tests and pull requests, [ARCHITECTURE.md](ARCHITECTURE.md) for how the code is organised, and [SECURITY.md](SECURITY.md) to report a vulnerability. The [project board](https://github.com/users/jiegui2025/projects) tracks the roadmap, defects and maintenance.
 
 ## Licence
 

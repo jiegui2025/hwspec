@@ -162,7 +162,7 @@ func Update(ctx context.Context, opt UpdateOptions) ([]FileUpdate, error) {
 	// Every file checked out; install them, the manifest last, so a crash
 	// midway leaves the old manifest (and dates) describing older files at
 	// worst, which only makes hwspec prefer other sources.
-	if err := os.MkdirAll(syncedDir, 0o755); err != nil {
+	if err := os.MkdirAll(syncedDir, 0o750); err != nil {
 		return nil, err
 	}
 	for name, gz := range downloads {

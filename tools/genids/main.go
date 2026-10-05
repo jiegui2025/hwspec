@@ -104,8 +104,12 @@ func writeGzip(out string, data []byte) error {
 	// gzip.Writer leaves the header timestamp zero, so this is deterministic.
 	var buf bytes.Buffer
 	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
-	zw.Write(data)
-	zw.Close()
+	if _, err := zw.Write(data); err != nil {
+		return err
+	}
+	if err := zw.Close(); err != nil {
+		return err
+	}
 	return os.WriteFile(out, buf.Bytes(), 0o644)
 }
 
@@ -124,7 +128,11 @@ func jedec(src []byte) ([]byte, error) {
 		return nil, fmt.Errorf("no @vendors table found")
 	}
 	s = s[start:]
-	s = s[:strings.Index(s, ");")]
+	end := strings.Index(s, ");")
+	if end < 0 {
+		return nil, fmt.Errorf("@vendors table is not terminated")
+	}
+	s = s[:end]
 	var b strings.Builder
 	b.WriteString("# JEDEC JEP106 manufacturer IDs, from i2c-tools decode-dimms\n")
 	for bank, page := range perlPage.FindAllStringSubmatch(s, -1) {

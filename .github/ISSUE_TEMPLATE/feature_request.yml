@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest new hardware coverage, output, or behaviour
+labels: ["type: feature", "status: triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do that hwspec can't?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like hwspec to do?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you use today

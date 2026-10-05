@@ -200,7 +200,8 @@ func TestNewestSourceWins(t *testing.T) {
 	write(t, sys, "#\tVersion: 2500.01.01\n8086  Distro Intel\n")
 	syncedDir = filepath.Join(dir, "synced")
 	writeGz(t, filepath.Join(syncedDir, "pci.ids.gz"), "8086  Synced Intel\n")
-	for date, want := range map[string]string{"2400-01-01": "Distro Intel", "2600-01-01": "Synced Intel"} {
+	for _, c := range []struct{ date, want string }{{"2400-01-01", "Distro Intel"}, {"2600-01-01", "Synced Intel"}} {
+		date, want := c.date, c.want
 		write(t, filepath.Join(syncedDir, "manifest.json"),
 			`{"format":1,"generated_at":"2026-01-01T00:00:00Z","files":{"pci.ids.gz":{"date":"`+date+`"}}}`)
 		Reset()

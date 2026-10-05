@@ -1,3 +1,7 @@
 /build/
 /result
 mise.local.toml
+/genids
+/hwspec
+*.test
+coverage.out
