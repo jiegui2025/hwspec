@@ -64,34 +64,67 @@ Examples:
 `
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprint(os.Stderr, usage)
-		os.Exit(2)
+	os.Exit(run(os.Args[1:], cli{stdin: os.Stdin, stdout: os.Stdout, stderr: os.Stderr}))
+}
+
+// cli holds the streams a command reads and writes, so commands can run
+// in tests.
+type cli struct {
+	stdin          io.Reader
+	stdout, stderr io.Writer
+}
+
+// Replaceable in tests: who is running, what a capture collects, how
+// pkexec is found, and the check that only a root-owned binary is elevated.
+var (
+	geteuid       = os.Geteuid
+	rootOwned     = trust.RootOwned
+	collectReport = collect.Collect
+	findPkexec    = func() (string, error) {
+		if isFile("/usr/bin/pkexec") {
+			return "/usr/bin/pkexec", nil
+		}
+		return exec.LookPath("pkexec")
+	}
+)
+
+// errNotFound ends a command with exit status 1 after it printed why.
+var errNotFound = errors.New("not found")
+
+// run executes one command line (without the program name) and returns
+// the exit status: 0 success, 1 failure (including a command's bad flags
+// or arguments), 2 no command or an unknown one.
+func run(args []string, c cli) int {
+	if len(args) == 0 {
+		fmt.Fprint(c.stderr, usage)
+		return 2
 	}
 	var err error
-	switch os.Args[1] {
+	switch args[0] {
 	case "capture":
-		err = capture(os.Args[2:])
+		err = c.capture(args[1:])
 	case "show":
-		err = show(os.Args[2:])
+		err = c.show(args[1:])
 	case "ids":
-		err = idsCmd(os.Args[2:])
+		err = c.idsCmd(args[1:])
 	case "version", "--version", "-v":
-		fmt.Println("hwspec", fullVersion())
+		fmt.Fprintln(c.stdout, "hwspec", fullVersion())
 	case "help", "--help", "-h":
-		fmt.Print(usage)
+		fmt.Fprint(c.stdout, usage)
 	default:
-		fmt.Fprintf(os.Stderr, "hwspec: unknown command %q\n\n%s", os.Args[1], usage)
-		os.Exit(2)
+		fmt.Fprintf(c.stderr, "hwspec: unknown command %q\n\n%s", args[0], usage)
+		return 2
 	}
-	if errors.Is(err, flag.ErrHelp) {
-		fmt.Print(usage)
-		return
+	switch {
+	case errors.Is(err, flag.ErrHelp):
+		fmt.Fprint(c.stdout, usage)
+	case errors.Is(err, errNotFound):
+		return 1
+	case err != nil:
+		fmt.Fprintln(c.stderr, "hwspec:", err)
+		return 1
 	}
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "hwspec:", err)
-		os.Exit(1)
-	}
+	return 0
 }
 
 func newFlags(name string) *flag.FlagSet {
@@ -132,13 +165,13 @@ func pickFormat(format, outPath, def string) (string, error) {
 	return "", fmt.Errorf("unknown format %q (want one of %s)", format, strings.Join(output.Formats, ", "))
 }
 
-func writeReport(r *report.Report, outPath, format string) error {
+func (c cli) writeReport(r *report.Report, outPath, format string) error {
 	var buf bytes.Buffer
 	if err := output.Write(&buf, r, format); err != nil {
 		return err
 	}
 	if outPath == "" || outPath == "-" {
-		_, err := os.Stdout.Write(buf.Bytes())
+		_, err := c.stdout.Write(buf.Bytes())
 		return err
 	}
 	// Captures hold serial numbers, MAC addresses and the hostname: private
@@ -150,7 +183,7 @@ func writeReport(r *report.Report, outPath, format string) error {
 	if err := writeFileAtomic(outPath, buf.Bytes(), mode); err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "hwspec: wrote %s (%s, %d warnings)\n", outPath, format, len(r.Warnings))
+	fmt.Fprintf(c.stderr, "hwspec: wrote %s (%s, %d warnings)\n", outPath, format, len(r.Warnings))
 	return nil
 }
 
@@ -230,7 +263,7 @@ func writeInto(path string, data []byte, flags int) error {
 // ownedByCaller refuses to write into a pipe or device that belongs to
 // someone else (under sudo, the caller is the invoking user).
 func ownedByCaller(path string, st os.FileInfo) error {
-	uid := os.Geteuid()
+	uid := geteuid()
 	if u, _, ok := sudoUser(); ok {
 		uid = u
 	}
@@ -266,7 +299,7 @@ func umask() os.FileMode {
 
 // sudoUser returns the invoking user when running as root under sudo.
 func sudoUser() (uid, gid int, ok bool) {
-	if os.Geteuid() != 0 {
+	if geteuid() != 0 {
 		return 0, 0, false
 	}
 	u, err1 := strconv.Atoi(os.Getenv("SUDO_UID"))
@@ -277,16 +310,16 @@ func sudoUser() (uid, gid int, ok bool) {
 // warnIDSources tells the user about problems with their own ID sources:
 // mistakes in the overrides file (valid lines still apply), and synced
 // databases that are skipped because their manifest can't be read.
-func warnIDSources() {
+func (c cli) warnIDSources() {
 	if err := ids.OverridesError(); err != nil {
-		fmt.Fprintf(os.Stderr, "hwspec: %s: %v (other lines still apply)\n", ids.OverridesPath(), err)
+		fmt.Fprintf(c.stderr, "hwspec: %s: %v (other lines still apply)\n", ids.OverridesPath(), err)
 	}
 	if _, err := ids.SyncedAt(); err != nil {
-		fmt.Fprintf(os.Stderr, "hwspec: synced ID databases skipped, their manifest is unreadable (%v); run `hwspec ids update --allow-older`\n", err)
+		fmt.Fprintf(c.stderr, "hwspec: synced ID databases skipped, their manifest is unreadable (%v); run `hwspec ids update --allow-older`\n", err)
 	}
 }
 
-func capture(args []string) error {
+func (c cli) capture(args []string) error {
 	fs := newFlags("capture")
 	var outPath, format string
 	var full, redact bool
@@ -305,33 +338,30 @@ func capture(args []string) error {
 	}
 
 	var r *report.Report
-	if full && os.Geteuid() != 0 {
-		if r, err = captureAsRoot(); err != nil {
+	if full && geteuid() != 0 {
+		if r, err = c.captureAsRoot(); err != nil {
 			return err
 		}
 		// The root child named devices with root's overrides (if any);
 		// redo it with this user's.
 		resolve.Names(r)
 	} else {
-		r = collect.Collect(fullVersion())
+		r = collectReport(fullVersion())
 	}
-	warnIDSources()
+	c.warnIDSources()
 	if redact {
 		r.Redact()
 	}
-	return writeReport(r, outPath, format)
+	return c.writeReport(r, outPath, format)
 }
 
 // captureAsRoot re-runs this binary through pkexec and reads its JSON from
 // stdout. The parent (running as the user) writes the output file, so the
 // file isn't owned by root.
-func captureAsRoot() (*report.Report, error) {
-	pkexec := "/usr/bin/pkexec"
-	if !isFile(pkexec) {
-		var err error
-		if pkexec, err = exec.LookPath("pkexec"); err != nil {
-			return nil, errors.New("--full needs pkexec (polkit); alternatively run hwspec with sudo")
-		}
+func (c cli) captureAsRoot() (*report.Report, error) {
+	pkexec, err := findPkexec()
+	if err != nil {
+		return nil, errors.New("--full needs pkexec (polkit); alternatively run hwspec with sudo")
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -342,13 +372,13 @@ func captureAsRoot() (*report.Report, error) {
 	}
 	// Malware running as the user must not be able to swap the binary
 	// just before the user approves the root prompt.
-	if err := trust.RootOwned(self); err != nil {
+	if err := rootOwned(self); err != nil {
 		return nil, fmt.Errorf("--full runs this binary as root, but %w. Install hwspec somewhere only root can change "+
 			"(e.g. `sudo install -m755 %s /usr/local/bin/`), or run `sudo %s capture`", err, self, self)
 	}
 	cmd := exec.Command(pkexec, self, "capture", "-f", "json")
-	cmd.Stdin = os.Stdin // lets pkexec fall back to a terminal prompt
-	cmd.Stderr = os.Stderr
+	cmd.Stdin = c.stdin // lets pkexec fall back to a terminal prompt
+	cmd.Stderr = c.stderr
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	if err := cmd.Run(); err != nil {
@@ -369,7 +399,7 @@ func isFile(path string) bool {
 	return err == nil && st.Mode().IsRegular()
 }
 
-func show(args []string) error {
+func (c cli) show(args []string) error {
 	fs := newFlags("show")
 	var outPath, format string
 	var redact bool
@@ -395,7 +425,7 @@ func show(args []string) error {
 
 	var data []byte
 	if file == "-" {
-		data, err = io.ReadAll(os.Stdin)
+		data, err = io.ReadAll(c.stdin)
 	} else {
 		data, err = os.ReadFile(file) //nolint:gosec // G703: reading the file the user named is the point
 	}
@@ -407,15 +437,15 @@ func show(args []string) error {
 		return fmt.Errorf("%s: %w", file, err)
 	}
 	if r.SchemaVersion > report.SchemaVersion {
-		fmt.Fprintf(os.Stderr, "hwspec: %s uses schema %d, newer than this build understands (%d); some fields may be missing\n",
+		fmt.Fprintf(c.stderr, "hwspec: %s uses schema %d, newer than this build understands (%d); some fields may be missing\n",
 			file, r.SchemaVersion, report.SchemaVersion)
 	}
 	resolve.Names(r)
-	warnIDSources()
+	c.warnIDSources()
 	if redact {
 		r.Redact()
 	}
-	return writeReport(r, outPath, format)
+	return c.writeReport(r, outPath, format)
 }
 
 func fullVersion() string {

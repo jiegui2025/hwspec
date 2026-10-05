@@ -12,9 +12,9 @@ import (
 	"github.com/jiegui2025/hwspec/internal/ids"
 )
 
-func idsCmd(args []string) error {
+func (c cli) idsCmd(args []string) error {
 	if len(args) == 0 {
-		return idsStatus()
+		return c.idsStatus()
 	}
 	switch args[0] {
 	case "lookup":
@@ -28,21 +28,24 @@ func idsCmd(args []string) error {
 			return err
 		}
 		if name == "" {
-			fmt.Printf("%s %s: not found (key %s)\n", kind, id, key)
-			os.Exit(1)
+			fmt.Fprintf(c.stdout, "%s %s: not found (key %s)\n", kind, id, key)
+			return errNotFound
 		}
-		fmt.Printf("%s\t(%s %s)\n", name, kind, key)
+		fmt.Fprintf(c.stdout, "%s\t(%s %s)\n", name, kind, key)
 		return nil
 	case "template":
-		fmt.Print(ids.OverridesHelp)
+		fmt.Fprint(c.stdout, ids.OverridesHelp)
 		return nil
 	case "update":
-		return idsUpdate(args[1:])
+		return c.idsUpdate(args[1:])
 	}
 	return fmt.Errorf("unknown ids subcommand %q (want update, lookup or template)", args[0])
 }
 
-func idsUpdate(args []string) error {
+// updateIDs downloads and installs the signed bundle; tests replace it.
+var updateIDs = ids.Update
+
+func (c cli) idsUpdate(args []string) error {
 	fs := newFlags("ids update")
 	var check, allowOlder bool
 	url := os.Getenv("HWSPEC_IDS_URL")
@@ -55,10 +58,10 @@ func idsUpdate(args []string) error {
 	if url == "" {
 		url = ids.DefaultSyncURL
 	}
-	fmt.Fprintf(os.Stderr, "Checking %s\n", url)
+	fmt.Fprintf(c.stderr, "Checking %s\n", url)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	res, err := ids.Update(ctx, ids.UpdateOptions{
+	res, err := updateIDs(ctx, ids.UpdateOptions{
 		BaseURL:    url,
 		UserAgent:  "hwspec/" + fullVersion(),
 		DryRun:     check,
@@ -67,14 +70,14 @@ func idsUpdate(args []string) error {
 	var partial *ids.InstallError
 	switch {
 	case errors.Is(err, ids.ErrBuiltInIsNewer):
-		fmt.Printf("Already up to date: the databases built into hwspec are newer than the published bundle (%s).\n", res.BundleAt.Format("2006-01-02"))
+		fmt.Fprintf(c.stdout, "Already up to date: the databases built into hwspec are newer than the published bundle (%s).\n", res.BundleAt.Format("2006-01-02"))
 		return nil
 	case errors.As(err, &partial):
 		return fmt.Errorf("update partly installed: %w; run `hwspec ids update` again to finish", err)
 	case err != nil:
 		return fmt.Errorf("update failed, nothing changed: %w", err)
 	}
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(c.stdout, 0, 0, 2, ' ', 0)
 	changed := 0
 	results := res.Files
 	for _, r := range results {
@@ -90,22 +93,22 @@ func idsUpdate(args []string) error {
 	w.Flush()
 	switch {
 	case check:
-		fmt.Printf("\n%d of %d databases have updates. Run `hwspec ids update` to install them.\n", changed, len(results))
+		fmt.Fprintf(c.stdout, "\n%d of %d databases have updates. Run `hwspec ids update` to install them.\n", changed, len(results))
 	case changed == 0:
-		fmt.Println("\nAlready up to date.")
+		fmt.Fprintln(c.stdout, "\nAlready up to date.")
 	default:
-		fmt.Printf("\nInstalled %d databases into %s.\n", changed, ids.SyncedDir())
+		fmt.Fprintf(c.stdout, "\nInstalled %d databases into %s.\n", changed, ids.SyncedDir())
 	}
 	// Bundles are published weekly; a much older one means publishing has
 	// stopped (or a mirror is stale).
 	if time.Since(res.BundleAt) > 60*24*time.Hour {
-		fmt.Fprintf(os.Stderr, "hwspec: warning: the newest published bundle is from %s; the ID databases may be stale\n", res.BundleAt.Format("2006-01-02"))
+		fmt.Fprintf(c.stderr, "hwspec: warning: the newest published bundle is from %s; the ID databases may be stale\n", res.BundleAt.Format("2006-01-02"))
 	}
 	return nil
 }
 
-func idsStatus() error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+func (c cli) idsStatus() error {
+	w := tabwriter.NewWriter(c.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "DATABASE\tNAMES\tSOURCE (newest of embedded, distro, synced; then overrides)")
 	for _, k := range ids.Kinds {
 		var parts []string
@@ -128,21 +131,21 @@ func idsStatus() error {
 
 	switch t, err := ids.SyncedAt(); {
 	case err != nil:
-		fmt.Printf("\nSynced databases are not used: their manifest is unreadable (%v).\nRun `hwspec ids update --allow-older` to replace them.\n", err)
+		fmt.Fprintf(c.stdout, "\nSynced databases are not used: their manifest is unreadable (%v).\nRun `hwspec ids update --allow-older` to replace them.\n", err)
 	case t.IsZero():
-		fmt.Println("\nNot synced yet. `hwspec ids update` downloads the latest databases (signed, ~1 MB).")
+		fmt.Fprintln(c.stdout, "\nNot synced yet. `hwspec ids update` downloads the latest databases (signed, ~1 MB).")
 	default:
-		fmt.Printf("\nSynced bundle: built %s, in %s\n", t.Format("2006-01-02"), ids.SyncedDir())
+		fmt.Fprintf(c.stdout, "\nSynced bundle: built %s, in %s\n", t.Format("2006-01-02"), ids.SyncedDir())
 	}
 	if err := ids.OverridesError(); err != nil {
-		fmt.Printf("Overrides file has problems (valid lines still apply): %v\n", err)
+		fmt.Fprintf(c.stdout, "Overrides file has problems (valid lines still apply): %v\n", err)
 	}
 
 	path := ids.OverridesPath()
 	if _, err := os.Stat(path); err == nil {
-		fmt.Printf("Overrides: %s\n", path)
+		fmt.Fprintf(c.stdout, "Overrides: %s\n", path)
 	} else {
-		fmt.Printf("No overrides file. To correct or add names, create %s\n(start from `hwspec ids template`).\n", path)
+		fmt.Fprintf(c.stdout, "No overrides file. To correct or add names, create %s\n(start from `hwspec ids template`).\n", path)
 	}
 	return nil
 }
