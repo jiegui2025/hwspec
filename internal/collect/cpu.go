@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ const cpuDir = "/sys/devices/system/cpu/"
 
 func (c *collector) cpu() {
 	out := &c.r.CPU
+	var model, vendor string
 	info, err := ghw.CPU(ghw.WithDisableWarnings(), ghw.WithDisableTools())
 	if err != nil {
 		c.warn("cpu: %v", err)
@@ -23,26 +25,28 @@ func (c *collector) cpu() {
 		out.Threads = int(info.TotalHardwareThreads)
 		if len(info.Processors) > 0 {
 			p0 := info.Processors[0]
-			out.Model = p0.Model
-			out.Vendor = p0.Vendor
+			model, vendor = p0.Model, p0.Vendor
 			out.Flags = p0.Capabilities
 		}
 	}
-	if out.Model == "" {
+	if model == "" {
 		// ARM kernels often have no "model name". "Processor" (older arm32)
 		// and "Hardware" (the SoC) describe the CPU; "Model" is the board,
 		// which belongs to System, so it isn't used here.
 		for _, k := range []string{"model name", "cpu model", "Processor", "Hardware"} {
 			if v := c.cpuinfoField(k); v != "" {
-				out.Model = v
+				model = v
 				break
 			}
 		}
 	}
-	if out.Vendor == "" {
-		out.Vendor = c.cpuinfoField("vendor_id")
+	if vendor == "" {
+		vendor = c.cpuinfoField("vendor_id")
 	}
-	out.Microcode = c.cpuinfoField("microcode")
+	if model != "" || vendor != "" {
+		out.Identity = &report.Identity{Vendor: vendor, Model: model}
+	}
+	out.Firmware = firmwareVersion(c.cpuinfoField("microcode"), "microcode")
 	out.Family, _ = strconv.Atoi(c.cpuinfoField("cpu family"))
 	out.ModelID, _ = strconv.Atoi(c.cpuinfoField("model"))
 	out.Stepping, _ = strconv.Atoi(c.cpuinfoField("stepping"))
@@ -65,7 +69,17 @@ func (c *collector) cpu() {
 			out.MaxFreqMHz = khz / 1000
 		}
 	}
-	out.ScalingDriver = readStr(cpuDir + "cpu0/cpufreq/scaling_driver")
+	// The frequency-scaling driver (intel_pstate, amd-pstate-epp,
+	// acpi-cpufreq…) is usually built in; it has no device to bind to.
+	if name := readStr(cpuDir + "cpu0/cpufreq/scaling_driver"); name != "" {
+		out.Driver = &report.Driver{Name: name}
+		if mod := strings.ReplaceAll(name, "-", "_"); exists("/sys/module/" + mod + "/initstate") {
+			out.Driver.Module = mod
+		} else {
+			out.Driver.Builtin = true
+		}
+	}
+	out.Health = cpuHealth()
 	out.Governor = readStr(cpuDir + "cpu0/cpufreq/scaling_governor")
 
 	// Intel hybrid: the kernel registers separate PMUs for each core type.
@@ -79,6 +93,44 @@ func (c *collector) cpu() {
 	}
 
 	out.Caches = c.caches()
+}
+
+// cpuHealth counts thermal throttling since boot (Intel exposes the
+// counters). Throttling at all is a cooling problem: dust, a dry thermal
+// interface (paste, pad) or a failing fan.
+func cpuHealth() *report.Health {
+	var events uint64
+	found := false
+	packages := map[string]bool{}
+	for _, cpu := range cpuDirs() {
+		for _, f := range []string{"core_throttle_count", "package_throttle_count"} {
+			v, err := strconv.ParseUint(readStr(cpuDir+cpu+"/thermal_throttle/"+f), 10, 64)
+			if err != nil {
+				continue
+			}
+			found = true
+			// The package counter repeats on every CPU of the package:
+			// count it once per physical package.
+			if f == "package_throttle_count" {
+				pkg := readStr(cpuDir + cpu + "/topology/physical_package_id")
+				if packages[pkg] {
+					continue
+				}
+				packages[pkg] = true
+			}
+			events += v
+		}
+	}
+	if !found {
+		return nil
+	}
+	h := &report.Health{Status: report.StatusOK, Source: "thermal_throttle"}
+	metric(h, report.MetricThrottleEvents, float64(events), true)
+	if events > 0 {
+		h.Status = report.StatusWarning
+		h.Reasons = append(h.Reasons, fmt.Sprintf("thermal throttling %d times since boot: check cooling (dust, thermal paste or pad, fan)", events))
+	}
+	return h
 }
 
 func cpuDirs() []string {

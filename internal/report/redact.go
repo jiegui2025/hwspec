@@ -1,6 +1,7 @@
 package report
 
 import (
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -12,23 +13,23 @@ var systemMounts = map[string]bool{
 }
 
 // macInterfaceName matches names udev derives from the MAC address
-// (enx001122334455, wlx…), which would leak the redacted MAC.
+// (enx001122334455, wlx…, wwx…), which would leak the redacted MAC.
 var macInterfaceName = regexp.MustCompile(`^(enx|wlx|wwx)[0-9a-f]{12}$`)
 
 // Redact clears identifiers that tie a report to one physical machine or
-// person (serial numbers, UUIDs, MAC addresses, hostname), so the file can be
-// shared publicly. Models, versions and sizes are kept.
+// person (serial numbers, UUIDs, MAC addresses, hostname, personal paths),
+// so the file can be shared publicly. Models, versions, sizes and dates are
+// kept.
 func (r *Report) Redact() {
 	r.Redacted = true
 	r.Hostname = ""
-	r.System.Serial, r.System.UUID, r.System.ChassisSerial = "", "", ""
-	r.Board.Serial, r.Board.AssetTag = "", ""
-	for i := range r.Memory.Modules {
-		r.Memory.Modules[i].Serial = ""
-	}
+	// Every serial number lives in an Identity block (ADR 0008).
+	forEachIdentity(reflect.ValueOf(r).Elem(), func(id *Identity) { id.Serial = "" })
+	r.System.UUID, r.System.ChassisSerial = "", ""
+	r.Board.AssetTag = ""
 	for i := range r.Storage {
 		d := &r.Storage[i]
-		d.Serial, d.WWN = "", ""
+		d.WWN = ""
 		for j := range d.Partitions {
 			p := &d.Partitions[j]
 			p.UUID, p.Label = "", ""
@@ -37,9 +38,6 @@ func (r *Report) Redact() {
 				p.MountPoint = ""
 			}
 		}
-	}
-	for i := range r.Displays {
-		r.Displays[i].Serial = ""
 	}
 	for i := range r.Network {
 		n := &r.Network[i]
@@ -52,10 +50,32 @@ func (r *Report) Redact() {
 		// The local name usually defaults to the hostname.
 		r.Bluetooth[i].Address, r.Bluetooth[i].LocalName = "", ""
 	}
-	for i := range r.Batteries {
-		r.Batteries[i].Serial = ""
-	}
-	for i := range r.USB {
-		r.USB[i].Serial = ""
+}
+
+var identityType = reflect.TypeOf(Identity{})
+
+// forEachIdentity calls fn for every Identity reachable from v.
+func forEachIdentity(v reflect.Value, fn func(*Identity)) {
+	switch v.Kind() {
+	case reflect.Pointer:
+		if !v.IsNil() {
+			forEachIdentity(v.Elem(), fn)
+		}
+	case reflect.Struct:
+		if v.Type() == identityType {
+			if v.CanAddr() {
+				fn(v.Addr().Interface().(*Identity))
+			}
+			return
+		}
+		for i := 0; i < v.NumField(); i++ {
+			if v.Type().Field(i).IsExported() {
+				forEachIdentity(v.Field(i), fn)
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			forEachIdentity(v.Index(i), fn)
+		}
 	}
 }

@@ -20,10 +20,12 @@ func sample() *report.Report {
 		Hostname:      "box",
 		OS:            report.OS{PrettyName: "Test OS", SecureBoot: &on, Virtualization: "none"},
 		// Strings that look like other YAML types must survive a round trip.
-		Board:    report.Board{Product: "8595", Version: "true"},
-		BIOS:     report.BIOS{Release: "27.0"},
-		Memory:   report.Memory{TotalBytes: 32 << 30, Modules: []report.MemoryModule{}},
-		Storage:  []report.Disk{{Name: "sda", Serial: "S1", Partitions: []report.Partition{{Name: "sda1", UUID: "u"}}}},
+		System: report.System{Firmware: &report.Firmware{Version: "R21", Release: "27.0", Source: "dmi"}},
+		Board:  report.Board{Identity: &report.Identity{Model: "8595", Revision: "true"}},
+		Memory: report.Memory{TotalBytes: 32 << 30, Modules: []report.MemoryModule{}},
+		Storage: []report.Disk{{Name: "sda", Identity: &report.Identity{Model: "SSD", Serial: "S1"},
+			Health:     &report.Health{Status: report.StatusOK, Metrics: map[string]float64{report.MetricPowerOnHours: 2541}},
+			Partitions: []report.Partition{{Name: "sda1", UUID: "u"}}}},
 		Network:  []report.NIC{{Name: "eth0", MAC: "00:11:22:33:44:55"}},
 		Warnings: []string{"x: needs root"},
 	}
@@ -60,7 +62,7 @@ func TestText(t *testing.T) {
 func TestRedact(t *testing.T) {
 	r := sample()
 	r.Redact()
-	if r.Hostname != "" || r.Storage[0].Serial != "" || r.Storage[0].Partitions[0].UUID != "" || r.Network[0].MAC != "" || !r.Redacted {
+	if r.Hostname != "" || r.Storage[0].Identity.Serial != "" || r.Storage[0].Partitions[0].UUID != "" || r.Network[0].MAC != "" || !r.Redacted {
 		t.Errorf("redact left identifiers: %+v", r)
 	}
 }
@@ -85,7 +87,8 @@ func TestShowRejectsFilesThatAreNotCaptures(t *testing.T) {
 // the terminal as escape sequences.
 func TestTextOutputIsTerminalSafe(t *testing.T) {
 	r := sample()
-	r.CPU.Model = "Evil\x1b]52;c;ZXZpbA==\x07\x1b[2J CPU\x9b"
+	r.CPU.Identity = &report.Identity{}
+	r.CPU.Identity.Model = "Evil\x1b]52;c;ZXZpbA==\x07\x1b[2J CPU\x9b"
 	var buf bytes.Buffer
 	if err := Write(&buf, r, "text"); err != nil {
 		t.Fatal(err)
@@ -103,7 +106,7 @@ func TestTextOutputIsTerminalSafe(t *testing.T) {
 func TestTextShowsOnlyWhatWasReported(t *testing.T) {
 	r := sample()
 	r.Bluetooth = []report.BluetoothController{{Name: "hci0", Manufacturer: "   "}}
-	r.Batteries = []report.Battery{{Name: "BAT0", Model: "5B10", CapacityPercent: 80}}
+	r.Batteries = []report.Battery{{Name: "BAT0", Identity: &report.Identity{Model: "5B10"}, CapacityPercent: 80}}
 	r.CPU.Microarchitecture = "Zen 4" // no codename for this model
 	r.OS.BootMode = ""
 	var buf bytes.Buffer
@@ -119,6 +122,54 @@ func TestTextShowsOnlyWhatWasReported(t *testing.T) {
 	for _, unwanted := range []string{"0.0 of 0.0 Wh", "0% health", "0 cycles"} {
 		if strings.Contains(out, unwanted) {
 			t.Errorf("text shows a missing figure as zero (%q):\n%s", unwanted, out)
+		}
+	}
+}
+
+// Devices that need attention are grouped in one list, with the reasons,
+// so nothing is lost among the healthy ones.
+func TestNeedsAttentionGroupsWarningsAndFailures(t *testing.T) {
+	r := sample()
+	used, left := 96.0, 4.0
+	r.Storage[0].Health = &report.Health{Status: report.StatusWarning, Reasons: []string{"rated write endurance reached: plan a replacement"},
+		LifeUsedPercent: &used, LifeRemainingPercent: &left}
+	r.Batteries = []report.Battery{{Name: "BAT0", Health: &report.Health{Status: report.StatusFailing, Reasons: []string{"driver reports battery health: dead"}}}}
+	r.Network[0].Health = &report.Health{Status: report.StatusOK}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	i := strings.Index(out, "Needs attention")
+	if i < 0 {
+		t.Fatalf("no Needs attention section:\n%s", out)
+	}
+	section := out[i:]
+	for _, want := range []string{"WARNING disk sda: rated write endurance reached", "FAILING battery BAT0: driver reports battery health: dead"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("attention list lacks %q:\n%s", want, section)
+		}
+	}
+	if strings.Contains(section, "eth0") {
+		t.Error("a healthy device was listed as needing attention")
+	}
+	if !strings.Contains(out, "96% worn (4% life left)") {
+		t.Errorf("wear not shown:\n%s", out)
+	}
+}
+
+func TestMachineNameDoesNotRepeatTheVendor(t *testing.T) {
+	for _, c := range []struct {
+		id   *report.Identity
+		want string
+	}{
+		{&report.Identity{Vendor: "HP", Model: "HP EliteDesk 800 G5 Desktop Mini"}, "HP EliteDesk 800 G5 Desktop Mini"},
+		{&report.Identity{Vendor: "LENOVO", Model: "ThinkPad T14"}, "LENOVO ThinkPad T14"},
+		{&report.Identity{Vendor: "Dell Inc.", Model: ""}, "Dell Inc."},
+		{nil, "unknown"},
+	} {
+		if got := product(c.id); got != c.want {
+			t.Errorf("product(%+v) = %q, want %q", c.id, got, c.want)
 		}
 	}
 }

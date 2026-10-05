@@ -26,10 +26,13 @@ func (c *collector) pci() {
 			SubVendorID: svid,
 			SubDeviceID: sdid,
 			ClassCode:   class,
-			Revision:    hex4(readStr(d + "revision")),
-			Driver:      linkBase(d + "driver"),
 			IOMMUGroup:  linkBase(d + "iommu_group"),
 			Link:        pcieLink(d),
+			Driver:      driverAt(pciDir + addr),
+		}
+		// Names are filled in by resolve; the revision is the device's own.
+		if rev := hex4(readStr(d + "revision")); rev != "" {
+			dev.Identity = &report.Identity{Revision: rev}
 		}
 		c.r.PCI = append(c.r.PCI, dev)
 	}
@@ -67,11 +70,14 @@ func (c *collector) gpus() {
 			PCIAddress: dev.Address,
 			VendorID:   dev.VendorID,
 			DeviceID:   dev.DeviceID,
-			Revision:   dev.Revision,
 			Driver:     dev.Driver,
 			BootVGA:    readStr(pciDir+dev.Address+"/boot_vga") == "1",
 			Link:       dev.Link,
 			Outputs:    []string{},
+			Firmware:   gpuFirmware(dev.Address),
+		}
+		if dev.Identity != nil {
+			g.Identity = &report.Identity{Revision: dev.Identity.Revision}
 		}
 		g.VRAMBytes = readUint(pciDir + dev.Address + "/mem_info_vram_total") // amdgpu
 		for card, addr := range cards {
@@ -87,6 +93,20 @@ func (c *collector) gpus() {
 		}
 		c.r.GPUs = append(c.r.GPUs, g)
 	}
+}
+
+// gpuFirmware reads the video BIOS version where the driver exposes it
+// without root: amdgpu in sysfs, the NVIDIA driver under /proc.
+func gpuFirmware(addr string) *report.Firmware {
+	if fw := firmwareVersion(readStr(pciDir+addr+"/vbios_version"), "vbios"); fw != nil {
+		return fw
+	}
+	for _, line := range strings.Split(readStr("/proc/driver/nvidia/gpus/"+addr+"/information"), "\n") {
+		if k, v, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(k) == "Video BIOS" {
+			return firmwareVersion(v, "vbios")
+		}
+	}
+	return nil
 }
 
 // drmCards maps DRM card names (card0, card1) to their PCI addresses.
@@ -115,13 +135,19 @@ func (c *collector) displays() {
 		if err == nil && len(raw) > 0 {
 			if e, err := edid.Parse(raw); err == nil {
 				disp.ManufacturerID = e.ManufacturerID
-				disp.Model = e.Name
-				disp.ProductCode = fmt.Sprintf("%04X", e.ProductCode)
-				disp.Serial = e.SerialText
-				if disp.Serial == "" && e.SerialNumber != 0 && e.SerialNumber != 0x01010101 {
-					disp.Serial = strconv.FormatUint(uint64(e.SerialNumber), 10)
+				id := &report.Identity{
+					Model:      e.Name,
+					PartNumber: fmt.Sprintf("%04X", e.ProductCode),
+					Serial:     e.SerialText,
 				}
-				disp.Year = e.Year
+				if id.Serial == "" && e.SerialNumber != 0 && e.SerialNumber != 0x01010101 {
+					id.Serial = strconv.FormatUint(uint64(e.SerialNumber), 10)
+				}
+				// Week 255 means the year is a model year, not a manufacture date.
+				if e.Week != 255 {
+					id.ManufactureDate, id.ManufactureDateSource = isoWeek(e.Year, e.Week), "edid"
+				}
+				disp.Identity = id
 				disp.WidthMM, disp.HeightMM = e.WidthMM, e.HeightMM
 				disp.DiagonalIn = e.DiagonalInches()
 				disp.NativeWidth, disp.NativeHeight = e.NativeWidth, e.NativeHeight

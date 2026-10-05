@@ -15,8 +15,7 @@ import (
 func Names(r *report.Report) {
 	for i := range r.PCI {
 		d := &r.PCI[i]
-		set(&d.Vendor, ids.PCIVendor(d.VendorID))
-		set(&d.Device, ids.PCIDevice(d.VendorID, d.DeviceID))
+		name(&d.Identity, ids.PCIVendor(d.VendorID), ids.PCIDevice(d.VendorID, d.DeviceID))
 		set(&d.Subsystem, ids.PCISubsystem(d.VendorID, d.DeviceID, d.SubVendorID, d.SubDeviceID))
 		set(&d.Class, ids.PCIClass(d.ClassCode))
 	}
@@ -24,44 +23,39 @@ func Names(r *report.Report) {
 	for i := range r.GPUs {
 		g := &r.GPUs[i]
 		if dev := pciByAddress(r, g.PCIAddress); dev != nil {
-			// Captures from before the GPU ID fields existed.
-			if g.VendorID == "" {
-				g.VendorID, g.DeviceID, g.Revision = dev.VendorID, dev.DeviceID, dev.Revision
-			}
 			set(&g.Subsystem, dev.Subsystem)
 		}
-		set(&g.Vendor, ids.PCIVendor(g.VendorID))
 		set(&g.Chip, ids.PCIDevice(g.VendorID, g.DeviceID))
 		model := g.Chip
-		if g.VendorID == "1002" {
-			if retail := ids.AMDGPUName(g.DeviceID, g.Revision); retail != "" {
+		if g.VendorID == "1002" && g.Identity != nil {
+			if retail := ids.AMDGPUName(g.DeviceID, g.Identity.Revision); retail != "" {
 				model = retail
 			}
 		}
-		set(&g.Model, model)
-		if g.Model == "" && g.VendorID != "" {
-			g.Model = g.VendorID + ":" + g.DeviceID
+		if model == "" && g.VendorID != "" {
+			model = g.VendorID + ":" + g.DeviceID
 		}
+		name(&g.Identity, ids.PCIVendor(g.VendorID), model)
 	}
 
 	for i := range r.USB {
 		u := &r.USB[i]
-		set(&u.Vendor, ids.USBVendor(u.VendorID))
-		set(&u.Product, ids.USBProduct(u.VendorID, u.ProductID))
+		name(&u.Identity, ids.USBVendor(u.VendorID), ids.USBProduct(u.VendorID, u.ProductID))
 		set(&u.Class, ids.USBClass(u.ClassCode))
 	}
 
 	for i := range r.Network {
 		n := &r.Network[i]
-		n.Vendor, n.Model = adapterName(r, n.Bus, n.BusAddress, n.Vendor, n.Model)
+		vendor, model := adapterName(r, n.Bus, n.BusAddress)
+		name(&n.Identity, vendor, model)
 		// A redacted file has no MAC; keep the vendor recorded at capture.
 		if n.MAC != "" {
 			n.MACVendor = ids.MACVendor(n.MAC)
 		}
 	}
 
-	if r.CPU.Family > 0 {
-		codename, uarch := ids.CPUCodename(r.CPU.Vendor, r.CPU.Family, r.CPU.ModelID, r.CPU.Stepping)
+	if r.CPU.Family > 0 && r.CPU.Identity != nil {
+		codename, uarch := ids.CPUCodename(r.CPU.Identity.Vendor, r.CPU.Family, r.CPU.ModelID, r.CPU.Stepping)
 		set(&r.CPU.Codename, codename)
 		set(&r.CPU.Microarchitecture, uarch)
 	}
@@ -74,7 +68,8 @@ func Names(r *report.Report) {
 		if b.Address != "" {
 			b.AddressVendor = ids.MACVendor(b.Address)
 		}
-		b.Vendor, b.Model = adapterName(r, b.Bus, b.BusAddress, b.Vendor, b.Model)
+		vendor, model := adapterName(r, b.Bus, b.BusAddress)
+		name(&b.Identity, vendor, model)
 	}
 
 	for i := range r.Audio {
@@ -82,24 +77,29 @@ func Names(r *report.Report) {
 			c := &r.Audio[i].Codecs[j]
 			// HDA vendor IDs are the PCI vendor in the top 16 bits.
 			if len(c.VendorID) == 8 {
-				set(&c.Vendor, ids.PCIVendor(c.VendorID[:4]))
+				name(&c.Identity, ids.PCIVendor(c.VendorID[:4]), "")
 			}
 		}
 	}
 
 	for i := range r.Displays {
 		d := &r.Displays[i]
-		set(&d.Manufacturer, ids.PNPVendor(d.ManufacturerID))
+		name(&d.Identity, ids.PNPVendor(d.ManufacturerID), "")
 	}
 
 	for i := range r.Memory.Modules {
 		m := &r.Memory.Modules[i]
-		raw := m.ManufacturerRaw
-		if raw == "" {
-			raw = m.Manufacturer
+		if m.Identity != nil {
+			raw := m.ManufacturerRaw
+			if raw == "" {
+				raw = m.Identity.Vendor
+			}
+			if n, _, ok := ids.MemoryManufacturer(raw); ok {
+				m.Identity.Vendor, m.ManufacturerRaw = n, raw
+			}
 		}
-		if name, _, ok := ids.MemoryManufacturer(raw); ok {
-			m.Manufacturer, m.ManufacturerRaw = name, raw
+		if n, _, ok := ids.MemoryManufacturer(m.DRAMVendorID); ok {
+			m.DRAMVendor = n
 		}
 	}
 
@@ -111,23 +111,37 @@ func Names(r *report.Report) {
 	}
 }
 
-// adapterName looks up the PCI or USB device behind an interface.
-func adapterName(r *report.Report, bus, addr, vendor, model string) (string, string) {
+// name sets an identity's vendor and model from database names, keeping
+// what's there (e.g. a device's own strings) when the database has none.
+func name(p **report.Identity, vendor, model string) {
+	if vendor == "" && model == "" {
+		return
+	}
+	id := report.EnsureIdentity(p)
+	set(&id.Vendor, vendor)
+	set(&id.Model, model)
+}
+
+// adapterName returns the vendor and model of the PCI or USB device behind
+// an interface.
+func adapterName(r *report.Report, bus, addr string) (vendor, model string) {
+	var id *report.Identity
 	switch bus {
 	case "pci":
 		if dev := pciByAddress(r, addr); dev != nil {
-			set(&vendor, dev.Vendor)
-			set(&model, dev.Device)
+			id = dev.Identity
 		}
 	case "usb":
-		for _, u := range r.USB {
-			if u.Path == addr {
-				set(&vendor, u.Vendor)
-				set(&model, u.Product)
+		for i := range r.USB {
+			if r.USB[i].Path == addr {
+				id = r.USB[i].Identity
 			}
 		}
 	}
-	return vendor, model
+	if id == nil {
+		return "", ""
+	}
+	return id.Vendor, id.Model
 }
 
 func set(field *string, name string) {

@@ -2,6 +2,7 @@ package collect
 
 import (
 	"bufio"
+	"fmt"
 	"math"
 	"os"
 	"regexp"
@@ -24,9 +25,14 @@ func (c *collector) network() {
 			Name:   name,
 			Type:   "ethernet",
 			MAC:    readStr(d + "address"),
-			Driver: linkBase(d + "device/driver"),
 			State:  readStr(d + "operstate"),
+			Driver: driverAt(d + "device"),
 		}
+		// The driver reports the adapter's firmware (no root needed).
+		if fw, err := ethtoolDrvinfo(name); err == nil {
+			nic.Firmware = firmwareVersion(fw, "ethtool")
+		}
+		nic.Health = nicHealth(d + "statistics/")
 		if exists(d+"wireless") || exists(d+"phy80211") {
 			nic.Type = "wireless"
 		} else if t := readStr(d + "type"); t != "1" {
@@ -46,6 +52,37 @@ func (c *collector) network() {
 	}
 }
 
+// nicHealth reports the interface's error and drop counters since boot. A
+// link losing more than 1 in 1000 packets to errors is worth a look
+// (cable, port, driver, interference).
+func nicHealth(stats string) *report.Health {
+	h := &report.Health{Status: report.StatusOK, Source: "statistics"}
+	var total, bad float64
+	for _, m := range []struct{ name, file string }{
+		{report.MetricRxPackets, "rx_packets"}, {report.MetricTxPackets, "tx_packets"},
+		{report.MetricRxErrors, "rx_errors"}, {report.MetricTxErrors, "tx_errors"},
+		{report.MetricRxDropped, "rx_dropped"}, {report.MetricTxDropped, "tx_dropped"},
+	} {
+		v, err := strconv.ParseUint(readStr(stats+m.file), 10, 64)
+		metric(h, m.name, float64(v), err == nil)
+		switch {
+		case err != nil:
+		case strings.HasSuffix(m.file, "_packets"):
+			total += float64(v)
+		case strings.HasSuffix(m.file, "_errors"):
+			bad += float64(v)
+		}
+	}
+	if h.Metrics == nil {
+		return nil
+	}
+	if total > 0 && bad/total > 0.001 {
+		h.Status = report.StatusWarning
+		h.Reasons = append(h.Reasons, fmt.Sprintf("%.2f%% of packets had errors since boot", bad/total*100))
+	}
+	return h
+}
+
 var asoundCard = regexp.MustCompile(`^\s*(\d+)\s+\[(.*?)\s*\]:\s*(.*?)\s+-\s+(.*)$`)
 
 func (c *collector) audio() {
@@ -62,8 +99,9 @@ func (c *collector) audio() {
 			continue
 		}
 		idx, _ := strconv.Atoi(m[1])
-		card := report.SoundCard{Index: idx, ID: m[2], Driver: m[3], Name: m[4]}
+		card := report.SoundCard{Index: idx, ID: m[2], Name: m[4]}
 		card.Bus, card.BusAddress = busOf("/sys/class/sound/card" + m[1] + "/device")
+		card.Driver = driverAt("/sys/class/sound/card" + m[1] + "/device")
 		card.Codecs = codecs("/proc/asound/card" + m[1])
 		c.r.Audio = append(c.r.Audio, card)
 	}
@@ -81,6 +119,7 @@ func codecs(cardDir string) []report.AudioCodec {
 			continue
 		}
 		var codec report.AudioCodec
+		id := &report.Identity{}
 		for _, line := range strings.Split(readStr(cardDir+"/"+f), "\n") {
 			k, v, ok := strings.Cut(line, ":")
 			if !ok || strings.HasPrefix(line, " ") {
@@ -89,16 +128,19 @@ func codecs(cardDir string) []report.AudioCodec {
 			v = strings.TrimSpace(v)
 			switch k {
 			case "Codec":
-				codec.Name = v
+				id.Model = v
 			case "Vendor Id":
 				codec.VendorID = hex4(v)
 			case "Subsystem Id":
 				codec.SubsystemID = hex4(v)
 			case "Revision Id":
-				codec.Revision = hex4(v)
+				id.Revision = hex4(v)
 			}
 		}
-		if codec.Name != "" || codec.VendorID != "" {
+		if !id.Empty() {
+			codec.Identity = id
+		}
+		if codec.Identity != nil || codec.VendorID != "" {
 			out = append(out, codec)
 		}
 	}
@@ -114,34 +156,95 @@ func (c *collector) batteries() {
 			continue
 		}
 		b := report.Battery{
-			Name:         n,
-			Manufacturer: readStr(d + "manufacturer"),
-			Model:        readStr(d + "model_name"),
-			Serial:       strings.TrimSpace(readStr(d + "serial_number")),
-			Technology:   readStr(d + "technology"),
-			Status:       readStr(d + "status"),
+			Name:       n,
+			Technology: readStr(d + "technology"),
+			Status:     readStr(d + "status"),
+		}
+		id := &report.Identity{
+			Vendor: readStr(d + "manufacturer"),
+			Model:  readStr(d + "model_name"),
+			Serial: strings.TrimSpace(readStr(d + "serial_number")),
+		}
+		if y, ok := readInt32(d + "manufacture_year"); ok && y > 1990 {
+			mo, _ := readInt32(d + "manufacture_month")
+			day, _ := readInt32(d + "manufacture_day")
+			id.ManufactureDate, id.ManufactureDateSource = isoDate(y, mo, day), "battery"
+		}
+		if !id.Empty() {
+			b.Identity = id
 		}
 		if v, ok := readInt32(d + "capacity"); ok {
 			b.CapacityPercent = v
 		}
-		if v, ok := readInt32(d + "cycle_count"); ok && v >= 0 {
-			b.CycleCount = v
-		}
-		// Energy in µWh, or charge in µAh × design voltage in µV.
-		design, full := float64(readUint(d+"energy_full_design")), float64(readUint(d+"energy_full"))
-		if design == 0 {
-			volts := float64(readUint(d+"voltage_min_design")) / 1e6
-			design = float64(readUint(d+"charge_full_design")) * volts
-			full = float64(readUint(d+"charge_full")) * volts
-		}
-		b.DesignWh = round(design/1e6, 2)
-		b.FullWh = round(full/1e6, 2)
-		// Health needs both figures; a missing one must not read as 0%.
-		if design > 0 && full > 0 {
-			b.HealthPercent = round(full/design*100, 1)
-		}
+		b.Health = batteryHealth(d)
 		c.r.Batteries = append(c.r.Batteries, b)
 	}
+}
+
+// batteryHealth compares full-charge capacity with the design capacity.
+// Below 80% a battery is conventionally worn out; the estimate of cycles
+// left until then uses the wear per cycle measured so far.
+func batteryHealth(d string) *report.Health {
+	h := &report.Health{Status: report.StatusUnknown, Source: "power_supply"}
+	// Energy in µWh, or charge in µAh × design voltage in µV.
+	design, full := float64(readUint(d+"energy_full_design")), float64(readUint(d+"energy_full"))
+	if design == 0 {
+		volts := float64(readUint(d+"voltage_min_design")) / 1e6
+		design = float64(readUint(d+"charge_full_design")) * volts
+		full = float64(readUint(d+"charge_full")) * volts
+	}
+	metric(h, report.MetricDesignWh, round(design/1e6, 2), design > 0)
+	metric(h, report.MetricFullWh, round(full/1e6, 2), full > 0)
+	cycles, haveCycles := readInt32(d + "cycle_count")
+	metric(h, report.MetricCycleCount, float64(cycles), haveCycles && cycles > 0)
+
+	// Health needs both figures; a missing one must not read as 0%.
+	if design > 0 && full > 0 {
+		healthPct := math.Min(100, full/design*100)
+		used := round(100-healthPct, 1)
+		h.LifeUsedPercent = &used
+		h.LifeRemainingPercent = ptr(round(math.Max(0, healthPct-80)/20*100, 1))
+		h.Status = report.StatusOK
+		if healthPct < 80 {
+			h.Status = report.StatusWarning
+			h.Reasons = append(h.Reasons, fmt.Sprintf("holds %.0f%% of its design capacity (below 80%%): consider replacing it", healthPct))
+		}
+		if haveCycles && cycles > 0 && healthPct < 100 && healthPct > 80 {
+			perCycle := (100 - healthPct) / float64(cycles)
+			h.Estimate = &report.Estimate{
+				What:   "charge cycles until 80% of design capacity",
+				Value:  math.Round((healthPct - 80) / perCycle),
+				Unit:   "cycles",
+				Method: fmt.Sprintf("(%.1f%% health − 80%%) ÷ %.4f%% wear per cycle over %d cycles so far", healthPct, perCycle, cycles),
+			}
+		}
+	}
+	// Some drivers report a verdict of their own.
+	switch v := strings.ToLower(readStr(d + "health")); v {
+	case "", "unknown", "good":
+	case "dead", "over voltage", "unspecified failure", "overheat", "cold", "watchdog timer expire", "safety timer expire", "over current", "calibration required":
+		h.Status = report.StatusFailing
+		h.Reasons = append(h.Reasons, "driver reports battery health: "+v)
+	default:
+		if h.Status == report.StatusOK || h.Status == report.StatusUnknown {
+			h.Status = report.StatusWarning
+		}
+		h.Reasons = append(h.Reasons, "driver reports battery health: "+v)
+	}
+	if h.Metrics == nil && h.Status == report.StatusUnknown {
+		return nil
+	}
+	return h
+}
+
+func isoDate(y, m, d int) string {
+	switch {
+	case m >= 1 && m <= 12 && d >= 1 && d <= 31:
+		return fmt.Sprintf("%04d-%02d-%02d", y, m, d)
+	case m >= 1 && m <= 12:
+		return fmt.Sprintf("%04d-%02d", y, m)
+	}
+	return strconv.Itoa(y)
 }
 
 func round(v float64, places int) float64 {
@@ -219,10 +322,15 @@ func (c *collector) usb() {
 			Path:       n,
 			VendorID:   vid,
 			ProductID:  pid,
-			Vendor:     readStr(d + "manufacturer"),
-			Product:    readStr(d + "product"),
-			Serial:     readStr(d + "serial"),
 			USBVersion: strings.TrimSpace(readStr(d + "version")),
+			Firmware:   firmwareVersion(usbRelease(readStr(d+"bcdDevice")), "usb"),
+		}
+		if id := (&report.Identity{
+			Vendor: readStr(d + "manufacturer"),
+			Model:  readStr(d + "product"),
+			Serial: readStr(d + "serial"),
+		}); !id.Empty() {
+			dev.Identity = id
 		}
 		if v, ok := readInt32(d + "busnum"); ok {
 			dev.Bus = v
@@ -242,9 +350,9 @@ func (c *collector) usb() {
 			if class == "00" || class == "" {
 				class = readStr(d + iface + "/bInterfaceClass")
 			}
-			if drv := linkBase(d + iface + "/driver"); drv != "" && !seenDrv[drv] {
-				seenDrv[drv] = true
-				dev.Drivers = append(dev.Drivers, drv)
+			if drv := driverAt(d + iface); drv != nil && !seenDrv[drv.Name] {
+				seenDrv[drv.Name] = true
+				dev.Drivers = append(dev.Drivers, *drv)
 			}
 		}
 		dev.ClassCode = class

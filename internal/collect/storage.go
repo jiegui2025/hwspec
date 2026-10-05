@@ -23,9 +23,6 @@ func (c *collector) storage() {
 		base := "/sys/block/" + d.Name
 		disk := report.Disk{
 			Name:               d.Name,
-			Model:              clean(d.Model),
-			Vendor:             clean(d.Vendor),
-			Serial:             clean(d.SerialNumber),
 			WWN:                clean(d.WWN),
 			SizeBytes:          d.SizeBytes,
 			Transport:          transport(d.Name),
@@ -35,21 +32,26 @@ func (c *collector) storage() {
 			LogicalBlockBytes:  readUint(base + "/queue/logical_block_size"),
 			PhysicalBlockBytes: d.PhysicalBlockSizeBytes,
 			Partitions:         []report.Partition{},
+			Driver:             controllerDriver(base + "/device"),
 		}
 		// ghw takes model/serial from the udev database, which is missing in
 		// containers and on some minimal systems; sysfs has them too.
-		if disk.Model == "" {
-			disk.Model = readStr(base + "/device/model")
+		id := &report.Identity{Vendor: clean(d.Vendor), Model: clean(d.Model), Serial: clean(d.SerialNumber)}
+		if id.Model == "" {
+			id.Model = readStr(base + "/device/model")
 		}
-		if disk.Vendor == "" {
-			disk.Vendor = readStr(base + "/device/vendor")
+		if id.Vendor == "" {
+			id.Vendor = readStr(base + "/device/vendor")
 		}
-		if disk.Serial == "" {
-			disk.Serial = readStr(base + "/device/serial")
+		if id.Serial == "" {
+			id.Serial = readStr(base + "/device/serial")
 		}
-		disk.Firmware = readStr(base + "/device/firmware_rev")
-		if disk.Firmware == "" {
-			disk.Firmware = readStr(base + "/device/rev")
+		if !id.Empty() {
+			disk.Identity = id
+		}
+		disk.Firmware = firmwareVersion(readStr(base+"/device/firmware_rev"), "nvme")
+		if disk.Firmware == nil {
+			disk.Firmware = firmwareVersion(readStr(base+"/device/rev"), "scsi")
 		}
 		// Only claim a type the kernel gives evidence for.
 		switch rot := readStr(base + "/queue/rotational"); {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -22,7 +23,7 @@ import (
 // diskHealth reads SMART data (root only). NVMe drives are queried directly
 // with the kernel's admin-command ioctl; other drives use smartctl when it's
 // installed.
-func (c *collector) diskHealth(name, transport string) *report.DiskHealth {
+func (c *collector) diskHealth(name, transport string) *report.Health {
 	if transport == "nvme" {
 		ctrl := nvmeCtrl.FindString(name)
 		h, err := nvmeHealth("/dev/" + ctrl)
@@ -82,7 +83,7 @@ type nvmePassthruCmd struct {
 // _IOWR('N', 0x41, struct nvme_admin_cmd), size 72.
 const nvmeIoctlAdminCmd = 0xC0484E41
 
-func nvmeHealth(dev string) (*report.DiskHealth, error) {
+func nvmeHealth(dev string) (*report.Health, error) {
 	f, err := os.Open(dev)
 	if err != nil {
 		return nil, err
@@ -111,47 +112,66 @@ func nvmeHealth(dev string) (*report.DiskHealth, error) {
 	return parseNVMeSMART(log), nil
 }
 
+// nvmeCriticalWarnings are the bits of the SMART log's first byte and
+// whether each means the drive is failing (else a warning).
+var nvmeCriticalWarnings = []struct {
+	bit     byte
+	failing bool
+	text    string
+}{
+	{0x01, false, "available spare below the drive's threshold"},
+	{0x02, false, "temperature outside the drive's limits"},
+	{0x04, true, "reliability degraded by media or internal errors"},
+	{0x08, true, "media placed in read-only mode"},
+	{0x10, false, "volatile memory backup failed"},
+	{0x20, true, "persistent memory region read-only"},
+}
+
 // parseNVMeSMART decodes the SMART / Health Information log page (NVMe base
-// spec, Log Page 02h).
-func parseNVMeSMART(b []byte) *report.DiskHealth {
+// spec, Log Page 02h). Life used is the drive's own "percentage used"
+// estimate of its rated endurance (it can exceed 100).
+func parseNVMeSMART(b []byte) *report.Health {
 	// 128-bit little-endian counters, scaled, saturating at the uint64
 	// maximum rather than wrapping (bogus drives report all-ones).
-	u128 := func(off int, scale int64) uint64 {
+	u128 := func(off int, scale int64) float64 {
 		v := new(big.Int)
 		for i := off + 15; i >= off; i-- {
 			v.Lsh(v, 8).Or(v, big.NewInt(int64(b[i])))
 		}
 		v.Mul(v, big.NewInt(scale))
 		if !v.IsUint64() {
-			return ^uint64(0)
+			return float64(^uint64(0))
 		}
-		return v.Uint64()
+		return float64(v.Uint64())
 	}
-	passed := b[0] == 0 // critical warning bits all clear
-	spare := int(b[3])
-	used := int(b[5])
+	h := &report.Health{Status: report.StatusOK, Source: "nvme"}
+	for _, w := range nvmeCriticalWarnings {
+		if b[0]&w.bit != 0 {
+			h.Reasons = append(h.Reasons, w.text)
+			if w.failing {
+				h.Status = report.StatusFailing
+			} else if h.Status == report.StatusOK {
+				h.Status = report.StatusWarning
+			}
+		}
+	}
+	used := float64(b[5])
+	h.LifeUsedPercent = &used
+	h.LifeRemainingPercent = ptr(max(0, 100-used))
+	if used >= 100 && h.Status == report.StatusOK {
+		h.Status = report.StatusWarning
+		h.Reasons = append(h.Reasons, "rated write endurance reached: plan a replacement")
+	}
+	metric(h, report.MetricAvailableSpare, float64(b[3]), true)
 	// Data units are thousands of 512-byte units.
-	read := u128(32, 512000)
-	written := u128(48, 512000)
-	cycles := u128(112, 1)
-	hours := u128(128, 1)
-	unsafeShutdowns := u128(144, 1)
-	media := u128(160, 1)
-	h := &report.DiskHealth{
-		Source:           "nvme",
-		Passed:           &passed,
-		AvailableSpare:   &spare,
-		PercentageUsed:   &used,
-		DataReadBytes:    &read,
-		DataWrittenBytes: &written,
-		PowerCycles:      &cycles,
-		PowerOnHours:     &hours,
-		UnsafeShutdowns:  &unsafeShutdowns,
-		MediaErrors:      &media,
-	}
+	metric(h, report.MetricDataReadBytes, u128(32, 512000), true)
+	metric(h, report.MetricDataWrittenBytes, u128(48, 512000), true)
+	metric(h, report.MetricPowerCycles, u128(112, 1), true)
+	metric(h, report.MetricPowerOnHours, u128(128, 1), true)
+	metric(h, report.MetricUnsafeShutdowns, u128(144, 1), true)
+	metric(h, report.MetricMediaErrors, u128(160, 1), true)
 	if k := binary.LittleEndian.Uint16(b[1:3]); k != 0 { // Kelvin; 0 = not reported
-		t := float64(k) - 273
-		h.TemperatureC = &t
+		metric(h, report.MetricTemperatureC, float64(k)-273, true)
 	}
 	return h
 }
@@ -162,21 +182,27 @@ var smartctlDirs = []string{"/usr/sbin", "/usr/bin", "/sbin", "/bin", "/usr/loca
 
 const smartctlTimeout = 30 * time.Second
 
-func smartctlHealth(dev string) (*report.DiskHealth, error) {
-	bin := ""
+// findSmartctl returns a smartctl that root alone can change, or "".
+// Tests replace it.
+var findSmartctl = func() string {
 	for _, d := range smartctlDirs {
-		// Only a smartctl that root alone can change.
 		if path := filepath.Join(d, "smartctl"); isExecutable(path) && trust.RootOwned(path) == nil {
-			bin = path
-			break
+			return path
 		}
 	}
+	return ""
+}
+
+func smartctlHealth(dev string) (*report.Health, error) {
+	bin := findSmartctl()
 	if bin == "" {
 		return nil, fmt.Errorf("smartctl not installed (needed for SATA/USB drives)")
 	}
 	// smartctl's exit status is a bitmask that is non-zero for many
 	// non-fatal conditions, so judge success by whether the JSON parses.
-	out, runErr := runCommand(smartctlTimeout, bin, "--json=c", "-H", "-A", "-i", dev)
+	// -l devstat adds the device statistics pages, where SSDs report their
+	// endurance used.
+	out, runErr := runCommand(smartctlTimeout, bin, "--json=c", "-H", "-A", "-i", "-l", "devstat", dev)
 	var s struct {
 		SmartStatus *struct {
 			Passed bool `json:"passed"`
@@ -201,6 +227,17 @@ func smartctlHealth(dev string) (*report.DiskHealth, error) {
 				String string `json:"string"`
 			} `json:"messages"`
 		} `json:"smartctl"`
+		Endurance *struct {
+			CurrentPercent float64 `json:"current_percent"`
+		} `json:"endurance_used"`
+		DevStat *struct {
+			Pages []struct {
+				Table []struct {
+					Name  string  `json:"name"`
+					Value float64 `json:"value"`
+				} `json:"table"`
+			} `json:"pages"`
+		} `json:"ata_device_statistics"`
 	}
 	if err := json.Unmarshal(out, &s); err != nil {
 		// No JSON at all: a timeout, a crash, or smartctl older than 7.0
@@ -216,23 +253,58 @@ func smartctlHealth(dev string) (*report.DiskHealth, error) {
 		}
 		return nil, fmt.Errorf("smartctl: no SMART data")
 	}
-	h := &report.DiskHealth{Source: "smartctl", PowerCycles: s.PowerCycleCount}
+	h := &report.Health{Status: report.StatusUnknown, Source: "smartctl"}
 	if s.SmartStatus != nil {
-		h.Passed = &s.SmartStatus.Passed
+		h.Status = report.StatusOK
+		if !s.SmartStatus.Passed {
+			h.Status = report.StatusFailing
+			h.Reasons = append(h.Reasons, "the drive's SMART self-assessment failed: back up and replace it")
+		}
 	}
 	if s.Temperature != nil {
-		h.TemperatureC = &s.Temperature.Current
+		metric(h, report.MetricTemperatureC, s.Temperature.Current, true)
 	}
 	if s.PowerOnTime != nil {
-		h.PowerOnHours = &s.PowerOnTime.Hours
+		metric(h, report.MetricPowerOnHours, float64(s.PowerOnTime.Hours), true)
+	}
+	if s.PowerCycleCount != nil {
+		metric(h, report.MetricPowerCycles, float64(*s.PowerCycleCount), true)
 	}
 	if s.ATA != nil {
 		for _, a := range s.ATA.Table {
-			if a.ID == 5 { // Reallocated Sectors Count
-				v := a.Raw.Value
-				h.ReallocatedSectors = &v
+			switch a.ID {
+			case 5: // Reallocated Sectors Count
+				metric(h, report.MetricReallocatedSectors, float64(a.Raw.Value), true)
+			case 197: // Current Pending Sector Count
+				metric(h, report.MetricPendingSectors, float64(a.Raw.Value), true)
 			}
 		}
+	}
+	for _, m := range []struct{ name, text string }{
+		{report.MetricReallocatedSectors, "sectors reallocated"},
+		{report.MetricPendingSectors, "sectors pending reallocation"},
+	} {
+		if v := h.Metrics[m.name]; v > 0 && h.Status != report.StatusFailing {
+			h.Status = report.StatusWarning
+			h.Reasons = append(h.Reasons, fmt.Sprintf("%.0f %s: the surface is degrading, keep backups current", v, m.text))
+		}
+	}
+	// The drive's own endurance indicator (SSDs).
+	used := -1.0
+	if s.Endurance != nil {
+		used = s.Endurance.CurrentPercent
+	} else if s.DevStat != nil {
+		for _, p := range s.DevStat.Pages {
+			for _, row := range p.Table {
+				if strings.Contains(row.Name, "Percentage Used Endurance Indicator") {
+					used = row.Value
+				}
+			}
+		}
+	}
+	if used >= 0 {
+		h.LifeUsedPercent = &used
+		h.LifeRemainingPercent = ptr(max(0, 100-used))
 	}
 	return h, nil
 }

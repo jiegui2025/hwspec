@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/jiegui2025/hwspec/internal/report"
 	"github.com/jiegui2025/hwspec/internal/smbios"
 )
 
@@ -37,7 +38,7 @@ func (c *collector) osInfo() {
 	switch {
 	case exists("/run/.containerenv"), exists("/.dockerenv"), readStr("/run/systemd/container") != "":
 		o.Virtualization = "container"
-	case strings.Contains(" "+flags+" ", " hypervisor "), isVMVendor(c.r.System.Vendor, c.r.System.Product):
+	case strings.Contains(" "+flags+" ", " hypervisor "), c.r.System.Identity != nil && isVMVendor(c.r.System.Identity.Vendor, c.r.System.Identity.Model):
 		o.Virtualization = "vm"
 	case flags != "": // x86 exposes the hypervisor flag, so its absence is evidence
 		o.Virtualization = "none"
@@ -116,7 +117,7 @@ func (c *collector) dmi() {
 	if !exists(dmiDir) {
 		// Device-tree boards (most ARM) name themselves there instead.
 		if model := strings.TrimRight(readStr("/proc/device-tree/model"), "\x00"); model != "" {
-			c.r.System.Product = model
+			c.r.System.Identity = &report.Identity{Model: model}
 			return
 		}
 		c.warn("dmi: /sys/class/dmi/id not present (no SMBIOS firmware tables, common on ARM boards)")
@@ -135,31 +136,38 @@ func (c *collector) dmi() {
 	}
 
 	s := &c.r.System
-	s.Vendor = get("sys_vendor")
-	s.Product = get("product_name")
-	s.Version = get("product_version")
+	if id := (&report.Identity{
+		Vendor:     get("sys_vendor"),
+		Model:      get("product_name"),
+		PartNumber: get("product_sku"),
+		Serial:     get("product_serial"),
+		Revision:   get("product_version"),
+	}); !id.Empty() {
+		s.Identity = id
+	}
 	s.Family = get("product_family")
-	s.SKU = get("product_sku")
-	s.Serial = get("product_serial")
 	s.UUID = get("product_uuid")
 	s.ChassisVendor = get("chassis_vendor")
 	s.ChassisSerial = get("chassis_serial")
 	if n, err := strconv.Atoi(get("chassis_type")); err == nil {
 		s.ChassisType = smbios.ChassisType(n)
 	}
+	// The system's firmware is its BIOS/UEFI.
+	if fw := firmwareVersion(get("bios_version"), "dmi"); fw != nil {
+		fw.Vendor, fw.Date, fw.Release = get("bios_vendor"), get("bios_date"), get("bios_release")
+		s.Firmware = fw
+	}
 
 	b := &c.r.Board
-	b.Vendor = get("board_vendor")
-	b.Product = get("board_name")
-	b.Version = get("board_version")
-	b.Serial = get("board_serial")
+	if id := (&report.Identity{
+		Vendor:   get("board_vendor"),
+		Model:    get("board_name"),
+		Revision: get("board_version"),
+		Serial:   get("board_serial"),
+	}); !id.Empty() {
+		b.Identity = id
+	}
 	b.AssetTag = get("board_asset_tag")
-
-	bi := &c.r.BIOS
-	bi.Vendor = get("bios_vendor")
-	bi.Version = get("bios_version")
-	bi.Date = get("bios_date")
-	bi.Release = get("bios_release")
 
 	if len(denied) > 0 {
 		c.warn("dmi %s: needs root (run with --full)", strings.Join(denied, ", "))

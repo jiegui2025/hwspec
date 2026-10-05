@@ -1,6 +1,10 @@
 package collect
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jiegui2025/hwspec/internal/report"
+)
 
 func TestCountCPUList(t *testing.T) {
 	for in, want := range map[string]int{"0-11": 12, "0-3,8-11": 8, "5": 1, "0,2,4-5\n": 4, "": 0} {
@@ -45,14 +49,14 @@ func TestNVMeCountersSaturate(t *testing.T) {
 	}
 	log[32+16*5] = 7 // power cycles = 7 (offset 112)
 	h := parseNVMeSMART(log)
-	if *h.DataReadBytes != ^uint64(0) || *h.DataWrittenBytes != ^uint64(0) {
-		t.Errorf("read/written = %d/%d, want saturation", *h.DataReadBytes, *h.DataWrittenBytes)
+	if h.Metrics[report.MetricDataReadBytes] != float64(^uint64(0)) || h.Metrics[report.MetricDataWrittenBytes] != float64(^uint64(0)) {
+		t.Errorf("read/written = %v/%v, want saturation", h.Metrics[report.MetricDataReadBytes], h.Metrics[report.MetricDataWrittenBytes])
 	}
-	if *h.PowerCycles != 7 {
-		t.Errorf("power cycles = %d, want 7", *h.PowerCycles)
+	if h.Metrics[report.MetricPowerCycles] != 7 {
+		t.Errorf("power cycles = %v, want 7", h.Metrics[report.MetricPowerCycles])
 	}
-	if h.TemperatureC != nil {
-		t.Errorf("temperature %v reported for a zero (unsupported) reading", *h.TemperatureC)
+	if _, ok := h.Metrics[report.MetricTemperatureC]; ok {
+		t.Error("temperature reported for a zero (unsupported) reading")
 	}
 }
 
