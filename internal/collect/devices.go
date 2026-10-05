@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"math"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -87,7 +86,7 @@ var asoundCard = regexp.MustCompile(`^\s*(\d+)\s+\[(.*?)\s*\]:\s*(.*?)\s+-\s+(.*
 
 func (c *collector) audio() {
 	c.r.Audio = []report.SoundCard{}
-	f, err := os.Open(p("/proc/asound/cards"))
+	f, err := openFile("/proc/asound/cards")
 	if err != nil {
 		return // no ALSA (headless server, container)
 	}

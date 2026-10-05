@@ -16,7 +16,7 @@ const cpuDir = "/sys/devices/system/cpu/"
 func (c *collector) cpu() {
 	out := &c.r.CPU
 	var model, vendor string
-	info, err := ghw.CPU(ghw.WithDisableWarnings(), ghw.WithDisableTools())
+	info, err := ghw.CPU(ghw.WithChroot(root), ghw.WithDisableWarnings(), ghw.WithDisableTools())
 	if err != nil {
 		c.warn("cpu: %v", err)
 	} else {

@@ -26,7 +26,7 @@ import (
 func (c *collector) diskHealth(name, transport string) *report.Health {
 	if transport == "nvme" {
 		ctrl := nvmeCtrl.FindString(name)
-		h, err := nvmeHealth("/dev/" + ctrl)
+		h, err := nvmeHealthFn("/dev/" + ctrl)
 		if err != nil {
 			c.warn("drive health %s: %v", name, err)
 			return nil
@@ -45,6 +45,9 @@ func (c *collector) diskHealth(name, transport string) *report.Health {
 }
 
 var nvmeCtrl = regexp.MustCompile(`^nvme\d+`)
+
+// nvmeHealthFn is a seam: the real ioctl needs root and an NVMe drive.
+var nvmeHealthFn = nvmeHealth
 
 // runCommand runs a program with a time limit (a hung USB bridge must not
 // hang the capture). Tests replace it.

@@ -41,7 +41,7 @@ func (c *collector) memory() {
 // (root only).
 func (c *collector) smbiosModules() {
 	m := &c.r.Memory
-	table, err := os.ReadFile(p("/sys/firmware/dmi/tables/DMI"))
+	table, err := readFile("/sys/firmware/dmi/tables/DMI")
 	if err != nil {
 		if !os.IsNotExist(err) {
 			c.warnRead("memory modules (SMBIOS)", err)
@@ -99,7 +99,7 @@ func (c *collector) spdModules() {
 			if !strings.Contains(dev, "-") {
 				continue // bind, unbind, module, uevent
 			}
-			raw, err := os.ReadFile(p("/sys/bus/i2c/drivers/" + drv + "/" + dev + "/eeprom"))
+			raw, err := readFile("/sys/bus/i2c/drivers/" + drv + "/" + dev + "/eeprom")
 			if err != nil {
 				c.warnRead("memory module SPD "+dev, err)
 				continue

@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -8,24 +9,60 @@ import (
 	"strings"
 )
 
-// root is prefixed to every path, so tests can point it at a fake tree.
+// root is prefixed to every path (and passed to ghw), so tests can point
+// collectors at a fixture tree instead of the running machine.
 var root = "/"
 
-func p(path string) string { return filepath.Join(root, path) }
+// Seams for things that aren't files; tests replace them.
+var (
+	geteuid  = os.Geteuid
+	hostname = os.Hostname
+)
+
+// unreadable lists paths whose reads fail with the given error: a recording
+// replays the files it couldn't copy (root-only DMI serials) this way.
+var unreadable map[string]error
+
+// traceRead, when set, is told every path a collector touches; the
+// snapshot tool uses it to record a machine as a test fixture.
+var traceRead func(path string)
+
+func p(path string) string {
+	if traceRead != nil {
+		traceRead(path)
+	}
+	return filepath.Join(root, path)
+}
+
+// readFile reads a file under root. Every collector read goes through it
+// (or openFile), so recordings can replay files they couldn't copy.
+func readFile(path string) ([]byte, error) {
+	full := p(path)
+	if err, ok := unreadable[path]; ok {
+		return nil, &fs.PathError{Op: "open", Path: full, Err: err}
+	}
+	return os.ReadFile(full)
+}
+
+// openFile opens a file under root for streaming reads.
+func openFile(path string) (*os.File, error) {
+	full := p(path)
+	if err, ok := unreadable[path]; ok {
+		return nil, &fs.PathError{Op: "open", Path: full, Err: err}
+	}
+	return os.Open(full)
+}
 
 // readStr returns the trimmed file contents, or "" if it can't be read.
 func readStr(path string) string {
-	b, err := os.ReadFile(p(path))
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
+	s, _ := readStrErr(path)
+	return s
 }
 
 // readStrErr is readStr but keeps the error, for fields where a failure is
 // worth reporting (usually permission denied on root-only files).
 func readStrErr(path string) (string, error) {
-	b, err := os.ReadFile(p(path))
+	b, err := readFile(path)
 	if err != nil {
 		return "", err
 	}
@@ -112,7 +149,7 @@ func busOf(deviceLink string) (bus, addr string) {
 	if err != nil {
 		return "", ""
 	}
-	sub, err := filepath.EvalSymlinks(filepath.Join(target, "subsystem"))
+	sub, err := filepath.EvalSymlinks(p(deviceLink + "/subsystem"))
 	if err != nil {
 		return "", filepath.Base(target)
 	}
