@@ -10,7 +10,7 @@ import (
 
 func (c *collector) storage() {
 	c.r.Storage = []report.Disk{}
-	info, err := ghw.Block(ghw.WithDisableWarnings(), ghw.WithDisableTools())
+	info, err := ghw.Block(ghw.WithChroot(root), ghw.WithDisableWarnings(), ghw.WithDisableTools())
 	if err != nil {
 		c.warn("storage: %v", err)
 		return

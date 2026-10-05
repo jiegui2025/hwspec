@@ -25,7 +25,7 @@ func (c *collector) bluetooth() {
 		bt := report.BluetoothController{Name: n}
 		bt.Bus, bt.BusAddress = busOf("/sys/class/bluetooth/" + n + "/device")
 		bt.Driver = driverAt("/sys/class/bluetooth/" + n + "/device")
-		info, err := mgmtReadInfo(uint16(idx))
+		info, err := readBTInfo(uint16(idx))
 		if err != nil {
 			c.warn("bluetooth %s: %v", n, err)
 		} else {
@@ -48,87 +48,132 @@ type mgmtInfo struct {
 	name         string
 }
 
-// mgmtReadInfo asks the kernel's Bluetooth management interface (the one
-// bluetoothd and btmgmt use) for a controller's details. Read-only commands
-// are allowed on unprivileged sockets, so this works without root and
-// without bluetoothd running.
-func mgmtReadInfo(index uint16) (*mgmtInfo, error) {
+// readBTInfo is a seam: the real socket needs a Bluetooth controller.
+var readBTInfo = mgmtReadInfo
+
+// mgmtConn is a connection to the kernel's Bluetooth management interface.
+type mgmtConn interface {
+	Write(b []byte) (int, error)
+	Read(b []byte) (int, error)
+	Close() error
+}
+
+// openMgmt opens the management socket; tests replace it with a scripted
+// connection.
+var openMgmt = func() (mgmtConn, error) {
 	const (
-		btprotoHCI         = 1
-		hciChannelControl  = 3
-		hciDevNone         = 0xFFFF
-		opReadInfo         = 0x0004
-		evCmdComplete      = 0x0001
-		evCmdStatus        = 0x0002
-		readInfoReplyBytes = 280
+		btprotoHCI        = 1
+		hciChannelControl = 3
+		hciDevNone        = 0xFFFF
 	)
 	fd, err := unix.Socket(unix.AF_BLUETOOTH, unix.SOCK_RAW|unix.SOCK_CLOEXEC, btprotoHCI)
 	if err != nil {
 		return nil, fmt.Errorf("management socket: %w", err)
 	}
-	defer unix.Close(fd)
 	if err := unix.Bind(fd, &unix.SockaddrHCI{Dev: hciDevNone, Channel: hciChannelControl}); err != nil {
+		unix.Close(fd)
 		return nil, fmt.Errorf("management socket: %w", err)
 	}
 	tv := unix.NsecToTimeval((2 * time.Second).Nanoseconds())
 	if err := unix.SetsockoptTimeval(fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, &tv); err != nil {
+		unix.Close(fd)
+		return nil, fmt.Errorf("management socket: %w", err)
+	}
+	return fdConn(fd), nil
+}
+
+type fdConn int
+
+func (f fdConn) Write(b []byte) (int, error) { return unix.Write(int(f), b) }
+func (f fdConn) Read(b []byte) (int, error)  { return unix.Read(int(f), b) }
+func (f fdConn) Close() error                { return unix.Close(int(f)) }
+
+// mgmtReadInfo asks the kernel's Bluetooth management interface (the one
+// bluetoothd and btmgmt use) for a controller's details. Read-only commands
+// are allowed on unprivileged sockets, so this works without root and
+// without bluetoothd running.
+func mgmtReadInfo(index uint16) (*mgmtInfo, error) {
+	conn, err := openMgmt()
+	if err != nil {
 		return nil, err
 	}
+	defer conn.Close()
 
 	cmd := make([]byte, 6) // opcode, controller index, parameter length
 	binary.LittleEndian.PutUint16(cmd[0:], opReadInfo)
 	binary.LittleEndian.PutUint16(cmd[2:], index)
-	if _, err := unix.Write(fd, cmd); err != nil {
+	if _, err := conn.Write(cmd); err != nil {
 		return nil, fmt.Errorf("management command: %w", err)
 	}
 
+	// Other events (from other controllers, other clients' commands) may
+	// arrive first; only our command's reply counts.
 	buf := make([]byte, 1024)
 	for tries := 0; tries < 16; tries++ {
-		n, err := unix.Read(fd, buf)
+		n, err := conn.Read(buf)
 		if err != nil {
 			return nil, fmt.Errorf("management reply: %w", err)
 		}
-		if n < 9 {
-			continue
+		if info, err := parseReadInfoReply(index, buf[:n]); info != nil || err != nil {
+			return info, err
 		}
-		event := binary.LittleEndian.Uint16(buf[0:])
-		evIndex := binary.LittleEndian.Uint16(buf[2:])
-		opcode := binary.LittleEndian.Uint16(buf[6:])
-		status := buf[8]
-		if evIndex != index || opcode != opReadInfo || (event != evCmdComplete && event != evCmdStatus) {
-			continue // an unrelated event
-		}
-		if status != 0 {
-			return nil, fmt.Errorf("management status %d", status)
-		}
-		p := buf[9:n]
-		if len(p) < readInfoReplyBytes {
-			return nil, errors.New("short management reply")
-		}
-		addr := make([]string, 6)
-		for i := 0; i < 6; i++ {
-			addr[5-i] = fmt.Sprintf("%02X", p[i]) // little-endian on the wire
-		}
-		name := p[20 : 20+249]
-		if i := strings.IndexByte(string(name), 0); i >= 0 {
-			name = name[:i]
-		}
-		return &mgmtInfo{
-			address:      strings.Join(addr, ":"),
-			version:      p[6],
-			manufacturer: binary.LittleEndian.Uint16(p[7:]),
-			settings:     binary.LittleEndian.Uint32(p[13:]),
-			name:         string(name),
-		}, nil
 	}
 	return nil, errors.New("no management reply")
 }
 
+const (
+	opReadInfo    = 0x0004
+	evCmdComplete = 0x0001
+	evCmdStatus   = 0x0002
+	// address 6, version 1, manufacturer 2, supported and current settings
+	// 4+4, class 3, name 249, short name 11.
+	readInfoReplyBytes = 280
+)
+
+// parseReadInfoReply decodes one management event. It returns (nil, nil)
+// for an unrelated event, so the caller keeps reading.
+func parseReadInfoReply(index uint16, ev []byte) (*mgmtInfo, error) {
+	if len(ev) < 9 {
+		return nil, nil
+	}
+	event := binary.LittleEndian.Uint16(ev[0:])
+	evIndex := binary.LittleEndian.Uint16(ev[2:])
+	opcode := binary.LittleEndian.Uint16(ev[6:])
+	status := ev[8]
+	if evIndex != index || opcode != opReadInfo || (event != evCmdComplete && event != evCmdStatus) {
+		return nil, nil
+	}
+	if status != 0 {
+		return nil, fmt.Errorf("management status %d", status)
+	}
+	p := ev[9:]
+	if len(p) < readInfoReplyBytes {
+		return nil, errors.New("short management reply")
+	}
+	addr := make([]string, 6)
+	for i := 0; i < 6; i++ {
+		addr[5-i] = fmt.Sprintf("%02X", p[i]) // little-endian on the wire
+	}
+	name := p[20 : 20+249]
+	if i := strings.IndexByte(string(name), 0); i >= 0 {
+		name = name[:i]
+	}
+	return &mgmtInfo{
+		address:      strings.Join(addr, ":"),
+		version:      p[6],
+		manufacturer: binary.LittleEndian.Uint16(p[7:]),
+		settings:     binary.LittleEndian.Uint32(p[13:]),
+		name:         string(name),
+	}, nil
+}
+
+// btVersions are the core specification versions by HCI version number.
+var btVersions = []string{"1.0b", "1.1", "1.2", "2.0", "2.1", "3.0", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2", "5.3", "5.4", "6.0", "6.1"}
+
 // btVersion maps the HCI version number to the core specification version.
 func btVersion(v byte) string {
-	versions := []string{"1.0b", "1.1", "1.2", "2.0", "2.1", "3.0", "4.0", "4.1", "4.2", "5.0", "5.1", "5.2", "5.3", "5.4", "6.0", "6.1"}
-	if int(v) < len(versions) {
-		return versions[v]
+	if int(v) < len(btVersions) {
+		return btVersions[v]
 	}
 	return fmt.Sprintf("unknown (%d)", v)
 }

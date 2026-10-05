@@ -16,9 +16,8 @@ import (
 // helpers to populate it.
 func fakeRoot(t *testing.T) (file func(path, content string), link func(path, target string)) {
 	t.Helper()
-	old := root
+	t.Cleanup(saveHooks())
 	root = t.TempDir()
-	t.Cleanup(func() { root = old })
 	file = func(path, content string) {
 		full := filepath.Join(root, path)
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {

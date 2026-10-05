@@ -2,7 +2,6 @@ package collect
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -131,7 +130,7 @@ func (c *collector) displays() {
 			continue
 		}
 		disp := report.Display{Connector: conn}
-		raw, err := os.ReadFile(p("/sys/class/drm/" + conn + "/edid"))
+		raw, err := readFile("/sys/class/drm/" + conn + "/edid")
 		if err == nil && len(raw) > 0 {
 			if e, err := edid.Parse(raw); err == nil {
 				disp.ManufacturerID = e.ManufacturerID

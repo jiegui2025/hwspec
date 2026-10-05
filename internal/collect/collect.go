@@ -34,13 +34,20 @@ func (c *collector) warnRead(what string, err error) {
 
 // Collect runs every collector and returns the finished report.
 func Collect(version string) *report.Report {
+	captureMu.Lock()
+	defer captureMu.Unlock()
+	return collectNow(version)
+}
+
+// collectNow is Collect for callers already holding captureMu.
+func collectNow(version string) *report.Report {
 	r := &report.Report{
 		SchemaVersion: report.SchemaVersion,
 		Tool:          report.Tool{Name: "hwspec", Version: version},
 		CapturedAt:    time.Now().UTC().Truncate(time.Second),
-		Privileged:    os.Geteuid() == 0,
+		Privileged:    geteuid() == 0,
 	}
-	r.Hostname, _ = os.Hostname()
+	r.Hostname, _ = hostname()
 	c := &collector{r: r, privileged: r.Privileged}
 
 	c.dmi() // before osInfo, which uses DMI to recognise VMs

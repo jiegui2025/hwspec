@@ -26,11 +26,9 @@ func (c *collector) osInfo() {
 	o.Version = rel["VERSION_ID"]
 	o.PrettyName = rel["PRETTY_NAME"]
 
-	var u syscall.Utsname
-	if err := syscall.Uname(&u); err == nil {
-		o.Kernel = utsString(u.Release[:])
-		o.Arch = utsString(u.Machine[:])
-	}
+	release, machine := uname()
+	o.Kernel = release
+	o.Arch = machine
 	o.Init = readStr("/proc/1/comm")
 
 	// Only report what there is evidence for; "" means unknown.
@@ -48,7 +46,7 @@ func (c *collector) osInfo() {
 	case exists("/sys/firmware/efi"):
 		o.BootMode = "uefi"
 		// efivars data = 4 attribute bytes + 1 value byte.
-		b, err := os.ReadFile(p("/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"))
+		b, err := readFile("/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c")
 		if err == nil && len(b) >= 5 {
 			on := b[4] == 1
 			o.SecureBoot = &on
@@ -96,6 +94,16 @@ func parseOSRelease(s string) map[string]string {
 		m[k] = v
 	}
 	return m
+}
+
+// uname returns the kernel release and the machine (x86_64, aarch64, ...),
+// or empty strings if the call fails.
+var uname = func() (release, machine string) {
+	var u syscall.Utsname
+	if err := syscall.Uname(&u); err != nil {
+		return "", ""
+	}
+	return utsString(u.Release[:]), utsString(u.Machine[:])
 }
 
 // utsString converts a NUL-terminated Utsname field (int8 or uint8
@@ -181,7 +189,7 @@ func (c *collector) dmi() {
 func (c *collector) cpuinfoField(key string) string {
 	if c.cpuinfo == nil {
 		c.cpuinfo = map[string]string{}
-		f, err := os.Open(p("/proc/cpuinfo"))
+		f, err := openFile("/proc/cpuinfo")
 		if err != nil {
 			c.warn("cpu: %v", err)
 			return ""
