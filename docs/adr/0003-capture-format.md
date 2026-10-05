@@ -1,6 +1,6 @@
 # 3. JSON capture format with raw IDs, additive schema
 
-Status: Accepted (2026-10-05)
+**Status:** Accepted (2026-10-05)
 
 ## Context
 
@@ -8,14 +8,22 @@ Captures are shared, archived and compared over years, and read by other tools a
 
 ## Decision
 
-- JSON is the canonical format; YAML is produced from the same structure with the same field names.
-- Every named item keeps its raw identifiers (PCI/USB IDs, JEDEC codes, EDID manufacturer IDs, CPU signature) next to the names.
-- `schema_version` changes only when a field is renamed, removed or changes meaning. Adding fields is always allowed.
-- Unreadable values are omitted or empty, never guessed; the reason goes in `warnings`.
-- Units are explicit: bytes, °C, or named in the field (`_mhz`, `_mts`, `_mbps`).
+| Aspect | Rule |
+|---|---|
+| Canonical format | JSON; YAML from the same structure with the same field names |
+| Identifiers | every named item keeps its raw IDs next to the names (PCI/USB IDs, JEDEC codes, EDID manufacturer IDs, CPU signature) |
+| Evolution | `schema_version` changes only when a field is renamed, removed or changes meaning; adding fields is always allowed |
+| Missing data | omitted, empty or "unknown", never guessed; the reason goes in `warnings` |
+| Units | bytes, °C, or named in the field (`_mhz`, `_mts`, `_mbps`) |
 
 ## Consequences
 
-- Old captures can be re-named with newer databases (`hwspec show`).
-- Consumers can rely on fields not disappearing within a schema version.
-- The structs in `internal/report` are the specification; changes there are reviewed as API changes.
+```mermaid
+flowchart LR
+  old[(capture from 2026)] -->|hwspec show| resolve[resolve with today's databases] --> fresh[current names]
+```
+
+| ✅ | ⚠️ |
+|---|---|
+| Old captures get newer names (`hwspec show`) | the structs in `internal/report` are the specification: changes are API changes |
+| Consumers can rely on fields not disappearing within a schema version | |

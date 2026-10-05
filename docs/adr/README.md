@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Each record captures one significant decision: the context, what was decided, and the consequences. Records are never edited after acceptance except to mark them superseded; a changed decision gets a new record.
+Each record captures one significant decision as context → options → decision → consequences, mostly as tables and diagrams. Records aren't edited after acceptance except to mark them superseded; a changed decision gets a new record.
 
 | # | Decision | Status |
 |---|---|---|
@@ -12,4 +12,4 @@ Each record captures one significant decision: the context, what was decided, an
 | [0006](0006-licence.md) | GPL-3.0-or-later | Accepted |
 | [0007](0007-desktop-ui.md) | Desktop app in Rust with GTK4 and libadwaita, driving the CLI | Proposed |
 
-New records: copy the format of an existing one, take the next number.
+New records: copy the structure of an existing one, take the next number, prefer tables and Mermaid diagrams to prose.

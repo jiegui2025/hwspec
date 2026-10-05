@@ -1,17 +1,35 @@
 # 2. Read kernel interfaces directly, not other tools
 
-Status: Accepted (2026-10-05)
+**Status:** Accepted (2026-10-05)
 
 ## Context
 
-Tools like `lshw`, `dmidecode`, `lspci`, `inxi` and `hwinfo` aren't installed everywhere, differ in versions and output, and parsing their text output is brittle.
+`lshw`, `dmidecode`, `lspci`, `inxi` and `hwinfo` aren't installed everywhere, differ between versions, and their text output is brittle to parse.
 
 ## Decision
 
-Read `/sys`, `/proc`, the raw SMBIOS table, EDID blobs, the NVMe admin ioctl and the Bluetooth management socket directly. The one exception is `smartctl` for SATA/USB drive health, used only when installed, because ATA SMART pass-through is large and device-specific.
+```mermaid
+flowchart LR
+  hw[hwspec] --> sysfs["/sys, /proc"]
+  hw --> smbios["/sys/firmware/dmi/tables/DMI"]
+  hw --> edid["/sys/class/drm/*/edid"]
+  hw --> nvme["NVMe admin ioctl"]
+  hw --> bt["Bluetooth mgmt socket"]
+  hw -.->|optional, SATA/USB health only| smartctl
+```
+
+| Source | Read directly | Exception |
+|---|---|---|
+| Devices, CPU, memory, network, sensors | `/sys`, `/proc` | — |
+| Memory modules, serials | raw SMBIOS table | — |
+| Monitors | EDID blobs | — |
+| NVMe health | admin-command ioctl | — |
+| Bluetooth controllers | kernel management socket | — |
+| SATA/USB drive health | — | `smartctl` when installed: ATA pass-through is large and device-specific |
 
 ## Consequences
 
-- Same results on every distro; no runtime dependencies.
-- We own the parsers (SMBIOS, EDID, NVMe SMART, mgmt replies), so they must be well tested with byte fixtures.
-- New hardware classes need new readers rather than a new tool invocation.
+| ✅ | ⚠️ |
+|---|---|
+| Same results on every distro, no runtime dependencies | we own the parsers (SMBIOS, EDID, NVMe SMART, mgmt replies), so they need thorough byte-fixture tests |
+| | new hardware classes need new readers |
