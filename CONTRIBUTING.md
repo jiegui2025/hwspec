@@ -46,6 +46,20 @@ flowchart TD
 
 Commit types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, `style`, `revert`.
 
+### What CI runs
+
+CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-areas.sh)); `ci-ok` is the single required check, and skipped jobs count as passed.
+
+| The PR changes | Jobs |
+|---|---|
+| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds, 6-distro smoke tests, Nix |
+| `flake.nix` / `flake.lock` only | Nix |
+| `.github/workflows/**` or CI scripts | everything, plus actionlint |
+| Markdown | Mermaid rendering check (every diagram must render) |
+| anything | commit messages, PR title |
+
+Pushes to `main` run everything.
+
 ## Tests
 
 Tests describe **behaviour**, not lines: "a laptop whose battery holds 80% of its design capacity reports 80% health", not "call `batteries()`". Collectors are tested against fixture `/sys` and `/proc` trees under `testdata/`, one per representative machine; add a fixture (or extend one) when you add hardware coverage. CI fails below the coverage threshold in `.github/workflows/ci.yml`.

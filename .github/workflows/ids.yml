@@ -55,12 +55,12 @@ jobs:
           fi
 
       - name: Build, validate and compare with the previous bundle
-        run: make gen-ids DIR=$BUNDLE PREV=build/prev-manifest.json
+        run: make gen-ids DIR="$BUNDLE" PREV=build/prev-manifest.json
 
       - name: Skip if nothing changed
         id: diff
         run: |
-          new=$(jq -S '.files | map_values(.sha256)' $BUNDLE/manifest.json)
+          new=$(jq -S '.files | map_values(.sha256)' "$BUNDLE/manifest.json")
           old=$(jq -S '.files | map_values(.sha256)' build/prev-manifest.json 2>/dev/null || echo null)
           if [ "$new" = "$old" ]; then
             echo "Upstream unchanged since the last bundle."
@@ -112,22 +112,22 @@ jobs:
           fi
 
       - name: Re-verify the bundle before signing
-        run: go run ./tools/genids verify $BUNDLE build/prev-manifest.json
+        run: go run ./tools/genids verify "$BUNDLE" build/prev-manifest.json
 
       - name: Sign
         env:
           HWSPEC_IDS_SIGNING_KEY: ${{ secrets.HWSPEC_IDS_SIGNING_KEY }}
-        run: go run ./tools/genids sign $BUNDLE/manifest.json
+        run: go run ./tools/genids sign "$BUNDLE/manifest.json"
 
       - name: Publish
         run: |
           date=$(date -u +%Y.%m.%d)
           notes="Hardware ID databases built from upstream on $date. Installed by \`hwspec ids update\`; see manifest.json for per-database dates and counts."
-          files=$(ls $BUNDLE/*.ids.gz)
+          files=("$BUNDLE"/*.ids.gz)
 
           # Dated copy, kept for history and rollback.
           gh release view "ids-$date" >/dev/null 2>&1 \
-            || gh release create "ids-$date" $files $BUNDLE/manifest.json $BUNDLE/manifest.json.sig \
+            || gh release create "ids-$date" "${files[@]}" "$BUNDLE/manifest.json" "$BUNDLE/manifest.json.sig" \
                  --title "ID databases $date" --notes "$notes" --latest=false --prerelease
 
           # The moving release clients read. Data first, manifest last, so a
@@ -135,5 +135,5 @@ jobs:
           gh release view ids-latest >/dev/null 2>&1 \
             || gh release create ids-latest --title "ID databases (latest)" \
                  --notes "Always the newest bundle; see the dated ids-* releases for history." --latest=false --prerelease
-          gh release upload ids-latest $files --clobber
-          gh release upload ids-latest $BUNDLE/manifest.json.sig $BUNDLE/manifest.json --clobber
+          gh release upload ids-latest "${files[@]}" --clobber
+          gh release upload ids-latest "$BUNDLE/manifest.json.sig" "$BUNDLE/manifest.json" --clobber

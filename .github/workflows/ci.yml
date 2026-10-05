@@ -18,7 +18,35 @@ env:
   COVERAGE_MIN: "35"
 
 jobs:
+  # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
+  # to main and merge-queue runs always run everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.areas.outputs.go }}
+      nix: ${{ steps.areas.outputs.nix }}
+      workflows: ${{ steps.areas.outputs.workflows }}
+      docs: ${{ steps.areas.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: areas
+        shell: bash # -o pipefail: a failing script must fail the step, not hide behind tee
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            scripts/changed-areas.sh "$BASE" "$HEAD" | tee -a "$GITHUB_OUTPUT"
+          else
+            printf 'go=true\nnix=true\nworkflows=true\ndocs=true\n' | tee -a "$GITHUB_OUTPUT"
+          fi
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,6 +60,8 @@ jobs:
         run: go mod tidy -diff
 
   test:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -51,6 +81,8 @@ jobs:
         run: scripts/coverage.sh coverage.out "$COVERAGE_MIN" >> "$GITHUB_STEP_SUMMARY"
 
   vulncheck:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,6 +92,8 @@ jobs:
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
   build:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,7 +115,8 @@ jobs:
   # The same static binary must run on every target distro, with names
   # resolved (from the distro's ID files or the embedded copies).
   distros:
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -110,10 +145,13 @@ jobs:
           docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids
           # Names resolve on every distro, from its own files or the embedded copies.
           for q in "pci 8086" "usb 046d" "jedec 80CE" "cpu intel:6:9e:10"; do
-            docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids lookup $q
+            read -ra lookup <<<"$q" # "KIND ID" as two arguments
+            docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids lookup "${lookup[@]}"
           done
 
   nix:
+    needs: changes
+    if: needs.changes.outputs.nix == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -145,12 +183,43 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: scripts/check-commits.sh "$BASE" "$HEAD"
 
-  # The single required check for branch protection.
-  ci-ok:
-    if: always()
-    needs: [lint, test, vulncheck, build, distros, nix, pr-title, commits]
+  # Workflow syntax, expressions and embedded shell (shellcheck).
+  actionlint:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: All checks passed (pr-title may be skipped outside PRs)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: actionlint (bundled shellcheck, pinned by digest)
+        run: docker run --rm -v "$PWD:/repo" -w /repo docker.io/rhysd/actionlint:1.7.12@sha256:9d36088643581e728c969f35141f88139fec77280b2be23c1f66f8e40e1025e7
+
+  # Every Mermaid diagram in the Markdown must render (docs rule).
+  mermaid:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Render all diagrams
+        env:
+          MERMAID_IMAGE: docker.io/minlag/mermaid-cli:12.0.0@sha256:30a3ca1a8af8632e9aee021e6a39738ff876239c5307f03734e89c5364ff5f38
+        run: git ls-files -z '*.md' | xargs -0 -r scripts/check-mermaid.sh
+
+  # The single required check for branch protection. Jobs a change doesn't
+  # need are skipped and count as passed; `changes` itself must succeed, or
+  # a failure there would skip everything and pass vacuously.
+  ci-ok:
+    if: always()
+    needs: [changes, lint, test, vulncheck, build, distros, nix, actionlint, mermaid, pr-title, commits]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All needed checks passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'
+          # `changes` must have succeeded AND produced every output; without
+          # them each gated job would be skipped and this gate pass vacuously.
+          echo "$NEEDS" | jq -e '.changes.result == "success"
+            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("docs"))
+            and (.changes.outputs | to_entries | all(.value == "true" or .value == "false"))
+            and (to_entries | all(.value.result == "success" or .value.result == "skipped"))'
