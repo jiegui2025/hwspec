@@ -40,7 +40,7 @@ flowchart LR
 ```mermaid
 flowchart TD
   cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust
-  collect[internal/collect] --> report & resolve & smbios & edid & trust & ghw[(ghw)]
+  collect[internal/collect] --> report & resolve & smbios & edid & spd & trust & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(yaml.v3)]
   genids[tools/genids] --> ids & yaml
@@ -48,6 +48,7 @@ flowchart TD
   report[internal/report]
   smbios[internal/smbios]
   edid[internal/edid]
+  spd[internal/spd]
   trust[internal/trust]
 ```
 
@@ -55,12 +56,12 @@ flowchart TD
 |---|---|---|
 | `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring | everything below |
 | `internal/trust` | "can only root change this file?" checks (for `--full` and `smartctl`) | `x/sys/unix` |
-| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `ghw` |
+| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `ghw` |
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |
 | `internal/ids` | ID databases, overrides, sync, decoders (JEDEC, OUI, CPU) | standard library only |
 | `internal/report` | the file format, redaction, sanitising | standard library only |
 | `internal/output` | serialisation | `report`, `yaml.v3` |
-| `internal/smbios`, `internal/edid` | pure parsers for binary tables | standard library only |
+| `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `yaml.v3` |
 
 ## Choosing an ID database source

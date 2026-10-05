@@ -61,20 +61,31 @@ It reads the kernel's interfaces directly instead of parsing `lshw`, `dmidecode`
 
 ## What it captures
 
-| Area | Details |
-|---|---|
-| System | Vendor, model, family, SKU, chassis type, serial and UUID¹; OS, kernel, init, boot mode, Secure Boot, VM/container detection |
-| Board & BIOS | Board vendor, model, version, serial¹; firmware vendor, version, date |
-| CPU | Model, codename and core microarchitecture (e.g. Coffee Lake / Skylake, Raphael / Zen 4), signature, sockets, cores, threads, P/E core split, clock range, scaling driver, caches, microcode, flags |
-| Memory | Usable and installed size, slots, max capacity, ECC; per module¹: slot, size, type (DDR4/DDR5…), form factor, rated and configured speed, voltage, rank, manufacturer, part number |
-| Storage | Model, serial, firmware, size, type, transport (NVMe/SATA/USB/…), partitions, filesystems, mount points; health¹: NVMe SMART log (wear, hours, data written, errors) or `smartctl` for SATA and USB drives |
-| Graphics | GPUs with driver, VRAM (amdgpu), PCIe link, outputs; monitors from EDID: maker, model, serial, size, native mode |
-| Network | Physical adapters: type, driver, bus, MAC and its registered vendor, link state, speed |
-| Bluetooth | Controllers: chip maker, Bluetooth version, address and its vendor, power state, the USB/PCI adapter (no root or bluetoothd needed) |
-| Audio | Sound cards with their HD Audio codec chips |
-| Other | Batteries (wear, cycles), sensors (temperatures, fans, voltages, power), every PCI device (class, driver, IOMMU group, PCIe link) and USB device |
+Every device carries the same four blocks wherever the hardware exposes them ([ADR 0008](docs/adr/0008-device-detail-blocks.md)):
 
-¹ Needs root: `--full`. Coming in v0.1.0: identity, firmware, driver and health details for every device ([#24](https://github.com/jiegui2025/hwspec/issues/24)).
+```mermaid
+flowchart LR
+  dev[each device] --> id["identity<br/>vendor, model, part no., serial,<br/>revision, manufacture date"]
+  dev --> fw["firmware<br/>version, date, source"]
+  dev --> drv["driver<br/>module, version, in-tree,<br/>proprietary, signed"]
+  dev --> h["health<br/>ok · warning · failing, reasons,<br/>life used / remaining, metrics"]
+```
+
+| Device | Identity | Firmware | Driver | Health / longevity |
+|---|---|---|---|---|
+| System, board | model, SKU, serial¹, UUID¹ | BIOS/UEFI version, date | — | — |
+| CPU | model, signature, codename, microarchitecture | microcode | frequency scaling | thermal throttling since boot |
+| RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank (SMBIOS¹) | — | — | ECC errors (EDAC) |
+| Disks | model, serial | ✅ | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
+| GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS | ✅ | — |
+| Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool | ✅ | error and drop rates |
+| Audio | card, codec chips | — | ✅ | — |
+| Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |
+| PCI and USB devices | IDs, names, serial, revision | USB device release | ✅ per interface | — |
+
+Plus: OS, kernel, boot mode, Secure Boot, VM/container; CPU cores, caches, clocks, flags; partitions; PCIe links; IOMMU groups; sensors (temperatures, fans, voltages, power). Text output ends with a **Needs attention** list of every warning and failure, with reasons.
+
+¹ Needs root: `--full`. Life estimates only come from the hardware's own wear indicators and say how they were computed; rated values (TBW, rated cycles) come later from model data ([#25](https://github.com/jiegui2025/hwspec/issues/25)).
 
 ## Install
 
@@ -202,7 +213,7 @@ oui 04:0E:3C = HP Inc.
 | `internal/ids` | ID databases, overrides, sync, JEDEC/OUI/CPU decoding |
 | `internal/resolve` | names from raw IDs, for new and saved captures |
 | `internal/report`, `internal/output` | the file format, redaction, sanitising; JSON/YAML/text |
-| `internal/smbios`, `internal/edid`, `internal/trust` | binary parsers; root-ownership checks |
+| `internal/smbios`, `internal/edid`, `internal/spd`, `internal/trust` | binary parsers (SMBIOS, EDID, RAM SPD); root-ownership checks |
 | `tools/genids` | ID bundle builder |
 
 ## Contributing

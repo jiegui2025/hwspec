@@ -41,7 +41,7 @@ flowchart LR
 | ID bundle publishing | HTTPS-only fetches; >5% shrink and future dates refused; build job without secrets; signing only in the `ids-signing` environment (main branch), after independent re-verification | `.github/workflows/ids.yml`, `tools/genids` |
 | Untrusted text | control and Unicode format characters removed from every string, in every output format | `internal/report`, `internal/ids`, `internal/output` |
 | Parsing | bounds-checked SMBIOS, EDID, NVMe log page and Bluetooth reply parsers; YAML alias and depth limits (yaml.v3) | `internal/smbios`, `internal/edid`, `internal/collect`, `internal/output` |
-| Privacy | `--redact` (on `capture` and `show`) removes serials, UUIDs, MAC addresses (also inside interface names), hostname, personal mount points and labels; captures are `0600` unless redacted | `internal/report` |
+| Privacy | `--redact` (on `capture` and `show`) removes every serial number (all identity blocks), UUIDs, MAC addresses (also inside interface names), hostname, personal mount points and labels; captures are `0600` unless redacted | `internal/report` |
 
 ## Verifying downloads
 
