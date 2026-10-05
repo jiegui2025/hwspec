@@ -144,7 +144,9 @@ func (c *collector) displays() {
 					id.Serial = strconv.FormatUint(uint64(e.SerialNumber), 10)
 				}
 				// Week 255 means the year is a model year, not a manufacture date.
-				if e.Week != 255 {
+				if e.Week == 255 {
+					disp.ModelYear = e.Year
+				} else {
 					id.ManufactureDate, id.ManufactureDateSource = isoWeek(e.Year, e.Week), "edid"
 				}
 				disp.Identity = id

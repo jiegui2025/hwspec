@@ -54,13 +54,18 @@ func sanitizeValue(v reflect.Value) {
 			sanitizeValue(v.Index(i))
 		}
 	case reflect.Map:
-		if v.IsNil() || v.Type().Key().Kind() != reflect.String || v.Type().Elem().Kind() != reflect.String {
+		if v.IsNil() || v.Type().Key().Kind() != reflect.String {
 			return // a nil map stays nil, so a re-exported capture is unchanged
 		}
+		// Keys and string values are cleaned (Health.Metrics keys come from
+		// shared files too); other values are copied as they are.
 		clean := reflect.MakeMapWithSize(v.Type(), v.Len())
 		for _, k := range v.MapKeys() {
-			clean.SetMapIndex(reflect.ValueOf(CleanString(k.String())).Convert(v.Type().Key()),
-				reflect.ValueOf(CleanString(v.MapIndex(k).String())).Convert(v.Type().Elem()))
+			val := v.MapIndex(k)
+			if val.Kind() == reflect.String {
+				val = reflect.ValueOf(CleanString(val.String())).Convert(v.Type().Elem())
+			}
+			clean.SetMapIndex(reflect.ValueOf(CleanString(k.String())).Convert(v.Type().Key()), val)
 		}
 		v.Set(clean)
 	}

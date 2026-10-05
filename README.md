@@ -104,7 +104,7 @@ Install to a root-owned location (as above) if you want `--full`; see [Root acce
 | `hwspec capture -o spec.json` | capture to JSON (format follows the extension: `.json`, `.yaml`, `.txt`) |
 | `hwspec capture -f text` | readable summary on stdout |
 | `hwspec capture --full -o spec.json` | include root-only data (asks via polkit) |
-| `hwspec capture --redact -o share.json` | strip serials, UUIDs, MACs, hostname, personal paths |
+| `hwspec capture --redact -o share.json` | strip serials, UUIDs, MACs, hostname, personal paths (captures of one machine stay linkable: see [SECURITY.md](SECURITY.md#what-redaction-doesnt-do)) |
 | `hwspec show spec.json` | summarise a capture, with names refreshed from today's databases |
 | `hwspec show old.json -o new.json [--redact]` | re-export a capture with refreshed names (optionally redacted) |
 | `hwspec ids` | which ID database sources are in use |

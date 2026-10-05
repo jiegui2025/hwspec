@@ -182,8 +182,10 @@ func (c *collector) batteries() {
 }
 
 // batteryHealth compares full-charge capacity with the design capacity.
-// Below 80% a battery is conventionally worn out; the estimate of cycles
-// left until then uses the wear per cycle measured so far.
+// Below 80% a battery is conventionally worn out, so life used and
+// remaining are both measured on that 100% → 80% range and add up to 100,
+// like an SSD's; the raw capacity is the capacity_percent metric. The
+// estimate of cycles left until 80% uses the wear per cycle measured so far.
 func batteryHealth(d string) *report.Health {
 	h := &report.Health{Status: report.StatusUnknown, Source: "power_supply"}
 	// Energy in µWh, or charge in µAh × design voltage in µV.
@@ -200,10 +202,13 @@ func batteryHealth(d string) *report.Health {
 
 	// Health needs both figures; a missing one must not read as 0%.
 	if design > 0 && full > 0 {
-		healthPct := math.Min(100, full/design*100)
-		used := round(100-healthPct, 1)
-		h.LifeUsedPercent = &used
-		h.LifeRemainingPercent = ptr(round(math.Max(0, healthPct-80)/20*100, 1))
+		// A new battery can hold slightly more than its design capacity.
+		capacity := full / design * 100
+		metric(h, report.MetricCapacityPercent, round(capacity, 1), true)
+		healthPct := math.Min(100, capacity)
+		remaining := round(math.Max(0, healthPct-80)/20*100, 1)
+		h.LifeRemainingPercent = &remaining
+		h.LifeUsedPercent = ptr(round(100-remaining, 1))
 		h.Status = report.StatusOK
 		if healthPct < 80 {
 			h.Status = report.StatusWarning
@@ -219,12 +224,19 @@ func batteryHealth(d string) *report.Health {
 			}
 		}
 	}
-	// Some drivers report a verdict of their own.
+	// Some drivers report a verdict of their own. Only faults of the cell
+	// itself are failures; temperature states (a laptop left in a cold
+	// car), charging timers and calibration are passing conditions.
 	switch v := strings.ToLower(readStr(d + "health")); v {
 	case "", "unknown", "good":
-	case "dead", "over voltage", "unspecified failure", "overheat", "cold", "watchdog timer expire", "safety timer expire", "over current", "calibration required":
+	case "dead", "over voltage", "over current", "unspecified failure":
 		h.Status = report.StatusFailing
 		h.Reasons = append(h.Reasons, "driver reports battery health: "+v)
+	case "overheat", "hot", "warm", "cool", "cold":
+		if h.Status == report.StatusOK || h.Status == report.StatusUnknown {
+			h.Status = report.StatusWarning
+		}
+		h.Reasons = append(h.Reasons, "driver reports battery temperature: "+v+" (charging may pause until it passes)")
 	default:
 		if h.Status == report.StatusOK || h.Status == report.StatusUnknown {
 			h.Status = report.StatusWarning

@@ -45,3 +45,19 @@ func TestRedactRemovesPersonalPathsAndMACDerivedNames(t *testing.T) {
 		t.Errorf("identifiers kept: %+v", r)
 	}
 }
+
+// A manufacture day plus a model narrows a part to one production batch;
+// redacted captures keep the month.
+func TestRedactKeepsManufactureDatesToTheMonth(t *testing.T) {
+	r := &Report{
+		Batteries: []Battery{{Identity: &Identity{Model: "5B10W13930", ManufactureDate: "2021-03-17"}}},
+		Displays:  []Display{{Identity: &Identity{ManufactureDate: "2020-W38"}}},
+	}
+	r.Redact()
+	if got := r.Batteries[0].Identity.ManufactureDate; got != "2021-03" {
+		t.Errorf("battery date = %q", got)
+	}
+	if got := r.Displays[0].Identity.ManufactureDate; got != "2020-W38" {
+		t.Errorf("display date = %q", got)
+	}
+}

@@ -81,3 +81,26 @@ func TestGarbagePartNumberIsDropped(t *testing.T) {
 		t.Errorf("part number %q from binary garbage", i.PartNumber)
 	}
 }
+
+// 12 and 24 Gbit dies (codes 8 and 9) aren't powers of two: a single-rank
+// x8 module of 12 Gbit dies holds 12 GiB, not 64.
+func TestNonPowerOfTwoDieDensity(t *testing.T) {
+	for code, want := range map[byte]uint64{0x08: 12 << 30, 0x09: 24 << 30, 0x0A: 0} {
+		b := ddr4Image()
+		b[4] = 0x80 | code
+		if i, _ := Parse(b); i.SizeBytes != want {
+			t.Errorf("density code %d: %d bytes, want %d", code, i.SizeBytes, want)
+		}
+	}
+}
+
+// DDR5 reuses the module type codes for new form factors.
+func TestDDR5FormFactors(t *testing.T) {
+	for code, want := range map[byte]string{0x05: "CUDIMM", 0x06: "CSODIMM", 0x07: "MRDIMM", 0x08: "CAMM2"} {
+		b := make([]byte, 1024)
+		b[2], b[3] = 0x12, code
+		if i, _ := Parse(b); i.FormFactor != want {
+			t.Errorf("module type 0x%02x: %q, want %q", code, i.FormFactor, want)
+		}
+	}
+}

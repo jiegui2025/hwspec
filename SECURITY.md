@@ -39,9 +39,19 @@ flowchart LR
 | Running as root via `sudo` | `smartctl` only from root-owned system directories, with a timeout; output files written atomically and handed to the invoking user; devices written into, never replaced | `internal/collect`, `cmd/hwspec` |
 | `hwspec ids update` | signature over the exact manifest bytes, rollback refused (vs installed and built-in data), size + SHA-256 + parse of every file, file names whitelisted, size limits; each file replaced atomically, manifest last | `internal/ids` |
 | ID bundle publishing | HTTPS-only fetches; >5% shrink and future dates refused; build job without secrets; signing only in the `ids-signing` environment (main branch), after independent re-verification | `.github/workflows/ids.yml`, `tools/genids` |
-| Untrusted text | control and Unicode format characters removed from every string, in every output format | `internal/report`, `internal/ids`, `internal/output` |
-| Parsing | bounds-checked SMBIOS, EDID, NVMe log page and Bluetooth reply parsers; YAML alias and depth limits (yaml.v3) | `internal/smbios`, `internal/edid`, `internal/collect`, `internal/output` |
-| Privacy | `--redact` (on `capture` and `show`) removes every serial number (all identity blocks), UUIDs, MAC addresses (also inside interface names), hostname, personal mount points and labels; captures are `0600` unless redacted | `internal/report` |
+| Untrusted text | control and Unicode format characters removed from every string and map key, in every output format; the text output's "Needs attention" list is labelled as the capture's own record, since `show` may display someone else's file | `internal/report`, `internal/ids`, `internal/output` |
+| Parsing | bounds-checked SMBIOS, EDID, SPD, NVMe log page and Bluetooth reply parsers (SPD fuzzed); YAML alias and depth limits (yaml.v3) | `internal/smbios`, `internal/edid`, `internal/spd`, `internal/collect`, `internal/output` |
+| Privacy | `--redact` (on `capture` and `show`) removes every serial number (all identity blocks), UUIDs, MAC addresses (also inside interface names), hostname, personal mount points and labels, and keeps manufacture dates to the month; captures are `0600` unless redacted | `internal/report` |
+
+### What redaction doesn't do
+
+| Kept after `--redact` | Why it's kept | Consequence |
+|---|---|---|
+| Models, part numbers, SKU | the point of a hardware report | identify the machine *type*, not the machine |
+| Firmware and driver versions, microcode | needed for update advice | change with updates |
+| Manufacture month and week, counters (power-on hours, data written, battery cycles) | needed for maintenance and wear advice | together they can **link** redacted captures of one machine to each other, or to an unredacted one |
+
+Redaction removes direct identifiers; it doesn't make captures of the same machine unlinkable. Don't share redacted captures where linking them matters.
 
 ## Verifying downloads
 

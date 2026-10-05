@@ -52,11 +52,11 @@ classDiagram
 |---|---|---|---|---|
 | System | ✅ (SKU as part number) | ✅ BIOS/UEFI | — | — |
 | Board | ✅ | — | — | — |
-| CPU | ✅ | ✅ microcode | ✅ frequency scaling | ✅ thermal throttle counts |
-| Memory module | ✅ incl. SPD manufacture date | — | — | ✅ EDAC error counts |
+| CPU | ✅ | ✅ microcode | ✅ frequency scaling | ✅ thermal throttle counts (recorded, not a fault on their own) |
+| Memory module | ✅ incl. SPD manufacture date | — | — | ✅ EDAC error counts, all ranks added up |
 | Disk | ✅ | ✅ | ✅ | ✅ SMART, life used/remaining |
 | GPU | ✅ | ✅ VBIOS / driver-provided | ✅ | — |
-| Display | ✅ incl. EDID manufacture date | — | — | — |
+| Display | ✅ incl. EDID manufacture date (or `model_year` when that is all the EDID gives) | — | — | — |
 | Network | ✅ | ✅ (ethtool) | ✅ | ✅ error and drop counters |
 | Bluetooth | ✅ | — | ✅ | — |
 | Audio codec | ✅ | — | — (on the card) | — |
@@ -68,8 +68,10 @@ classDiagram
 
 | Rule | Detail |
 |---|---|
-| Status comes from the device's own verdict or fixed thresholds | e.g. NVMe critical-warning bits, SMART passed/failed, battery below 80% → warning |
-| Life used/remaining only from hardware wear indicators | NVMe *percentage used*, SATA SSD endurance indicator, battery capacity versus design. For batteries, life remaining is the share of the conventional useful range (100% → 80% of design capacity) left |
+| Status comes from the device's own verdict or fixed thresholds | e.g. NVMe critical-warning bits, SMART passed/failed, battery below 80% → warning; only cell faults (dead, over-voltage, over-current) are failing, temperature states are warnings |
+| Life used/remaining only from hardware wear indicators | NVMe *percentage used*, SATA SSD endurance indicator, battery capacity versus design |
+| Life used + remaining = 100 on every device | for batteries both are measured on the conventional useful range, 100% → 80% of design capacity (90% capacity = 50% used, 50% left); the raw figure is the `capacity_percent` metric |
+| Errors are pinned on a part only when the match is unambiguous | EDAC labels match a module's bank locator + locator on word boundaries; a label that fits several modules is a capture warning, never a guess |
 | Estimates name their method | e.g. battery cycles until 80%: `(health − 80) ÷ wear-per-cycle measured so far` |
 | Rated values (TBW, rated cycles, MTBF) aren't invented | they come later from curated model data ([#25](https://github.com/jiegui2025/hwspec/issues/25)) |
 | Metrics use documented names | `power_on_hours`, `data_written_bytes`, `media_errors`, `ecc_corrected`, `rx_errors`, … (constants in `internal/report`) |

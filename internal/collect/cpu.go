@@ -96,29 +96,33 @@ func (c *collector) cpu() {
 }
 
 // cpuHealth counts thermal throttling since boot (Intel exposes the
-// counters). Throttling at all is a cooling problem: dust, a dry thermal
-// interface (paste, pad) or a failing fan.
+// counters). Laptops reach their thermal limit under sustained load by
+// design, so a count alone doesn't make the CPU unhealthy; it is recorded
+// for the maintenance advice, which can compare it with the machine's age
+// and load.
 func cpuHealth() *report.Health {
 	var events uint64
 	found := false
-	packages := map[string]bool{}
+	// Each counter repeats on every logical CPU that shares it: the core
+	// counter on hyper-thread siblings, the package counter on every CPU of
+	// the package. Count each once.
+	seen := map[string]bool{}
 	for _, cpu := range cpuDirs() {
-		for _, f := range []string{"core_throttle_count", "package_throttle_count"} {
+		topo := cpuDir + cpu + "/topology/"
+		pkg := readStr(topo + "physical_package_id")
+		for f, owner := range map[string]string{
+			"core_throttle_count":    pkg + "/" + readStr(topo+"core_id"),
+			"package_throttle_count": pkg,
+		} {
 			v, err := strconv.ParseUint(readStr(cpuDir+cpu+"/thermal_throttle/"+f), 10, 64)
 			if err != nil {
 				continue
 			}
 			found = true
-			// The package counter repeats on every CPU of the package:
-			// count it once per physical package.
-			if f == "package_throttle_count" {
-				pkg := readStr(cpuDir + cpu + "/topology/physical_package_id")
-				if packages[pkg] {
-					continue
-				}
-				packages[pkg] = true
+			if key := f + "|" + owner; !seen[key] {
+				seen[key] = true
+				events += v
 			}
-			events += v
 		}
 	}
 	if !found {
@@ -127,8 +131,7 @@ func cpuHealth() *report.Health {
 	h := &report.Health{Status: report.StatusOK, Source: "thermal_throttle"}
 	metric(h, report.MetricThrottleEvents, float64(events), true)
 	if events > 0 {
-		h.Status = report.StatusWarning
-		h.Reasons = append(h.Reasons, fmt.Sprintf("thermal throttling %d times since boot: check cooling (dust, thermal paste or pad, fan)", events))
+		h.Reasons = append(h.Reasons, fmt.Sprintf("thermal throttling %d times since boot: expected under heavy load on thin laptops; at light load, check cooling (dust, thermal paste or pad, fan)", events))
 	}
 	return h
 }

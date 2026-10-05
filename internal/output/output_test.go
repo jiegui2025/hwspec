@@ -156,6 +156,27 @@ func TestNeedsAttentionGroupsWarningsAndFailures(t *testing.T) {
 	if !strings.Contains(out, "96% worn (4% life left)") {
 		t.Errorf("wear not shown:\n%s", out)
 	}
+	// The reasons are the capture's own words, which may be someone else's.
+	if !strings.Contains(out, "Needs attention (as recorded in this capture)") {
+		t.Errorf("section doesn't say where its reasons come from:\n%s", out)
+	}
+}
+
+// Built-in drivers say so, and a battery's capacity is shown in Wh.
+func TestBuiltInDriversAndBatteryCapacity(t *testing.T) {
+	r := sample()
+	r.Bluetooth = []report.BluetoothController{{Name: "hci0", Driver: &report.Driver{Name: "btusb", Builtin: true}}}
+	r.Batteries = []report.Battery{{Name: "BAT0", Health: &report.Health{Status: report.StatusOK,
+		Metrics: map[string]float64{report.MetricFullWh: 40.5, report.MetricDesignWh: 45}}}}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"btusb built in", "holds 40.5 of 45 Wh"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("text lacks %q:\n%s", want, buf.String())
+		}
+	}
 }
 
 func TestMachineNameDoesNotRepeatTheVendor(t *testing.T) {

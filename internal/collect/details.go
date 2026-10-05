@@ -19,14 +19,18 @@ func driverAt(dev string) *report.Driver {
 		return nil
 	}
 	d := &report.Driver{Name: name}
-	// A modular driver links to its module; a built-in one doesn't.
+	// Built-in PCI and USB drivers link to a module directory too; only a
+	// loaded module has an initstate.
 	module := linkBase(dev + "/driver/module")
-	if module == "" {
+	mod := "/sys/module/" + module + "/"
+	if module == "" || !exists(mod+"initstate") {
 		d.Builtin = true
+		if module != "" {
+			d.Version = readStr(mod + "version")
+		}
 		return d
 	}
 	d.Module = module
-	mod := "/sys/module/" + module + "/"
 	d.Version = readStr(mod + "version")
 	d.SrcVersion = readStr(mod + "srcversion")
 	// Taint flags: O out-of-tree, P proprietary, E unsigned (on kernels

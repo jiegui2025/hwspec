@@ -23,8 +23,15 @@ var macInterfaceName = regexp.MustCompile(`^(enx|wlx|wwx)[0-9a-f]{12}$`)
 func (r *Report) Redact() {
 	r.Redacted = true
 	r.Hostname = ""
-	// Every serial number lives in an Identity block (ADR 0008).
-	forEachIdentity(reflect.ValueOf(r).Elem(), func(id *Identity) { id.Serial = "" })
+	// Every serial number lives in an Identity block (ADR 0008). A
+	// manufacture day plus a model narrows a part to one production batch,
+	// so dates are kept to the month.
+	forEachIdentity(reflect.ValueOf(r).Elem(), func(id *Identity) {
+		id.Serial = ""
+		if d := id.ManufactureDate; len(d) == len("2006-01-02") && d[4] == '-' && d[7] == '-' {
+			id.ManufactureDate = d[:7]
+		}
+	})
 	r.System.UUID, r.System.ChassisSerial = "", ""
 	r.Board.AssetTag = ""
 	for i := range r.Storage {

@@ -17,8 +17,9 @@ type Report struct {
 	Tool          Tool      `json:"tool"`
 	CapturedAt    time.Time `json:"captured_at"`
 	Hostname      string    `json:"hostname"`
-	// Privileged is true when the capture ran as root, so serial numbers,
-	// memory modules (SMBIOS, SPD) and drive health could be read.
+	// Privileged is true when the capture ran as root, so the SMBIOS memory
+	// list, most serial numbers and drive health could be read. Memory
+	// modules' SPD (serials included) is often readable without root.
 	Privileged bool `json:"privileged"`
 	Redacted   bool `json:"redacted"`
 
@@ -71,8 +72,8 @@ type Firmware struct {
 	Version string `json:"version"`
 	Date    string `json:"date,omitempty"`
 	Release string `json:"release,omitempty"`
-	// Source says where the version was read: dmi, microcode, nvme, sata,
-	// ethtool, usb, vbios, nvidia.
+	// Source says where the version was read: dmi, microcode, nvme, scsi
+	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios, nvidia.
 	Source string `json:"source"`
 }
 
@@ -135,6 +136,7 @@ const (
 	MetricPendingSectors     = "pending_sectors"
 	MetricCycleCount         = "cycle_count"
 	MetricFullWh             = "full_wh"
+	MetricCapacityPercent    = "capacity_percent" // full charge ÷ design, may exceed 100
 	MetricDesignWh           = "design_wh"
 	MetricECCCorrected       = "ecc_corrected"
 	MetricECCUncorrected     = "ecc_uncorrected"
@@ -297,16 +299,19 @@ type GPU struct {
 }
 
 type Display struct {
-	Connector       string    `json:"connector"`                 // card1-DP-1
-	ManufacturerID  string    `json:"manufacturer_id,omitempty"` // PNP ID, e.g. DEL
-	WidthMM         int       `json:"width_mm,omitempty"`
-	HeightMM        int       `json:"height_mm,omitempty"`
-	DiagonalIn      float64   `json:"diagonal_in,omitempty"`
-	NativeWidth     int       `json:"native_width,omitempty"`
-	NativeHeight    int       `json:"native_height,omitempty"`
-	NativeRefreshHz float64   `json:"native_refresh_hz,omitempty"`
-	EDIDVersion     string    `json:"edid_version,omitempty"`
-	Identity        *Identity `json:"identity,omitempty"` // part_number = EDID product code
+	Connector       string  `json:"connector"`                 // card1-DP-1
+	ManufacturerID  string  `json:"manufacturer_id,omitempty"` // PNP ID, e.g. DEL
+	WidthMM         int     `json:"width_mm,omitempty"`
+	HeightMM        int     `json:"height_mm,omitempty"`
+	DiagonalIn      float64 `json:"diagonal_in,omitempty"`
+	NativeWidth     int     `json:"native_width,omitempty"`
+	NativeHeight    int     `json:"native_height,omitempty"`
+	NativeRefreshHz float64 `json:"native_refresh_hz,omitempty"`
+	EDIDVersion     string  `json:"edid_version,omitempty"`
+	// ModelYear is set instead of a manufacture date when the EDID gives
+	// the model year only.
+	ModelYear int       `json:"model_year,omitempty"`
+	Identity  *Identity `json:"identity,omitempty"` // part_number = EDID product code
 }
 
 type NIC struct {

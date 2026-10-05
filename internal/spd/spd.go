@@ -27,10 +27,25 @@ type Info struct {
 	ManufactureWeek int
 }
 
-var formFactors = map[byte]string{
-	0x01: "RDIMM", 0x02: "UDIMM", 0x03: "SODIMM", 0x04: "LRDIMM",
-	0x05: "Mini-RDIMM", 0x06: "Mini-UDIMM", 0x08: "72b-SO-RDIMM", 0x09: "72b-SO-UDIMM",
-	0x0C: "16b-SO-DIMM", 0x0D: "32b-SO-DIMM",
+// Module types (byte 3, bits 3:0) differ between generations.
+var (
+	ddr4FormFactors = map[byte]string{
+		0x01: "RDIMM", 0x02: "UDIMM", 0x03: "SODIMM", 0x04: "LRDIMM",
+		0x05: "Mini-RDIMM", 0x06: "Mini-UDIMM", 0x08: "72b-SO-RDIMM", 0x09: "72b-SO-UDIMM",
+		0x0C: "16b-SO-DIMM", 0x0D: "32b-SO-DIMM",
+	}
+	ddr5FormFactors = map[byte]string{
+		0x01: "RDIMM", 0x02: "UDIMM", 0x03: "SODIMM", 0x04: "LRDIMM",
+		0x05: "CUDIMM", 0x06: "CSODIMM", 0x07: "MRDIMM", 0x08: "CAMM2",
+		0x0A: "DDIMM", 0x0B: "Solder down",
+	}
+)
+
+// ddr4DieMbit maps byte 4 bits 3:0 to the die density in Mbit; codes 8
+// and 9 (12 and 24 Gbit) break the power-of-two sequence.
+var ddr4DieMbit = map[byte]uint64{
+	0: 256, 1: 512, 2: 1 << 10, 3: 2 << 10, 4: 4 << 10, 5: 8 << 10,
+	6: 16 << 10, 7: 32 << 10, 8: 12 << 10, 9: 24 << 10,
 }
 
 // Parse decodes an SPD image. Only the DDR4 (512-byte) and DDR5
@@ -58,7 +73,7 @@ func Parse(b []byte) (*Info, error) {
 func ddr4(b []byte) *Info {
 	i := &Info{
 		Type:             "DDR4",
-		FormFactor:       formFactors[b[3]&0x0F],
+		FormFactor:       ddr4FormFactors[b[3]&0x0F],
 		ModuleVendorCode: code(b[320], b[321]),
 		DRAMVendorCode:   code(b[350], b[351]),
 		PartNumber:       text(b[329:349]),
@@ -69,7 +84,7 @@ func ddr4(b []byte) *Info {
 	}
 	// Capacity = die density / 8 × bus width / device width × ranks
 	// (× dies per package for 3DS stacks).
-	densityBits := uint64(256<<20) << (b[4] & 0x0F)
+	dieMbit, knownDensity := ddr4DieMbit[b[4]&0x0F]
 	deviceWidth := uint64(4) << (b[12] & 0x07)
 	ranks := uint64((b[12]>>3)&0x07) + 1
 	busWidth := uint64(8) << (b[13] & 0x07)
@@ -77,8 +92,8 @@ func ddr4(b []byte) *Info {
 	if b[6]&0x03 == 0x02 { // 3DS
 		dies = uint64((b[6]>>4)&0x07) + 1
 	}
-	if b[4]&0x0F <= 9 && b[12]&0x07 <= 3 && b[13]&0x07 <= 3 {
-		i.SizeBytes = densityBits / 8 * busWidth / deviceWidth * ranks * dies
+	if knownDensity && b[12]&0x07 <= 3 && b[13]&0x07 <= 3 {
+		i.SizeBytes = dieMbit << 20 / 8 * busWidth / deviceWidth * ranks * dies
 	}
 	return i
 }
@@ -87,7 +102,7 @@ func ddr4(b []byte) *Info {
 func ddr5(b []byte) *Info {
 	return &Info{
 		Type:             "DDR5",
-		FormFactor:       formFactors[b[3]&0x0F],
+		FormFactor:       ddr5FormFactors[b[3]&0x0F],
 		ModuleVendorCode: code(b[512], b[513]),
 		DRAMVendorCode:   code(b[552], b[553]),
 		PartNumber:       text(b[521:551]),

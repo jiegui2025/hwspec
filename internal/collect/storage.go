@@ -49,9 +49,15 @@ func (c *collector) storage() {
 		if !id.Empty() {
 			disk.Identity = id
 		}
-		disk.Firmware = firmwareVersion(readStr(base+"/device/firmware_rev"), "nvme")
-		if disk.Firmware == nil {
-			disk.Firmware = firmwareVersion(readStr(base+"/device/rev"), "scsi")
+		if disk.Transport == "mmc" {
+			// An eMMC's rev is its EXT_CSD revision; fwrev is the firmware.
+			disk.Firmware = firmwareVersion(readStr(base+"/device/fwrev"), "mmc")
+		} else {
+			disk.Firmware = firmwareVersion(readStr(base+"/device/firmware_rev"), "nvme")
+			if disk.Firmware == nil {
+				// SCSI, SATA and USB disks (through the SCSI layer).
+				disk.Firmware = firmwareVersion(readStr(base+"/device/rev"), "scsi")
+			}
 		}
 		// Only claim a type the kernel gives evidence for.
 		switch rot := readStr(base + "/queue/rotational"); {

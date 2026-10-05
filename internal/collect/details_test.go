@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -47,13 +48,20 @@ func TestDriversReportTheirModuleAndTaint(t *testing.T) {
 	file("/sys/module/nvidia/version", "580.95.05\n")
 	file("/sys/module/nvidia/srcversion", "ABCDEF\n")
 	file("/sys/module/nvidia/taint", "POE\n")
+	file("/sys/module/nvidia/initstate", "live\n")
 	// A clean in-tree module.
 	link("/sys/devices/pci0000:00/0000:00:1f.6/driver", "../../../bus/pci/drivers/e1000e")
 	link("/sys/bus/pci/drivers/e1000e/module", "../../../../module/e1000e")
 	file("/sys/module/e1000e/taint", "\n")
-	// A built-in driver.
+	file("/sys/module/e1000e/initstate", "live\n")
+	// A built-in driver without a module directory.
 	link("/sys/devices/pci0000:00/0000:00:14.0/driver", "../../../bus/pci/drivers/xhci_hcd")
 	file("/sys/bus/pci/drivers/xhci_hcd/bind", "")
+	// A built-in driver that still links to its module directory (ahci with
+	// CONFIG_SATA_AHCI=y): no initstate, as only loaded modules have one.
+	link("/sys/devices/pci0000:00/0000:00:17.0/driver", "../../../bus/pci/drivers/ahci")
+	link("/sys/bus/pci/drivers/ahci/module", "../../../../module/ahci")
+	file("/sys/module/ahci/version", "3.0\n")
 
 	nv := driverAt("/sys/devices/pci0000:00/0000:01:00.0")
 	if nv == nil || nv.Name != "nvidia" || nv.Module != "nvidia" || nv.Version != "580.95.05" || *nv.InTree || !*nv.Proprietary || !*nv.Unsigned {
@@ -65,6 +73,9 @@ func TestDriversReportTheirModuleAndTaint(t *testing.T) {
 	}
 	if x := driverAt("/sys/devices/pci0000:00/0000:00:14.0"); x == nil || !x.Builtin || x.Module != "" {
 		t.Errorf("built-in driver = %+v", x)
+	}
+	if a := driverAt("/sys/devices/pci0000:00/0000:00:17.0"); a == nil || !a.Builtin || a.Module != "" || a.Version != "3.0" {
+		t.Errorf("built-in ahci = %+v", a)
 	}
 	if d := driverAt("/sys/devices/pci0000:00/0000:00:00.0"); d != nil {
 		t.Errorf("unbound device has driver %+v", d)
@@ -113,14 +124,14 @@ func TestNetworkErrorsAboveOnePerThousandNeedAttention(t *testing.T) {
 
 func TestBatteryWearAndCyclesToEightyPercent(t *testing.T) {
 	file, _ := fakeRoot(t)
-	// 90% of design capacity after 200 cycles: 0.05% per cycle, so 200
-	// more cycles until 80%.
+	// 90% of design capacity after 200 cycles: half the 100% → 80% range
+	// used, 0.05% per cycle, so 200 more cycles until 80%.
 	d := "/sys/class/power_supply/BAT0/"
 	file(d+"energy_full_design", "50000000")
 	file(d+"energy_full", "45000000")
 	file(d+"cycle_count", "200")
 	h := batteryHealth(d)
-	if h.Status != report.StatusOK || *h.LifeUsedPercent != 10 || *h.LifeRemainingPercent != 50 {
+	if h.Status != report.StatusOK || *h.LifeUsedPercent != 50 || *h.LifeRemainingPercent != 50 || h.Metrics[report.MetricCapacityPercent] != 90 {
 		t.Errorf("health = %+v", h)
 	}
 	if h.Estimate == nil || h.Estimate.Value != 200 || !strings.Contains(h.Estimate.Method, "200 cycles") {
@@ -139,6 +150,19 @@ func TestBatteryWearAndCyclesToEightyPercent(t *testing.T) {
 	file(f+"health", "Dead")
 	if h := batteryHealth(f); h == nil || h.Status != report.StatusFailing {
 		t.Errorf("dead battery = %+v", h)
+	}
+	// A cold battery is a passing condition, not a failed cell.
+	c := "/sys/class/power_supply/BAT3/"
+	file(c+"health", "Cold")
+	if h := batteryHealth(c); h == nil || h.Status != report.StatusWarning || !strings.Contains(h.Reasons[0], "temperature") {
+		t.Errorf("cold battery = %+v", h)
+	}
+	// A new battery above its design capacity: capacity kept, no wear.
+	n := "/sys/class/power_supply/BAT4/"
+	file(n+"energy_full_design", "50000000")
+	file(n+"energy_full", "51000000")
+	if h := batteryHealth(n); *h.LifeUsedPercent != 0 || *h.LifeRemainingPercent != 100 || h.Metrics[report.MetricCapacityPercent] != 102 {
+		t.Errorf("new battery = %+v", h)
 	}
 	if h := batteryHealth("/sys/class/power_supply/none/"); h != nil {
 		t.Errorf("no data: %+v", h)
@@ -195,20 +219,24 @@ func TestSmartctlVerdictsAndEndurance(t *testing.T) {
 	}
 }
 
-func TestThrottlingIsCountedOncePerPackage(t *testing.T) {
+// Counters repeat on every logical CPU that shares them: a core's on its
+// hyper-thread sibling, a package's on all its CPUs.
+func TestThrottlingIsCountedOncePerCoreAndPackage(t *testing.T) {
 	file, _ := fakeRoot(t)
-	for _, cpu := range []string{"cpu0", "cpu1", "cpu2", "cpu3"} {
-		pkg := "0"
-		if cpu >= "cpu2" {
+	for i, cpu := range []string{"cpu0", "cpu1", "cpu2", "cpu3", "cpu4", "cpu5"} {
+		pkg, core := "0", strconv.Itoa(i/2) // cpu0/1, 2/3, 4/5 are siblings
+		if i >= 4 {
 			pkg = "1"
 		}
 		d := cpuDir + cpu + "/"
 		file(d+"topology/physical_package_id", pkg)
+		file(d+"topology/core_id", core)
 		file(d+"thermal_throttle/core_throttle_count", "1")
 		file(d+"thermal_throttle/package_throttle_count", "10")
 	}
-	// 4 cores × 1 + 2 packages × 10
-	if h := cpuHealth(); h == nil || h.Metrics[report.MetricThrottleEvents] != 24 || h.Status != report.StatusWarning {
+	// 3 cores × 1 + 2 packages × 10. Throttling alone isn't a fault.
+	h := cpuHealth()
+	if h == nil || h.Metrics[report.MetricThrottleEvents] != 23 || h.Status != report.StatusOK || len(h.Reasons) != 1 {
 		t.Errorf("health = %+v", h)
 	}
 }
@@ -245,6 +273,15 @@ func TestSPDFillsWhatTheFirmwareLeftOut(t *testing.T) {
 	if len(c.r.Memory.Modules) != 2 || c.r.Memory.Modules[0].Identity.Vendor != "Unknown - [0xF785]" ||
 		c.r.Memory.Modules[0].Identity.ManufactureDate != "2021-W10" || c.r.Memory.Modules[1].Identity.ManufactureDate != "" {
 		t.Errorf("matched modules = %+v / %+v", c.r.Memory.Modules[0].Identity, c.r.Memory.Modules[1].Identity)
+	}
+
+	// An SPD the firmware's list doesn't match is reported, not dropped
+	// silently.
+	c = &collector{r: &report.Report{}}
+	c.r.Memory.Modules = []report.MemoryModule{{Locator: "DIMM1", Identity: &report.Identity{Serial: "99999999"}}}
+	c.spdModules()
+	if len(c.r.Memory.Modules) != 1 || len(c.r.Warnings) != 1 || !strings.Contains(c.r.Warnings[0], "J642GU44J2320NL") {
+		t.Errorf("unmatched SPD: modules %+v, warnings %v", c.r.Memory.Modules, c.r.Warnings)
 	}
 }
 
@@ -311,5 +348,48 @@ func TestEthtoolFailureLeavesFirmwareEmpty(t *testing.T) {
 	c.network()
 	if len(c.r.Network) != 1 || c.r.Network[0].Firmware != nil {
 		t.Errorf("network = %+v", c.r.Network)
+	}
+}
+
+// Boards that repeat a locator in every channel ("DIMM 0" on channels A
+// and B) are told apart by the bank locator ghes_edac puts in the label;
+// errors must never land on the wrong module, whose replacement would
+// leave the failing one in place.
+func TestECCErrorsNeverLandOnTheWrongModule(t *testing.T) {
+	file, _ := fakeRoot(t)
+	dimm := func(name, label, ce, ue string) {
+		d := "/sys/devices/system/edac/mc/mc0/" + name + "/"
+		file(d+"dimm_label", label)
+		file(d+"dimm_ce_count", ce)
+		file(d+"dimm_ue_count", ue)
+	}
+	dimm("dimm0", "P0 CHANNEL A DIMM 0", "0", "0")
+	dimm("dimm1", "P0 CHANNEL B DIMM 0", "0", "3")
+	dimm("rank2", "A1", "2", "0") // two ranks of one module add up
+	dimm("rank3", "A1", "5", "0")
+	dimm("dimm4", "DIMM 0", "1", "0") // no bank: could be either channel
+	c := &collector{r: &report.Report{}}
+	c.r.Memory.Modules = []report.MemoryModule{
+		{Locator: "DIMM 0", BankLocator: "P0 CHANNEL A"},
+		{Locator: "DIMM 0", BankLocator: "P0 CHANNEL B"},
+		{Locator: "A10"},
+		{Locator: "A1"},
+	}
+	c.edac()
+	mods := c.r.Memory.Modules
+	if h := mods[0].Health; h == nil || h.Status != report.StatusOK {
+		t.Errorf("channel A = %+v", h)
+	}
+	if h := mods[1].Health; h == nil || h.Status != report.StatusFailing || h.Metrics[report.MetricECCUncorrected] != 3 {
+		t.Errorf("channel B = %+v", h)
+	}
+	if mods[2].Health != nil {
+		t.Errorf("A10 took A1's errors: %+v", mods[2].Health)
+	}
+	if h := mods[3].Health; h == nil || h.Metrics[report.MetricECCCorrected] != 7 || h.Status != report.StatusWarning {
+		t.Errorf("A1 = %+v", h)
+	}
+	if len(c.r.Warnings) != 1 || !strings.Contains(c.r.Warnings[0], "several modules") {
+		t.Errorf("ambiguous label not reported: %v", c.r.Warnings)
 	}
 }

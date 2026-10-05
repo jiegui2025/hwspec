@@ -1,10 +1,12 @@
 package collect
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/jiegui2025/hwspec/internal/report"
 	"github.com/jiegui2025/hwspec/internal/smbios"
@@ -118,7 +120,9 @@ func (c *collector) spdModules() {
 		if i < 0 {
 			if smbiosCount > 0 {
 				// The firmware's list is authoritative; an SPD it doesn't
-				// match (e.g. a different serial format) adds no module.
+				// match (a different serial format, two identical modules)
+				// adds no module, but its details are lost, so say so.
+				c.warn("memory: %s (part %q) doesn't match a firmware-listed module; its manufacture date and DRAM maker are left out", where[k], info.PartNumber)
 				continue
 			}
 			m.Modules = append(m.Modules, report.MemoryModule{
@@ -185,9 +189,12 @@ func applySPD(mod *report.MemoryModule, info *spd.Info) {
 }
 
 // edac adds corrected and uncorrected memory error counts per module on
-// systems with ECC memory and an EDAC driver.
+// systems with ECC memory and an EDAC driver. A module can have several
+// EDAC entries (one per rank); their counts are added up.
 func (c *collector) edac() {
 	const base = "/sys/devices/system/edac/mc/"
+	type counts struct{ ce, ue uint64 }
+	found := map[int]*counts{}
 	for _, mc := range list(base) {
 		if !strings.HasPrefix(mc, "mc") {
 			continue
@@ -203,42 +210,88 @@ func (c *collector) edac() {
 				continue
 			}
 			label := readStr(d + "dimm_label")
-			mod := c.moduleByLabel(label)
-			if mod == nil {
-				c.warn("memory: EDAC %s/%s (%q) doesn't match a module; %d corrected, %d uncorrected errors", mc, dimm, label, ce, ue)
+			i, err := moduleByLabel(c.r.Memory.Modules, label)
+			if err != nil {
+				c.warn("memory: EDAC %s/%s (%q) %v; %d corrected, %d uncorrected errors", mc, dimm, label, err, ce, ue)
 				continue
 			}
-			h := &report.Health{Status: report.StatusOK, Source: "edac"}
-			metric(h, report.MetricECCCorrected, float64(ce), true)
-			metric(h, report.MetricECCUncorrected, float64(ue), true)
-			switch {
-			case ue > 0:
-				h.Status = report.StatusFailing
-				h.Reasons = append(h.Reasons, fmt.Sprintf("%d uncorrectable memory errors since boot: replace this module", ue))
-			case ce > 0:
-				h.Status = report.StatusWarning
-				h.Reasons = append(h.Reasons, fmt.Sprintf("%d corrected memory errors since boot: the module may be failing", ce))
+			if found[i] == nil {
+				found[i] = &counts{}
 			}
-			mod.Health = h
+			found[i].ce += ce
+			found[i].ue += ue
 		}
+	}
+	for i, n := range found {
+		h := &report.Health{Status: report.StatusOK, Source: "edac"}
+		metric(h, report.MetricECCCorrected, float64(n.ce), true)
+		metric(h, report.MetricECCUncorrected, float64(n.ue), true)
+		switch {
+		case n.ue > 0:
+			h.Status = report.StatusFailing
+			h.Reasons = append(h.Reasons, fmt.Sprintf("%d uncorrectable memory errors since boot: replace this module", n.ue))
+		case n.ce > 0:
+			h.Status = report.StatusWarning
+			h.Reasons = append(h.Reasons, fmt.Sprintf("%d corrected memory errors since boot: the module may be failing", n.ce))
+		}
+		c.r.Memory.Modules[i].Health = h
 	}
 }
 
-// moduleByLabel matches an EDAC DIMM label ("CPU_SrcID#0_MC#0_Chan#0_DIMM#0",
-// or a BIOS-provided name like "DIMM_A1") to a module's locator.
-func (c *collector) moduleByLabel(label string) *report.MemoryModule {
-	norm := func(s string) string {
-		return strings.ToLower(strings.NewReplacer(" ", "", "_", "", "-", "").Replace(s))
+// moduleByLabel finds the module an EDAC DIMM label names. ghes_edac
+// labels are "<bank locator> <locator>" ("P0 CHANNEL A DIMM 1"); others
+// end with a BIOS name ("..._DIMM#0 DIMM_A1"). The label must end with the
+// module's bank locator and locator, or failing that its locator alone, on
+// word boundaries ("A1" doesn't match "A10"). Several boards repeat a
+// locator in every channel, so more than one candidate is an error, never a
+// guess: the result tells the user which module to replace.
+func moduleByLabel(mods []report.MemoryModule, label string) (int, error) {
+	l := words(label)
+	if len(l) == 0 {
+		return -1, errors.New("has no label")
 	}
-	l := norm(label)
-	if l == "" {
-		return nil
+	endsWith := func(loc []string) bool {
+		want := strings.Join(loc, "")
+		if want == "" {
+			return false
+		}
+		// Join the label's last k words, so "DIMM_A1" matches "DIMMA1"
+		// without matching inside a word.
+		for k := 1; k <= len(l); k++ {
+			if strings.Join(l[len(l)-k:], "") == want {
+				return true
+			}
+		}
+		return false
 	}
-	for i := range c.r.Memory.Modules {
-		mod := &c.r.Memory.Modules[i]
-		if loc := norm(mod.Locator); loc != "" && (strings.HasSuffix(l, loc) || strings.Contains(l, loc)) {
-			return mod
+	for _, full := range []bool{true, false} {
+		match := -1
+		for i, m := range mods {
+			loc := words(m.Locator)
+			if full {
+				if m.BankLocator == "" {
+					continue
+				}
+				loc = append(words(m.BankLocator), loc...)
+			}
+			if !endsWith(loc) {
+				continue
+			}
+			if match >= 0 {
+				return -1, errors.New("matches several modules")
+			}
+			match = i
+		}
+		if match >= 0 {
+			return match, nil
 		}
 	}
-	return nil
+	return -1, errors.New("doesn't match a module")
+}
+
+// words splits s into lower-case alphanumeric runs.
+func words(s string) []string {
+	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
 }

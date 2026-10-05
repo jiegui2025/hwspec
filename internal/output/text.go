@@ -217,6 +217,13 @@ func writeText(w io.Writer, r *report.Report) error {
 			if bt.CapacityPercent > 0 {
 				s += fmt.Sprintf(", %d%% charged", bt.CapacityPercent)
 			}
+			if h := bt.Health; h != nil {
+				full, ok1 := h.Metrics[report.MetricFullWh]
+				design, ok2 := h.Metrics[report.MetricDesignWh]
+				if ok1 && ok2 {
+					s += fmt.Sprintf(", holds %s of %s Wh", trimFloat(full), trimFloat(design))
+				}
+			}
 			line(bt.Name, "%s", withParts(s, healthText(bt.Health)))
 			watch("battery "+bt.Name, bt.Health)
 		}
@@ -231,7 +238,9 @@ func writeText(w io.Writer, r *report.Report) error {
 
 	fmt.Fprintf(&b, "\n%d PCI devices, %d sensor chips. Full detail (serials, drivers, metrics) is in the JSON/YAML output.\n", len(r.PCI), len(r.Sensors))
 	if len(attention) > 0 {
-		section("Needs attention")
+		// The reasons are data from the capture, which may be a file
+		// someone else made; say where they come from.
+		section("Needs attention (as recorded in this capture)")
 		for _, a := range attention {
 			fmt.Fprintf(&b, "  - %s\n", a)
 		}
@@ -279,6 +288,9 @@ func driverText(d *report.Driver) string {
 		return ""
 	}
 	var flags []string
+	if d.Builtin {
+		flags = append(flags, "built in")
+	}
 	if d.InTree != nil && !*d.InTree {
 		flags = append(flags, "out-of-tree")
 	}

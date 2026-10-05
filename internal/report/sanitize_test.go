@@ -31,3 +31,13 @@ func TestSanitizeCleansEveryStringInTheReport(t *testing.T) {
 		t.Error("non-string fields changed")
 	}
 }
+
+// Metric names come from the capture file too: a crafted key must not
+// carry escapes or bidi overrides into JSON or YAML output.
+func TestSanitizeCleansMetricNames(t *testing.T) {
+	r := &Report{Batteries: []Battery{{Health: &Health{Metrics: map[string]float64{"a\x1b[31m\u202eRED": 1}}}}}
+	r.Sanitize()
+	if v, ok := r.Batteries[0].Health.Metrics["a[31mRED"]; !ok || v != 1 || len(r.Batteries[0].Health.Metrics) != 1 {
+		t.Errorf("metrics = %v", r.Batteries[0].Health.Metrics)
+	}
+}
