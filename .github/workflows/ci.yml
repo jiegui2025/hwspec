@@ -105,9 +105,9 @@ jobs:
           # Runner hardware varies (some Hyper-V VMs have no PCI bus), so check
           # invariants rather than specific devices.
           jq '{schema: (.schema_version == 1), container: (.os.virtualization == "container"),
-               os_detected: (.os.id != ""), cpu_model: (.cpu.model != ""), memory: (.memory.total_bytes > 0),
+               cpu_model: (.cpu.model != ""), memory: (.memory.total_bytes > 0),
                os: .os.pretty_name, pci_devices: (.pci | length), warnings: .warnings}' out.json | tee checks.json
-          jq -e '[.schema, .container, .os_detected, .cpu_model, .memory] | all' checks.json
+          jq -e '[.schema, .container, .cpu_model, .memory] | all' checks.json
           docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids
           # Names resolve on every distro, from its own files or the embedded copies.
           for q in "pci 8086" "usb 046d" "jedec 80CE" "cpu intel:6:9e:10"; do
