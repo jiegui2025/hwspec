@@ -1,10 +1,10 @@
 module github.com/jiegui2025/hwspec
 
-go 1.22
+go 1.26.0
 
 require (
 	github.com/jaypipes/ghw v0.26.0
-	golang.org/x/sys v0.25.0
+	golang.org/x/sys v0.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
