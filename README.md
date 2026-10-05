@@ -60,7 +60,7 @@ Graphics
 
 ## Install
 
-Download a release binary (amd64 or arm64) from the [releases page](https://github.com/jiegui2025/hwspec/releases), or build from source with Go 1.22+:
+Download a release binary (amd64 or arm64) from the [releases page](https://github.com/jiegui2025/hwspec/releases), or build from source with Go 1.26 or newer:
 
 ```sh
 go install github.com/jiegui2025/hwspec/cmd/hwspec@latest

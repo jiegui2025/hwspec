@@ -4,7 +4,9 @@ Thanks for helping. Bug reports with a `hwspec capture --redact` attached, hardw
 
 ## Development
 
-Go 1.22 or newer. Everything runs without root; collectors that need root are tested against fixture trees.
+Go 1.26 or newer. Everything runs without root; collectors that need root are tested against fixture trees.
+
+**Go version policy:** hwspec supports the Go releases the Go team supports (the latest two). `go.mod`'s `go` line is the older of the two, CI tests both, and it moves up when a new Go release ships or a dependency requires it. Update `go.mod` and the `test` matrix in `.github/workflows/ci.yml` together. Release binaries are static, so this only matters when building from source.
 
 ```sh
 make build    # build/hwspec, static
