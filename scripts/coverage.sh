@@ -5,7 +5,12 @@ set -euo pipefail
 profile=${1:?coverage profile}
 min=${2:?minimum percent}
 
-total=$(go tool cover -func="$profile" | awk '/^total:/ { sub("%", "", $3); print $3 }')
+# With -coverpkg every test binary lists every block, so count each block
+# once: covered if any test covered it. The table below counts the same way.
+# The gate compares the unrounded figure, so 94.95% doesn't pass a 95% gate.
+exact=$(awk 'NR > 1 { stmts[$1] = $2; if ($3 > 0) hit[$1] = 1 }
+  END { for (b in stmts) { t += stmts[b]; if (b in hit) c += stmts[b] } printf "%.6f", 100 * c / t }' "$profile")
+total=$(awk -v e="$exact" 'BEGIN { printf "%.2f", e }')
 
 echo "### Test coverage: ${total}% (minimum ${min}%)"
 echo
@@ -23,7 +28,7 @@ awk 'NR > 1 {
   for (p in total) printf "| %s | %.1f%% |\n", (p == "" ? "." : p), 100 * covered[p] / total[p]
 }' "$profile" | sort
 
-if awk -v t="$total" -v m="$min" 'BEGIN { exit !(t + 0 < m + 0) }'; then
+if awk -v t="$exact" -v m="$min" 'BEGIN { exit !(t + 0 < m + 0) }'; then
   echo
   echo "**Coverage ${total}% is below the required ${min}%.**"
   exit 1
