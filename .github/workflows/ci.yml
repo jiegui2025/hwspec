@@ -15,7 +15,7 @@ concurrency:
 
 env:
   # Minimum total statement coverage across all packages (see scripts/coverage.sh).
-  COVERAGE_MIN: "35"
+  COVERAGE_MIN: "95"
 
 jobs:
   # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
@@ -75,7 +75,13 @@ jobs:
           go-version: ${{ matrix.go }}
       - run: go vet ./...
       - name: Test (race detector, coverage)
+        # Tests whose coverage depends on the runner's hardware are skipped
+        # here, so the gate measures the same code on every machine.
+        env:
+          HWSPEC_SKIP_HOST_TESTS: "1"
         run: go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: Host tests (this runner's kernel and hardware)
+        run: go test -count=1 -run 'Ethtool|BluetoothManagementSocket|SystemFiles|StickyWritable|FUSE|RecordingReproduces' ./...
       - name: Coverage gate
         if: matrix.go == 'stable'
         run: scripts/coverage.sh coverage.out "$COVERAGE_MIN" >> "$GITHUB_STEP_SUMMARY"

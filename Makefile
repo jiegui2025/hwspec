@@ -25,7 +25,7 @@ lint:
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run ./...
 
 cover:
-	CGO_ENABLED=1 go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./... # the race detector needs cgo
+	HWSPEC_SKIP_HOST_TESTS=1 CGO_ENABLED=1 go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./... # the race detector needs cgo
 	scripts/coverage.sh coverage.out $(COVERAGE_MIN)
 
 release:
