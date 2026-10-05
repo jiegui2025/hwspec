@@ -102,8 +102,10 @@ jobs:
         run: |
           chmod +x hwspec-amd64
           docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec capture -f json > out.json
-          jq -e '.schema_version == 1 and .os.virtualization == "container" and (.pci | length) > 0
-                 and ([.pci[] | select(.vendor != "")] | length) > 0 and .cpu.model != ""' out.json
+          jq '{schema: (.schema_version == 1), container: (.os.virtualization == "container"),
+               pci_found: ((.pci | length) > 0), pci_named: ([.pci[] | select(.vendor != "")] | length > 0),
+               cpu_model: (.cpu.model != ""), os: .os.pretty_name, warnings: .warnings}' out.json | tee checks.json
+          jq -e '[.schema, .container, .pci_found, .pci_named, .cpu_model] | all' checks.json
           docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids
 
   nix:
