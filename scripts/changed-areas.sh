@@ -8,6 +8,8 @@
 #   workflows  CI itself: then everything runs, plus actionlint
 #   docs       Markdown (Mermaid diagrams are rendered to check them)
 #   vm         Go code or the VM harness (scripts/vm-*.sh, vms.yml): boot the VMs
+#   verify     release verification (verify.yml, scripts/verify-release*.sh):
+#              test that it catches tampering, against the live edge release
 set -euo pipefail
 if [ "${1:-}" = --files ]; then
 	files=$(cat)
@@ -19,16 +21,17 @@ else
 fi
 match() { grep -Eq "$1" <<<"$files"; }
 
-go=false; nix=false; workflows=false; docs=false; vm=false
+go=false; nix=false; workflows=false; docs=false; vm=false; verify=false
 match '(\.go$|^go\.(mod|sum|work|work\.sum)$|^vendor/|^(cmd|internal|tools)/|^\.golangci\.ya?ml$|^Makefile$|^scripts/coverage\.sh$)' && go=true
 match '^flake\.(nix|lock)$' && nix=true
-match '^(\.github/(workflows|actions)/|\.github/actionlint\.ya?ml$|scripts/(changed-areas(_test)?|check-commits|check-mermaid)\.sh$)' && workflows=true
+match '^(\.github/(workflows|actions)/|\.github/actionlint\.ya?ml$|scripts/(changed-areas(_test)?|check-commits|check-mermaid|verify-release(_test)?)\.sh$)' && workflows=true
 match '\.md$' && docs=true
 match '^(scripts/vm-[a-z-]+\.sh|\.github/workflows/vms\.yml)$' && vm=true
+match '^(scripts/verify-release(_test)?\.sh|\.github/workflows/verify\.yml)$' && verify=true
 
 # The flake builds the Go code, and the VMs check what it captures;
 # changing CI re-validates everything.
 if $go; then nix=true; vm=true; fi
 if $workflows; then go=true; nix=true; docs=true; vm=true; fi
 
-printf 'go=%s\nnix=%s\nworkflows=%s\ndocs=%s\nvm=%s\n' "$go" "$nix" "$workflows" "$docs" "$vm"
+printf 'go=%s\nnix=%s\nworkflows=%s\ndocs=%s\nvm=%s\nverify=%s\n' "$go" "$nix" "$workflows" "$docs" "$vm" "$verify"

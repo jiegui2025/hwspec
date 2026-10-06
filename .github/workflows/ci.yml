@@ -19,7 +19,8 @@ env:
 
 jobs:
   # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
-  # to main and merge-queue runs run everything except the VMs.
+  # to main and merge-queue runs run everything except the VMs and the
+  # tamper test: edge.yml -> verify.yml runs both on the published build.
   changes:
     runs-on: ubuntu-24.04
     outputs:
@@ -28,6 +29,7 @@ jobs:
       workflows: ${{ steps.areas.outputs.workflows }}
       docs: ${{ steps.areas.outputs.docs }}
       vm: ${{ steps.areas.outputs.vm }}
+      verify: ${{ steps.areas.outputs.verify }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,7 +46,7 @@ jobs:
           else
             # Not the VMs: every push to main boots them on the published
             # edge build (edge.yml -> verify.yml -> vms.yml).
-            printf 'go=true\nnix=true\nworkflows=true\ndocs=true\nvm=false\n' | tee -a "$GITHUB_OUTPUT"
+            printf 'go=true\nnix=true\nworkflows=true\ndocs=true\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           fi
 
   lint:
@@ -231,6 +233,27 @@ jobs:
       - name: Which CI jobs each kind of change selects
         run: scripts/changed-areas_test.sh
 
+  # A PR that changes verify.yml or its scripts must still catch tampering,
+  # on local copies of the live edge release's assets. PRs only: on main it
+  # would make CI depend on edge, which itself waits for green CI on main
+  # (verify.yml's tamper job covers every publish instead).
+  verify-release:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.verify == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tampered copies of edge fail verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: scripts/verify-release_test.sh edge "$REPO"
+
   # Every Mermaid diagram in the Markdown must render (docs rule).
   mermaid:
     needs: changes
@@ -248,7 +271,7 @@ jobs:
   # a failure there would skip everything and pass vacuously.
   ci-ok:
     if: always()
-    needs: [changes, lint, test, vulncheck, build, distros, vms, nix, actionlint, mermaid, pr-title, commits]
+    needs: [changes, lint, test, vulncheck, build, distros, vms, nix, actionlint, verify-release, mermaid, pr-title, commits]
     runs-on: ubuntu-24.04
     steps:
       - name: All needed checks passed
@@ -258,6 +281,6 @@ jobs:
           # `changes` must have succeeded AND produced every output; without
           # them each gated job would be skipped and this gate pass vacuously.
           echo "$NEEDS" | jq -e '.changes.result == "success"
-            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("docs") and has("vm"))
+            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("docs") and has("vm") and has("verify"))
             and (.changes.outputs | to_entries | all(.value == "true" or .value == "false"))
             and (to_entries | all(.value.result == "success" or .value.result == "skipped"))'

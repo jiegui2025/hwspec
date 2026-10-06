@@ -31,6 +31,9 @@ jobs:
       commit: ${{ steps.check.outputs.commit }}
       version: ${{ steps.check.outputs.version }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Download, check checksums and attestations
         id: check
         env:
@@ -39,11 +42,6 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           [[ "$TAG" =~ ^(edge|v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)$ ]] || { echo "::error::'$TAG' is not edge or vX.Y.Z[-pre]"; exit 1; }
-          if [ "$TAG" = edge ]; then
-            signer="$REPO/.github/workflows/edge.yml"; ref=refs/heads/main
-          else
-            signer="$REPO/.github/workflows/release.yml"; ref="refs/tags/$TAG"
-          fi
           # The commit the tag names now: every tarball must have been built
           # from it, not from some earlier commit the same workflow signed.
           commit=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha)
@@ -52,11 +50,7 @@ jobs:
           version=$TAG; [ "$TAG" = edge ] && version="edge-${commit:0:7}"
           echo "version=$version" >> "$GITHUB_OUTPUT" # what `hwspec version` must say
           gh release download "$TAG" --repo "$REPO" --dir dist
-          (cd dist && sha256sum -c SHA256SUMS)
-          for f in dist/hwspec-*.tar.gz; do
-            gh attestation verify "$f" --repo "$REPO" --signer-workflow "$signer@$ref" --source-ref "$ref" --source-digest "$commit" \
-              --deny-self-hosted-runners
-          done
+          scripts/verify-release.sh dist "$TAG" "$REPO" "$commit"
           for arch in amd64 arm64; do
             mkdir -p "bin/$arch"
             tar -C "bin/$arch" -xzf dist/hwspec-*-linux-$arch.tar.gz hwspec
@@ -66,6 +60,23 @@ jobs:
           name: verified-binaries
           path: bin/
           retention-days: 7
+
+  # The checks above must catch tampering: tampered local copies of these
+  # same assets have to fail them (nothing published is touched).
+  tamper:
+    needs: integrity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tampered copies fail verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ needs.integrity.outputs.commit }} # refuse to test anything else
+        run: scripts/verify-release_test.sh "$TAG" "$REPO" "$COMMIT"
 
   distros:
     needs: integrity
