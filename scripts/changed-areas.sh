@@ -37,7 +37,7 @@ match '(\.go$|^go\.(mod|sum|work|work\.sum)$|^vendor/|^(cmd|internal|tools|schem
 match '^flake\.(nix|lock)$' && nix=true
 match '^(\.github/workflows/ci\.yml|\.github/actions/.*|scripts/changed-areas(_test)?\.sh)$' && workflows=true
 match '^(\.github/(workflows|actions)/|\.github/actionlint\.ya?ml$|scripts/[^/]+\.sh$)' && actionlint=true
-match '(\.md$|^scripts/(check-mermaid|check-adr-index)\.sh$)' && docs=true
+match '(\.md$|^scripts/(check-mermaid|check-adr-index|changed-diagrams(_test)?)\.sh$)' && docs=true
 match '^(scripts/vm-[a-z-]+\.sh|\.github/workflows/vms\.yml)$' && vm=true
 match_src '^(cmd/hwspec/[^/]+\.go|internal/trust/[^/]+\.go|internal/collect/(collect|system|platform|pci|firmwaretables|sysfs)\.go|go\.(mod|sum)|vendor/.+)$' && vm=true
 match '^(scripts/verify-release(_test)?\.sh|\.github/workflows/verify\.yml)$' && verify=true
