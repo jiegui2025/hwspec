@@ -351,8 +351,9 @@ type Partition struct {
 	Name       string `json:"name"`
 	SizeBytes  uint64 `json:"size_bytes"`
 	Filesystem string `json:"filesystem,omitempty"`
-	Label      string `json:"label,omitempty"`
-	UUID       string `json:"uuid,omitempty"`
+	Label      string `json:"label,omitempty"`    // the filesystem's label
+	UUID       string `json:"uuid,omitempty"`     // the filesystem's UUID (lsblk UUID)
+	PartUUID   string `json:"partuuid,omitempty"` // the partition table entry's UUID (lsblk PARTUUID)
 	MountPoint string `json:"mount_point,omitempty"`
 }
 

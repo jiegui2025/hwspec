@@ -53,7 +53,8 @@ func TestScrubRemovesEveryIdentifier(t *testing.T) {
 		"/sys/class/power_supply/BAT0/serial_number":                               "1234\n",
 		"/sys/devices/pci0000:00/0000:00:1d.0/nvme/nvme0/nvme0n1/nvme0n1p2/uevent": "MAJOR=259\nPARTN=2\nPARTUUID=deadbeef-01\nPARTNAME=Alice's data\n",
 		"/run/udev/data/b259:0": "S:disk/by-id/nvme-SAMSUNG_S4DXNF0M123456\nS:disk/by-path/pci-0000:01:00.0-nvme-1-part/by-partuuid/deadbeef-01\nS:disk/by-path/pci-0000:01:00.0-nvme-1\n" +
-			"E:ID_SERIAL=SAMSUNG_S4DXNF0M123456\nE:ID_WWN=eui.0025\nE:ID_FS_LABEL=Alice\nE:DEVLINKS=/dev/disk/by-id/x\nE:ID_MODEL=SAMSUNG MZVLB256HAHQ\n",
+			"E:ID_SERIAL=SAMSUNG_S4DXNF0M123456\nE:ID_WWN=eui.0025\nE:ID_FS_LABEL=Alice\nE:DEVLINKS=/dev/disk/by-id/x\nE:ID_MODEL=SAMSUNG MZVLB256HAHQ\n" +
+			"E:ID_MODEL_ENC=SAMSUNG\\x20MZVLB256HAHQ\nE:ID_FS_LABEL_ENC=Alice\\x27s\nE:ID_FS_UUID=4ac9c9e9-6d1b\nE:ID_FS_UUID_ENC=4ac9c9e9-6d1b\nE:ID_PART_ENTRY_UUID=cafe0123-02\n",
 		"/proc/cpuinfo": "processor\t: 0\nHardware\t: BCM2835\nSerial\t\t: 10000000abcdef01\n",
 		"/proc/driver/nvidia/gpus/0000:01:00.0/information": "Model: \t\t NVIDIA RTX\nGPU UUID: \t GPU-1234-5678\nVideo BIOS: \t 94.06\n",
 		"/sys/firmware/dmi/tables/DMI":                      "\x11\x28serial-bearing table",
@@ -80,7 +81,7 @@ func TestScrubRemovesEveryIdentifier(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, secret := range []string{"PF123456", "4c4c4544", "IT-0042", "68:01:23", "1234\n", "deadbeef", "Alice", "S4DXNF0M123456", "eui.0025",
-		"abcdef01", "GPU-1234", "SN123456789", "\xDE\xAD\xBE\xEF"} {
+		"abcdef01", "GPU-1234", "SN123456789", "\xDE\xAD\xBE\xEF", "4ac9c9e9", "cafe0123"} {
 		filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
 			if err == nil && fi.Mode().IsRegular() && strings.Contains(read(t, path), secret) {
 				t.Errorf("%q survives in %s", secret, strings.TrimPrefix(path, dir))
@@ -98,7 +99,7 @@ func TestScrubRemovesEveryIdentifier(t *testing.T) {
 		}
 	}
 	for path, keep := range map[string]string{
-		"/run/udev/data/b259:0": "E:ID_MODEL=SAMSUNG MZVLB256HAHQ",
+		"/run/udev/data/b259:0": "E:ID_MODEL=SAMSUNG MZVLB256HAHQ\nE:ID_MODEL_ENC=SAMSUNG\\x20MZVLB256HAHQ\n",
 		"/proc/cpuinfo":         "Hardware\t: BCM2835",
 		"/proc/driver/nvidia/gpus/0000:01:00.0/information": "Video BIOS: \t 94.06",
 	} {
@@ -235,7 +236,7 @@ func identifiers(t *testing.T, r any) []string {
 					if a, ok := val.(string); ok && macAddress.MatchString(a) && len(a) == 17 {
 						out = append(out, a)
 					}
-				case "serial", "mac", "uuid", "wwn", "local_name", "hostname":
+				case "serial", "mac", "uuid", "partuuid", "wwn", "local_name", "hostname":
 					// Some USB devices report their product name ("Lenovo FHD
 					// Webcam") as the serial; real serials have no spaces.
 					if s, ok := val.(string); ok && len(s) > 4 && s != "REDACTED" && (k != "serial" || !strings.Contains(s, " ")) {
@@ -267,7 +268,7 @@ func comparable(t *testing.T, r any) any {
 		t.Fatal(err)
 	}
 	drop := map[string]bool{
-		"captured_at": true, "hostname": true, "serial": true, "mac": true, "address": true, "uuid": true, "label": true,
+		"captured_at": true, "hostname": true, "serial": true, "mac": true, "address": true, "uuid": true, "partuuid": true, "label": true,
 		"local_name": true, "wwn": true, "asset_tag": true, "sensors": true, "metrics": true, "batteries": true, "warnings": true,
 		"actual_freq_mhz": true, // a GPU's clock moves between two captures
 	}
@@ -436,9 +437,8 @@ func TestRecordingNeedsAnEmptyDestination(t *testing.T) {
 // this one: ghw's clone, the traced paths and the capture are replaced.
 func fakeMachine(t *testing.T, src string, cloneErr error) {
 	t.Helper()
-	oldClone, oldPaths, oldCapture, oldRoot := cloneTree, tracedPaths, capture, hostRoot
-	t.Cleanup(func() { cloneTree, tracedPaths, capture, hostRoot = oldClone, oldPaths, oldCapture, oldRoot })
-	hostRoot = src // ghwMisses are looked for in the synthetic machine
+	oldClone, oldPaths, oldCapture := cloneTree, tracedPaths, capture
+	t.Cleanup(func() { cloneTree, tracedPaths, capture = oldClone, oldPaths, oldCapture })
 	cloneTree = func(_ context.Context, dest string) error {
 		if cloneErr != nil {
 			return cloneErr
@@ -596,38 +596,5 @@ func TestRecordingStopsCleanly(t *testing.T) {
 	}
 	if err := record(context.Background(), filepath.Join(dir, "c", "root"), io.Discard); err == nil || !strings.Contains(err.Error(), "unknown to this hwspec") {
 		t.Errorf("unknown version: %v", err)
-	}
-}
-
-// ghw reads a SATA or SCSI disk's vendor and model through its device link,
-// which ghw's own clone doesn't copy: a recording must copy them itself,
-// or every such disk loses its vendor.
-func TestSCSIDiskVendorIsRecorded(t *testing.T) {
-	src := t.TempDir()
-	fakeMachine(t, src, nil)
-	tracedPaths = func(string) []string { return nil } // only the extra paths
-	scsi := "sys/devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0"
-	write(t, filepath.Join(src, scsi, "vendor"), []byte("ATA     \n"))
-	write(t, filepath.Join(src, scsi, "model"), []byte("ST2000DM008\n"))
-	if err := os.MkdirAll(filepath.Join(src, scsi, "block/sda"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(src, "sys/block"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("../devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0/block/sda", filepath.Join(src, "sys/block/sda")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink("../..", filepath.Join(src, scsi, "block/sda/device")); err != nil {
-		t.Fatal(err)
-	}
-	dest := filepath.Join(t.TempDir(), "root")
-	if err := record(context.Background(), dest, io.Discard); err != nil {
-		t.Fatal(err)
-	}
-	for name, want := range map[string]string{"vendor": "ATA     \n", "model": "ST2000DM008\n"} {
-		if got, err := os.ReadFile(filepath.Join(dest, src, "sys/block/sda/device", name)); err != nil || string(got) != want {
-			t.Errorf("%s through the device link: %q, %v", name, got, err)
-		}
 	}
 }

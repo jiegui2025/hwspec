@@ -226,6 +226,7 @@ oui 04:0E:3C = HP Inc.
 | Versioning | `schema_version` (currently 1) changes only when a field is renamed, removed or changes meaning; new fields can appear without a bump |
 | Units | bytes, °C, or named in the field (`_mhz`, `_mts`, `_mbps`) |
 | Missing data | omitted, empty or "unknown", with the reason in `warnings`; never guessed |
+| Before v0.1.0 | captures from `v0.1.0-rc.1` and earlier hold a partition's GPT partition UUID in `uuid`, and labels and filesystem types with `_` turned into spaces. From v0.1.0, `uuid` is the filesystem UUID (`lsblk`'s UUID column), the new `partuuid` is the partition UUID, and values are as udev records them ([#142](https://github.com/jiegui2025/hwspec/issues/142)) |
 | Reference | the Go structs in [internal/report/report.go](internal/report/report.go), published as a JSON Schema (draft 2020-12): [schema/capture-v1.json](schema/capture-v1.json), also printed by `hwspec schema`. Captures from this version on name it in a `$schema` key, so editors can validate them; older v1 captures lack the key and still validate. Unknown fields are allowed, so v1 readers accept files from newer v1 builds. CI fails a schema change other than an added field or a dropped requirement; a field that changes meaning is a review item ([ADR 0003](docs/adr/0003-capture-format.md)) |
 
 ## Roadmap
@@ -350,7 +351,7 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | Path | What |
 |---|---|
 | `cmd/hwspec` | CLI, including the `pkexec` re-run for `--full` |
-| `internal/collect` | one collector per area, reading sysfs/procfs; CPU and block devices via [ghw](https://github.com/jaypipes/ghw) |
+| `internal/collect` | one collector per area, reading sysfs/procfs and the udev database; the CPU topology via [ghw](https://github.com/jaypipes/ghw) |
 | `internal/ids` | ID databases, overrides, sync, JEDEC/OUI/CPU decoding |
 | `internal/resolve` | names from raw IDs, for new and saved captures |
 | `internal/report`, `internal/output` | the file format, redaction, sanitising; JSON/YAML/text |

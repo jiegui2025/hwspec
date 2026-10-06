@@ -489,7 +489,7 @@ func TestHybridCPUAndModularScalingDriver(t *testing.T) {
 }
 
 // Every kind of disk, on a system without udev (a container, a minimal
-// install): ghw finds them in sysfs, the identity comes from sysfs files,
+// install): they are found in sysfs, the identity comes from sysfs files,
 // and the type is only what the kernel gives evidence for.
 func TestDisksOfEveryKindWithoutUdev(t *testing.T) {
 	file, link := fakeRoot(t)
@@ -554,6 +554,106 @@ func TestDisksOfEveryKindWithoutUdev(t *testing.T) {
 	}
 	if got["sr0"].Health != nil || got["mmcblk0"].Health != nil || got["sda"].Health == nil {
 		t.Error("drive health: optical and eMMC have no SMART, SATA does")
+	}
+}
+
+// Partitions as udev and the kernel record them, unaltered (#142): a
+// label with an underscore keeps it, an unmounted LUKS or LVM partition
+// keeps its type, uuid is the filesystem's UUID and partuuid the partition
+// table entry's. A label or model with spaces comes from udev's exact
+// _ENC form, and without udev the mount table and the kernel fill in.
+func TestPartitionsAsRecorded(t *testing.T) {
+	file, link := fakeRoot(t)
+	asMachine(t, "x86_64", 1000)
+	dev := "/sys/devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0/block/sda"
+	link("/sys/block/sda", "../devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0/block/sda")
+	link(dev+"/device", "../..")
+	file(dev+"/size", "1000215216")
+	file(dev+"/dev", "8:0")
+	file(dev+"/removable", "1")
+	file(dev+"/queue/physical_block_size", "4096")
+	file(dev+"/queue/rotational", "0")
+	file(dev+"/alignment_offset", "0")            // not a partition
+	file(dev+"/device/model", "Samsung SSD 860 ") // the SCSI inquiry's 16 characters
+	file(dev+"/device/vendor", "ATA")
+	file("/run/udev/data/b8:0", "S:disk/by-id/ata-x\n"+
+		"E:ID_MODEL=Samsung_SSD_860_EVO_500GB\nE:ID_MODEL_ENC=Samsung\\x20SSD\\x20860\\x20EVO\\x20500GB\\x20\\x20\n"+
+		"E:ID_SERIAL=Samsung_SSD_860_EVO_500GB_S3Z1NB0K_123\nE:ID_SERIAL_SHORT=S3Z1NB0K_123\nE:ID_WWN=0x5002538e40a1b2c3\nE:ID_WWN_WITH_EXTENSION=0x5002538e40a1b2c3d4e5f6\n")
+	part := func(name, n, devNo, udev, uevent string) {
+		file(dev+"/"+name+"/partition", n)
+		file(dev+"/"+name+"/size", "2048")
+		file(dev+"/"+name+"/dev", devNo)
+		file(dev+"/"+name+"/uevent", uevent)
+		if udev != "" {
+			file("/run/udev/data/b"+devNo, udev)
+		}
+	}
+	part("sda1", "1", "8:1", "E:ID_FS_TYPE=vfat\nE:ID_FS_LABEL=SYSTEM_DRV\nE:ID_FS_LABEL_ENC=SYSTEM_DRV\nE:ID_FS_UUID=6A26-3981\nE:ID_FS_UUID_ENC=6A26-3981\n"+
+		"E:ID_PART_ENTRY_UUID=862a5947-c13a-4f9b-9f61-22f09238fa7f\n", "PARTUUID=862a5947-c13a-4f9b-9f61-22f09238fa7f\n")
+	part("sda2", "2", "8:2", "E:ID_FS_TYPE=crypto_LUKS\nE:ID_FS_UUID=4ac9c9e9-6d1b-4984-a0f2-13842b536ee3\nE:ID_PART_ENTRY_UUID=6f302dbe-05e9-4aec-a960-ed9595fae5d1\n", "")
+	part("sda10", "10", "8:10", "E:ID_FS_TYPE=LVM2_member\nE:ID_FS_LABEL=My_Data\nE:ID_FS_LABEL_ENC=My\\x20Data\n", "")
+	part("sda3", "3", "8:3", "", "PARTUUID=0b4f7c1e-03\nMAJOR=8\n") // no udev record
+	part("sda4", "4", "8:4", "E:ID_FS_TYPE=ntfs\n", "")
+	file("/proc/self/mounts", "/dev/sda1 /boot/efi vfat rw 0 0\n/dev/sda3 /run/media/x/My\\040Disk ext4 rw 0 0\n/dev/sda3 /second ext4 rw 0 0\n"+
+		"/dev/sda4 /win ntfs3 rw 0 0\nproc /proc proc rw 0 0\ngarbage\ntwo fields\n")
+	// A SCSI disk: its unit serial (VPD page 80h) is the serial.
+	scsi := "/sys/devices/pci0000:00/0000:00:1f.2/host2/target2:0:0/2:0:0:0/block/sdb"
+	link("/sys/block/sdb", "../devices/pci0000:00/0000:00:1f.2/host2/target2:0:0/2:0:0:0/block/sdb")
+	file(scsi+"/size", "1000")
+	file(scsi+"/dev", "8:16")
+	file("/run/udev/data/b8:16", "E:ID_SCSI_SERIAL=Z1X2C3V4\nE:ID_SERIAL_SHORT=35000c500a1b2c3d4\n")
+	traced := map[string]bool{}
+	traceRead = func(path string) { traced[path] = true }
+	t.Cleanup(func() { traceRead = nil })
+
+	c := &collector{r: &report.Report{}}
+	c.storage()
+	if len(c.r.Storage) != 2 {
+		t.Fatalf("disks = %+v", c.r.Storage)
+	}
+	if id := c.r.Storage[1].Identity; id == nil || id.Serial != "Z1X2C3V4" {
+		t.Errorf("SCSI disk identity = %+v", id)
+	}
+	d := c.r.Storage[0]
+	if id := d.Identity; id == nil || id.Model != "Samsung SSD 860 EVO 500GB" || id.Vendor != "ATA" || id.Serial != "S3Z1NB0K_123" {
+		t.Errorf("identity = %+v", d.Identity)
+	}
+	if d.WWN != "0x5002538e40a1b2c3d4e5f6" || !d.Removable || d.PhysicalBlockBytes != 4096 || d.SizeBytes != 1000215216*512 {
+		t.Errorf("disk = %+v", d)
+	}
+	want := []report.Partition{
+		{Name: "sda1", SizeBytes: 2048 * 512, Filesystem: "vfat", Label: "SYSTEM_DRV", UUID: "6A26-3981", PartUUID: "862a5947-c13a-4f9b-9f61-22f09238fa7f", MountPoint: "/boot/efi"},
+		{Name: "sda2", SizeBytes: 2048 * 512, Filesystem: "crypto_LUKS", UUID: "4ac9c9e9-6d1b-4984-a0f2-13842b536ee3", PartUUID: "6f302dbe-05e9-4aec-a960-ed9595fae5d1"},
+		{Name: "sda3", SizeBytes: 2048 * 512, Filesystem: "ext4", PartUUID: "0b4f7c1e-03", MountPoint: "/run/media/x/My Disk"},
+		{Name: "sda4", SizeBytes: 2048 * 512, Filesystem: "ntfs", MountPoint: "/win"}, // the filesystem, not the driver mounting it
+		{Name: "sda10", SizeBytes: 2048 * 512, Filesystem: "LVM2_member", Label: "My Data"},
+	}
+	if !reflect.DeepEqual(d.Partitions, want) {
+		t.Errorf("partitions:\n got %+v\nwant %+v", d.Partitions, want)
+	}
+	// Every read goes through the collectors' file layer, so a recording
+	// copies it; only entries named after the disk are probed.
+	for _, path := range []string{"/run/udev/data/b8:0", "/run/udev/data/b8:1", "/sys/block/sda/device/vendor", "/sys/block/sda/device/model", "/sys/block/sda/queue/physical_block_size", "/proc/self/mounts"} {
+		if !traced[path] {
+			t.Errorf("%s not traced", path)
+		}
+	}
+	if traced["/sys/block/sda/alignment_offset/partition"] {
+		t.Error("probed a disk attribute for a partition number")
+	}
+}
+
+// The unescapers decode only well-formed escapes.
+func TestUnescapers(t *testing.T) {
+	for in, want := range map[string]string{`My\x20Data`: "My Data", `a\x2`: `a\x2`, `a\xZZb`: `a\xZZb`, `\x41\x42`: "AB", `\\x41`: `\A`, `a\b12c`: `a\b12c`} {
+		if got := unescapeHex(in); got != want {
+			t.Errorf("unescapeHex(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for in, want := range map[string]string{`My\040Disk`: "My Disk", `a\134b`: `a\b`, `a\04`: `a\04`, `a\09x`: `a\09x`, `\011\012`: "\t\n"} {
+		if got := unescapeOctal(in); got != want {
+			t.Errorf("unescapeOctal(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 

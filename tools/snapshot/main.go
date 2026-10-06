@@ -84,19 +84,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 // The machine being recorded; tests replace these with a synthetic one.
 var (
-	hostRoot    = "/" // where ghwMisses are looked for
 	cloneTree   = snapshot.CloneTreeInto
 	tracedPaths = collect.Paths
 	capture     = collect.Collect
 )
-
-// ghwMisses are files ghw reads that its own snapshot doesn't copy.
-var ghwMisses = []string{
-	"/sys/block/*/queue/physical_block_size",
-	"/sys/block/*/device/vendor", // SATA/SCSI disks, through the device link
-	"/sys/block/*/device/model",
-	"/run/udev/data/b*", // block devices: model, type, partition table
-}
 
 // record copies ghw's file set and every path hwspec's collectors read
 // (traced from a real capture, so the set can't drift from the code) into
@@ -144,13 +135,6 @@ func record(ctx context.Context, dest string, stderr io.Writer) error {
 		return fmt.Errorf("ghw clone: %w", err)
 	}
 	paths := tracedPaths("snapshot")
-	for _, pattern := range ghwMisses {
-		matches, err := filepath.Glob(filepath.Join(hostRoot, pattern))
-		if err != nil {
-			return err
-		}
-		paths = append(paths, matches...)
-	}
 	m := collect.Machine{Unreadable: map[string]int{}}
 	for _, path := range paths {
 		if err := ctx.Err(); err != nil {
@@ -359,13 +343,13 @@ var mountPoints = map[string]bool{
 	"/nix": true, "/nix/store": true,
 }
 
-// udevKeys are the udev properties ghw reads; true marks the ones naming
-// one part, kept with a placeholder. Every other line of a udev record is
-// dropped.
+// udevKeys are the udev properties hwspec reads (internal/collect's
+// block reader); true marks the ones naming one part or person, kept with
+// a placeholder. Every other line of a udev record is dropped.
 var udevKeys = map[string]bool{
-	"ID_MODEL": false, "ID_FS_TYPE": false, "ID_PATH": false,
+	"ID_MODEL": false, "ID_MODEL_ENC": false, "ID_FS_TYPE": false,
 	"ID_SERIAL": true, "ID_SERIAL_SHORT": true, "ID_SCSI_SERIAL": true, "ID_WWN": true, "ID_WWN_WITH_EXTENSION": true,
-	"DM_WWN": true, "ID_FS_LABEL": true, "ID_PART_ENTRY_NAME": true, "ID_PART_ENTRY_UUID": true,
+	"ID_FS_LABEL": true, "ID_FS_LABEL_ENC": true, "ID_FS_UUID": true, "ID_FS_UUID_ENC": true, "ID_PART_ENTRY_UUID": true,
 }
 
 // scrub replaces or removes every identifier under dest. It fails closed:
