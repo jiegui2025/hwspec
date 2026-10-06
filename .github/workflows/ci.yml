@@ -21,8 +21,15 @@ jobs:
   # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
   # to main and merge-queue runs run everything except the VMs and the
   # tamper test: edge.yml -> verify.yml runs both on the published build.
+  # A push whose tree is exactly a merged PR's head, whose CI passed,
+  # runs nothing more: that tree was just tested (#152).
   changes:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read # the PR a pushed commit came from
+      checks: read        # that PR head's ci-ok
+      actions: read       # and its CI run
     outputs:
       go: ${{ steps.areas.outputs.go }}
       nix: ${{ steps.areas.outputs.nix }}
@@ -40,9 +47,32 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
+          # The merged PR this push came from, if its head has this exact
+          # tree and its CI passed (rebase merges of an up-to-date branch
+          # keep the tree). Any doubt, or an API failure, runs everything.
+          tested_pr() {
+            local pr head tree
+            pr=$(gh api "repos/$REPO/commits/$GITHUB_SHA/pulls" \
+              --jq '[.[] | select(.merged_at != null and .base.ref == "main")][0] | "\(.number) \(.head.sha)"') || return 1
+            read -r pr head <<<"$pr"
+            [[ "$head" =~ ^[0-9a-f]{40}$ ]] || return 1
+            tree=$(gh api "repos/$REPO/git/commits/$head" --jq .tree.sha) || return 1
+            [ "$tree" = "$(git rev-parse "HEAD^{tree}")" ] || return 1
+            # This workflow's own ci-ok, not a check run of that name any app
+            # with checks:write could post, and this workflow's PR run passed.
+            gh api "repos/$REPO/commits/$head/check-runs?check_name=ci-ok" \
+              --jq '[.check_runs[] | select(.conclusion == "success" and .app.slug == "github-actions")] | length > 0' | grep -qx true || return 1
+            gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request" \
+              --jq '[.workflow_runs[] | select(.path == ".github/workflows/ci.yml" and .conclusion == "success")] | length > 0' | grep -qx true || return 1
+            echo "::notice::the tree is PR #$pr's head ${head:0:7}, whose CI passed: not testing it again"
+          }
           if [ "$EVENT" = pull_request ]; then
             scripts/changed-areas.sh "$BASE" "$HEAD" | tee -a "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = push ] && tested_pr; then
+            printf 'go=false\nnix=false\nworkflows=false\ndocs=false\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           else
             # Not the VMs: every push to main boots them on the published
             # edge build (edge.yml -> verify.yml -> vms.yml).
@@ -287,10 +317,25 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Render all diagrams
+        with:
+          fetch-depth: 0 # the PR's base, to list the Markdown it changed
+      # A PR renders the Markdown it changed (each diagram takes a container
+      # start: all 25 took 90 s, #152); a change to CI itself, and main,
+      # render every file.
+      - name: Render the diagrams
+        shell: bash # -o pipefail: a failed git diff must fail the step
         env:
           MERMAID_IMAGE: docker.io/minlag/mermaid-cli:12.0.0@sha256:30a3ca1a8af8632e9aee021e6a39738ff876239c5307f03734e89c5364ff5f38
-        run: git ls-files -z '*.md' | xargs -0 -r scripts/check-mermaid.sh
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          CI_CHANGED: ${{ needs.changes.outputs.workflows }}
+        run: |
+          if [ "$EVENT" = pull_request ] && [ "$CI_CHANGED" = false ]; then
+            git diff -z --no-renames --name-only --diff-filter=d "$BASE...$HEAD" -- '*.md' | xargs -0 -r scripts/check-mermaid.sh
+          else
+            git ls-files -z '*.md' | xargs -0 -r scripts/check-mermaid.sh
+          fi
       - name: Every decision record is in the ADR index
         run: scripts/check-adr-index.sh
 
