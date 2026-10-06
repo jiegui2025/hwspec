@@ -175,59 +175,99 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
-      - name: Build static amd64 and arm64
+      # amd64 only: the distro containers and the VMs run it, and start as
+      # soon as it's uploaded (build-arm64 checks the other architecture).
+      - name: Build static amd64
         run: |
-          for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=ci-$GITHUB_SHA" -o dist/hwspec-$arch ./cmd/hwspec
-            file dist/hwspec-$arch | tee /dev/stderr | grep -q 'statically linked'
-          done
+          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=ci-$GITHUB_SHA" -o dist/hwspec-amd64 ./cmd/hwspec
+          file dist/hwspec-amd64 | tee /dev/stderr | grep -q 'statically linked'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hwspec-binaries
           path: dist/
           retention-days: 7
 
+  # The arm64 binary must build static too; nothing in CI runs it (the
+  # published arm64 binary runs in verify.yml's arm64 containers).
+  build-arm64:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Build static arm64
+        run: |
+          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=ci-$GITHUB_SHA" -o hwspec-arm64 ./cmd/hwspec
+          file hwspec-arm64 | tee /dev/stderr | grep -q 'statically linked'
+
   # The same static binary must run on every target distro, with names
-  # resolved (from the distro's ID files or the embedded copies).
+  # resolved (from the distro's ID files or the embedded copies). One job
+  # runs the containers in parallel: a job per distro took 8 runner slots,
+  # and the VMs queued behind them (#175).
   distros:
     needs: [changes, build]
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        image:
-          - docker.io/library/ubuntu:24.04
-          - docker.io/library/debian:12
-          - registry.fedoraproject.org/fedora:latest
-          - docker.io/library/archlinux:latest
-          - docker.io/library/alpine:latest
-          - docker.io/nixos/nix:latest
-          # Linux Mint's Debian edition (LMDE 7, as Mint's own CI builds it)
-          # and Devuan excalibur (Debian 13 without systemd, the closest
-          # automatable stand-in for MX Linux's userland); amd64 only.
-          - docker.io/linuxmintd/lmde7-amd64@sha256:c9a7c5c147487db008a46f3b646e6a01fac64c6596490931496486c0f66f0232 # lmde7-amd64
-          - docker.io/devuan/devuan@sha256:8d0b211d065e8577c3650f476eca2f974a6ee1cc39f87b3cffcc955d1c8d812f # devuan:excalibur
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: hwspec-binaries
-      - name: Capture inside ${{ matrix.image }}
+      - name: Capture inside every target distro
+        shell: bash
         run: |
           chmod +x hwspec-amd64
-          docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec capture -f json > out.json
-          # Runner hardware varies (some Hyper-V VMs have no PCI bus), so check
-          # invariants rather than specific devices.
+          images=(
+            docker.io/library/ubuntu:24.04
+            docker.io/library/debian:12
+            registry.fedoraproject.org/fedora:latest
+            docker.io/library/archlinux:latest
+            docker.io/library/alpine:latest
+            docker.io/nixos/nix:latest
+            # Linux Mint's Debian edition (LMDE 7, as Mint's own CI builds
+            # it) and Devuan excalibur (Debian 13 without systemd, the
+            # closest automatable stand-in for MX Linux's userland).
+            docker.io/linuxmintd/lmde7-amd64@sha256:c9a7c5c147487db008a46f3b646e6a01fac64c6596490931496486c0f66f0232 # lmde7-amd64
+            docker.io/devuan/devuan@sha256:8d0b211d065e8577c3650f476eca2f974a6ee1cc39f87b3cffcc955d1c8d812f # devuan:excalibur
+          )
+          # What one distro must pass, as its own script: a separate bash
+          # keeps -e working (it's off inside conditions in this shell).
+          cat > check.sh <<'SCRIPT'
+          image=$1 dir=$2
+          run() { docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "$image" /hwspec "$@"; }
+          run capture -f json > "$dir/out.json"
+          # Runner hardware varies (some Hyper-V VMs have no PCI bus), so
+          # check invariants rather than specific devices.
           jq '{schema: (.schema_version == 1), container: (.os.virtualization == "container"),
                cpu_model: ((.cpu.identity.model // "") != ""), memory: (.memory.total_bytes > 0),
-               os: .os.pretty_name, pci_devices: (.pci | length), warnings: .warnings}' out.json | tee checks.json
-          jq -e '[.schema, .container, .cpu_model, .memory] | all' checks.json
-          docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids
+               os: .os.pretty_name, pci_devices: (.pci | length), warnings: .warnings}' "$dir/out.json" | tee "$dir/checks.json"
+          jq -e '[.schema, .container, .cpu_model, .memory] | all' "$dir/checks.json"
+          run ids
           # Names resolve on every distro, from its own files or the embedded copies.
           for q in "pci 8086" "usb 046d" "jedec 80CE" "cpu intel:6:9e:10"; do
             read -ra lookup <<<"$q" # "KIND ID" as two arguments
-            docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids lookup "${lookup[@]}"
+            run ids lookup "${lookup[@]}"
           done
+          SCRIPT
+          for i in "${!images[@]}"; do
+            mkdir -p "d$i"
+            { bash -euo pipefail check.sh "${images[$i]}" "d$i" > "d$i/log" 2>&1 && echo 0 > "d$i/rc" || echo $? > "d$i/rc"; } &
+          done
+          wait
+          fail=0
+          for i in "${!images[@]}"; do
+            rc=$(cat "d$i/rc")
+            echo "::group::${images[$i]} (exit $rc)"
+            cat "d$i/log"
+            echo "::endgroup::"
+            if [ "$rc" != 0 ]; then
+              echo "::error::hwspec failed inside ${images[$i]} (log above)"
+              fail=1
+            fi
+          done
+          exit "$fail"
 
   # Go changes and changes to the VM harness boot the VMs with the binary
   # just built (published builds go through them in verify.yml).
@@ -344,7 +384,7 @@ jobs:
   # a failure there would skip everything and pass vacuously.
   ci-ok:
     if: always()
-    needs: [changes, lint, test, vulncheck, build, distros, vms, nix, actionlint, verify-release, mermaid, pr-title, commits]
+    needs: [changes, lint, test, vulncheck, build, build-arm64, distros, vms, nix, actionlint, verify-release, mermaid, pr-title, commits]
     runs-on: ubuntu-24.04
     steps:
       - name: All needed checks passed

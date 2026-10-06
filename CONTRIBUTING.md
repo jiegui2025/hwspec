@@ -90,7 +90,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 
 | The PR changes | Jobs |
 |---|---|
-| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds, 6-distro smoke tests, Nix, the 7 VMs |
+| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds (amd64 first: the distros and VMs start as soon as it's built), 8-distro smoke tests (one job, in parallel), Nix, the 7 VMs |
 | `flake.nix` / `flake.lock` only | Nix |
 | the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs |
 | `verify.yml` or `scripts/verify-release*.sh` | everything in the next row, plus the tamper test against the live `edge` release (`verify-release`) |
