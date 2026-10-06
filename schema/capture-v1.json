@@ -592,6 +592,32 @@
         "ecc": {
           "type": "string"
         },
+        "slot_usage": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "locator": {
+                "type": "string"
+              },
+              "bank_locator": {
+                "type": "string"
+              },
+              "populated": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "form_factor": {
+                "type": "string"
+              }
+            }
+          }
+        },
         "modules": {
           "type": [
             "null",

@@ -118,8 +118,38 @@ func writeText(w io.Writer, r *report.Report) error {
 		mem = bytesStr(r.Memory.InstalledBytes) + " installed, " + mem
 	}
 	line("Total", "%s", mem)
-	if r.Memory.Slots > 0 {
+	switch slots := r.Memory.SlotUsage; {
+	case len(slots) > 0:
+		var used, empty, unknown []string
+		for _, s := range slots {
+			name := join(s.Locator, s.BankLocator)
+			switch {
+			case s.Populated == nil:
+				unknown = append(unknown, name)
+			case *s.Populated:
+				used = append(used, name)
+			default:
+				empty = append(empty, name)
+			}
+		}
+		text := fmt.Sprintf("%d used of %d", len(used), len(slots))
+		if r.Memory.Slots > 0 && r.Memory.Slots != len(slots) {
+			text += fmt.Sprintf(" listed; the firmware's array says %d slots", r.Memory.Slots)
+		}
+		if len(unknown) > 0 {
+			text += "; not said: " + strings.Join(unknown, ", ")
+		}
+		if len(empty) > 0 {
+			text += "; empty: " + strings.Join(empty, ", ")
+		}
+		if r.Memory.MaxCapacityBytes > 0 {
+			text += "; max " + bytesStr(r.Memory.MaxCapacityBytes)
+		}
+		line("Slots", "%s", text)
+	case r.Memory.Slots > 0: // a capture from before slot_usage
 		line("Slots", "%d used of %d, max %s", len(r.Memory.Modules), r.Memory.Slots, bytesStr(r.Memory.MaxCapacityBytes))
+	case !r.Privileged:
+		line("Slots", "how many, and which are used, needs --full (the firmware's table is root only)")
 	}
 	for _, m := range r.Memory.Modules {
 		var maker, part, made string

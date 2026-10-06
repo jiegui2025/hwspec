@@ -358,3 +358,45 @@ func TestReadRefusesMalformedCaptures(t *testing.T) {
 		}
 	}
 }
+
+// Slot usage: each slot from the firmware, empty ones named; without root
+// it says the count needs --full instead of inferring it from usable RAM;
+// a capture from before slot_usage keeps its old line.
+func TestTextMemorySlots(t *testing.T) {
+	text := func(r *report.Report) string {
+		var buf bytes.Buffer
+		if err := Write(&buf, r, "text"); err != nil {
+			t.Fatal(err)
+		}
+		return buf.String()
+	}
+	yes, no := new(bool), new(bool)
+	*yes = true
+	r := sample()
+	r.Privileged = true
+	r.Memory.MaxCapacityBytes = 64 << 30
+	r.Memory.SlotUsage = []report.MemorySlot{{Locator: "DIMM_A1", Populated: yes}, {Locator: "DIMM_A2", BankLocator: "ChannelA", Populated: no}, {Locator: "DIMM_B1", Populated: yes}, {Locator: "DIMM_B2", Populated: no}}
+	if got := text(r); !strings.Contains(got, "Slots      2 used of 4; empty: DIMM_A2 ChannelA, DIMM_B2; max 64 GiB\n") {
+		t.Errorf("slot usage:\n%s", got)
+	}
+	r.Memory.SlotUsage, r.Memory.MaxCapacityBytes = []report.MemorySlot{{Locator: "DIMM1", Populated: yes}}, 0
+	if got := text(r); !strings.Contains(got, "Slots      1 used of 1\n") {
+		t.Errorf("all used, no max:\n%s", got)
+	}
+	// The firmware's array and its slot list disagree, and a slot doesn't
+	// say whether a module is in it: both are shown as the firmware said.
+	r.Memory.Slots = 4
+	r.Memory.SlotUsage = []report.MemorySlot{{Locator: "DIMM_A1"}, {Locator: "DIMM_B1", Populated: yes}}
+	if got := text(r); !strings.Contains(got, "Slots      1 used of 2 listed; the firmware's array says 4 slots; not said: DIMM_A1\n") {
+		t.Errorf("disagreeing counts:\n%s", got)
+	}
+	r.Memory.Slots = 0
+	r.Memory.SlotUsage, r.Privileged = nil, false
+	if got := text(r); !strings.Contains(got, "Slots      how many, and which are used, needs --full") {
+		t.Errorf("no root:\n%s", got)
+	}
+	r.Privileged = true
+	if got := text(r); strings.Contains(got, "Slots ") {
+		t.Errorf("root without a table:\n%s", got)
+	}
+}

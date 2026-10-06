@@ -74,10 +74,14 @@ func TestMemory(t *testing.T) {
 		Manufacturer: "Samsung", Serial: "12345678", PartNumber: "M471A2K43DB1-CTD",
 		TotalWidth: 64, DataWidth: 64, Rank: 2, ConfiguredMV: 1200,
 	}
+	if devs[0].Installed == nil || !*devs[0].Installed {
+		t.Errorf("device 0 not installed: %+v", devs[0].Installed)
+	}
+	devs[0].Installed = nil
 	if devs[0] != want {
 		t.Errorf("device 0:\n got %+v\nwant %+v", devs[0], want)
 	}
-	if devs[1].SizeBytes != 0 || devs[1].Manufacturer != "" || devs[1].Locator != "DIMM 2" {
+	if devs[1].SizeBytes != 0 || devs[1].Manufacturer != "" || devs[1].Locator != "DIMM 2" || devs[1].Installed == nil || *devs[1].Installed {
 		t.Errorf("empty slot = %+v", devs[1])
 	}
 }
@@ -211,6 +215,46 @@ func TestCleanDropsPlaceholders(t *testing.T) {
 	for _, s := range []string{"System76", "System Product Name 2", "SKU1234", "Thelio", "ASUS", "ROG STRIX X570-E GAMING WIFI II"} {
 		if got := Clean(s); got != s {
 			t.Errorf("Clean(%q) = %q, want it kept", s, got)
+		}
+	}
+}
+
+// Size 0 is an empty socket; FFFFh, and 7FFFh without the Extended Size
+// field, are a module of unknown size; a structure too short for Size
+// doesn't say (DSP0134 7.18, Size).
+func TestInstalledFromTheSizeField(t *testing.T) {
+	dev := func(length int, size uint16) []byte {
+		return structure(17, length, func(f []byte) {
+			if length > 0x10 {
+				f[0x10] = 1
+			}
+			if length >= 0x0E {
+				binary.LittleEndian.PutUint16(f[0x0C:], size)
+			}
+		}, "DIMM")
+	}
+	for _, c := range []struct {
+		name   string
+		table  []byte
+		want   string // "true", "false" or "nil"
+		sizeGB uint64
+	}{
+		{"empty", dev(0x28, 0), "false", 0},
+		{"8 GiB", dev(0x28, 8192), "true", 8},
+		{"size unknown", dev(0x28, 0xFFFF), "true", 0},
+		{"extended size missing", dev(0x1C, 0x7FFF), "true", 0},
+		{"too short for Size", dev(0x0C, 0), "nil", 0},
+	} {
+		got := MemoryDevices(Parse(append(c.table, 127, 4, 0, 0, 0, 0)))
+		if len(got) != 1 {
+			t.Fatalf("%s: %d devices", c.name, len(got))
+		}
+		installed := "nil"
+		if got[0].Installed != nil {
+			installed = map[bool]string{true: "true", false: "false"}[*got[0].Installed]
+		}
+		if installed != c.want || got[0].SizeBytes != c.sizeGB<<30 {
+			t.Errorf("%s: installed %s, size %d; want %s, %d GiB", c.name, installed, got[0].SizeBytes, c.want, c.sizeGB)
 		}
 	}
 }
