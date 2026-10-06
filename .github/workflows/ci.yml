@@ -360,6 +360,13 @@ jobs:
         run: scripts/check-commits_test.sh
       - name: Only diagrams a change touches are rendered, and all of those
         run: scripts/changed-diagrams_test.sh
+      # Owner, 2026-10-06: pinning is required where it matters, so every
+      # workflow with write permissions, secrets or an environment pins its
+      # actions by full SHA.
+      - name: Privileged workflows pin their actions
+        run: |
+          scripts/check-pinned-actions_test.sh
+          scripts/check-pinned-actions.sh
 
   # A PR that changes verify.yml or its scripts must still catch tampering,
   # on local copies of the live edge release's assets. PRs only: on main it
