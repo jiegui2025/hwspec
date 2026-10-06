@@ -1,6 +1,8 @@
 # Contributing to hwspec
 
-Thanks for helping. Bug reports with a `hwspec capture --redact` attached, hardware we don't detect yet, and name corrections are all valuable.
+Thanks for helping. Bug reports with a `hwspec capture --redact` attached, hardware we don't detect yet, name corrections and accessibility barriers are all valuable.
+
+Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md); report a problem privately to GitHub Support, as it [describes](CODE_OF_CONDUCT.md#reporting-an-issue), since this repository has no private channel to its maintainers. Changes to what hwspec prints, its docs or the desktop app keep the [accessibility checklist](ACCESSIBILITY.md#for-contributors).
 
 ## Development
 
