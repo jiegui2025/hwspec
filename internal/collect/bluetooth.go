@@ -109,7 +109,7 @@ func mgmtReadInfo(index uint16) (*mgmtInfo, error) {
 	// Other events (from other controllers, other clients' commands) may
 	// arrive first; only our command's reply counts.
 	buf := make([]byte, 1024)
-	for tries := 0; tries < 16; tries++ {
+	for range 16 {
 		n, err := conn.Read(buf)
 		if err != nil {
 			return nil, fmt.Errorf("management reply: %w", err)
@@ -151,7 +151,7 @@ func parseReadInfoReply(index uint16, ev []byte) (*mgmtInfo, error) {
 		return nil, errors.New("short management reply")
 	}
 	addr := make([]string, 6)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		addr[5-i] = fmt.Sprintf("%02X", p[i]) // little-endian on the wire
 	}
 	name := p[20 : 20+249]

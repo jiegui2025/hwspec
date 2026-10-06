@@ -88,7 +88,7 @@ func TestFilesOnFUSEAreNotTrusted(t *testing.T) {
 	if err != nil {
 		t.Skip(err)
 	}
-	for _, line := range strings.Split(string(mounts), "\n") {
+	for line := range strings.SplitSeq(string(mounts), "\n") {
 		f := strings.Fields(line)
 		if len(f) < 3 || f[2] != "fuse" && !strings.HasPrefix(f[2], "fuse.") {
 			continue

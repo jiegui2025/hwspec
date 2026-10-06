@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -165,10 +166,8 @@ func pickFormat(format, outPath, def string) (string, error) {
 	if format == "" {
 		format = def
 	}
-	for _, f := range output.Formats {
-		if f == format {
-			return format, nil
-		}
+	if slices.Contains(output.Formats, format) {
+		return format, nil
 	}
 	return "", fmt.Errorf("unknown format %q (want one of %s)", format, strings.Join(output.Formats, ", "))
 }

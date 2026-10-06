@@ -85,8 +85,8 @@ func (c *collector) gpus() {
 			}
 			g.DRMCard = card
 			for _, conn := range list("/sys/class/drm") {
-				if strings.HasPrefix(conn, card+"-") {
-					g.Outputs = append(g.Outputs, strings.TrimPrefix(conn, card+"-"))
+				if after, ok := strings.CutPrefix(conn, card+"-"); ok {
+					g.Outputs = append(g.Outputs, after)
 				}
 			}
 		}
@@ -100,7 +100,7 @@ func gpuFirmware(addr string) *report.Firmware {
 	if fw := firmwareVersion(readStr(pciDir+addr+"/vbios_version"), "vbios"); fw != nil {
 		return fw
 	}
-	for _, line := range strings.Split(readStr("/proc/driver/nvidia/gpus/"+addr+"/information"), "\n") {
+	for line := range strings.SplitSeq(readStr("/proc/driver/nvidia/gpus/"+addr+"/information"), "\n") {
 		if k, v, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(k) == "Video BIOS" {
 			return firmwareVersion(v, "vbios")
 		}

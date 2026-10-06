@@ -59,7 +59,7 @@ func (r *Report) Redact() {
 	}
 }
 
-var identityType = reflect.TypeOf(Identity{})
+var identityType = reflect.TypeFor[Identity]()
 
 // forEachIdentity calls fn for every Identity reachable from v.
 func forEachIdentity(v reflect.Value, fn func(*Identity)) {

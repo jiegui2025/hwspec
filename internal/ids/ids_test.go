@@ -3,6 +3,7 @@ package ids
 import (
 	"bytes"
 	"compress/gzip"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,9 +17,7 @@ func isolate(t *testing.T) {
 	t.Helper()
 	oldSys, oldSynced, oldOv := systemEnabled, syncedDir, overridesPath
 	oldSpecs := map[Kind]spec{}
-	for k, v := range specs {
-		oldSpecs[k] = v
-	}
+	maps.Copy(oldSpecs, specs)
 	systemEnabled, syncedDir, overridesPath = false, "", ""
 	Reset()
 	t.Cleanup(func() {

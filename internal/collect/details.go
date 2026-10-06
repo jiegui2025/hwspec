@@ -131,8 +131,6 @@ func metric(h *report.Health, name string, value float64, ok bool) {
 	h.Metrics[name] = value
 }
 
-func ptr[T any](v T) *T { return &v }
-
 // isoWeek formats a manufacture year and week ("2020-W10"), falling back
 // to the year alone when the week is unknown.
 func isoWeek(year, week int) string {

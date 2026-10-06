@@ -119,7 +119,7 @@ func codecs(cardDir string) []report.AudioCodec {
 		}
 		var codec report.AudioCodec
 		id := &report.Identity{}
-		for _, line := range strings.Split(readStr(cardDir+"/"+f), "\n") {
+		for line := range strings.SplitSeq(readStr(cardDir+"/"+f), "\n") {
 			k, v, ok := strings.Cut(line, ":")
 			if !ok || strings.HasPrefix(line, " ") {
 				continue // indented lines describe widgets and pins
@@ -207,7 +207,7 @@ func batteryHealth(d string) *report.Health {
 		healthPct := math.Min(100, capacity)
 		remaining := round(math.Max(0, healthPct-80)/20*100, 1)
 		h.LifeRemainingPercent = &remaining
-		h.LifeUsedPercent = ptr(round(100-remaining, 1))
+		h.LifeUsedPercent = new(round(100-remaining, 1))
 		h.Status = report.StatusOK
 		if healthPct < 80 {
 			h.Status = report.StatusWarning

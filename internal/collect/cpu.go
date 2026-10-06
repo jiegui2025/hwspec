@@ -218,7 +218,7 @@ func parseSize(s string) uint64 {
 // countCPUList counts the CPUs in a kernel cpu list like "0-11,16,18-19".
 func countCPUList(s string) int {
 	n := 0
-	for _, part := range strings.Split(strings.TrimSpace(s), ",") {
+	for part := range strings.SplitSeq(strings.TrimSpace(s), ",") {
 		if part == "" {
 			continue
 		}

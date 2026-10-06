@@ -107,7 +107,7 @@ func TestConvertersProduceIDFiles(t *testing.T) {
 
 	for name, src := range map[string]string{"jedec, no table": "nothing", "jedec, unterminated": "@vendors = ([\"A\"]", "bluetooth, not yaml": "{"} {
 		path := write(t, filepath.Join(dir, "bad"), src)
-		kind := strings.Split(name, ",")[0]
+		kind, _, _ := strings.Cut(name, ",")
 		if code := run([]string{kind, path, filepath.Join(dir, "x.gz")}, io.Discard, io.Discard); code != 1 {
 			t.Errorf("%s: exit %d", name, code)
 		}
@@ -130,7 +130,7 @@ func intelFamily() string {
 #define INTEL_SAPPHIRERAPIDS_X		IFM(6, 0x8F) /* Golden Cove */
 #define INTEL_FAM6_LAST			IFM(6, 0xFF)
 `)
-	for i := 0; i < 45; i++ {
+	for i := range 45 {
 		fmt.Fprintf(&b, "#define INTEL_FILLER%d IFM(15, 0x%02X)\n", i, i)
 	}
 	return b.String()
@@ -259,7 +259,7 @@ func TestCPUWarnsAboutCuratedLinesThatChangeNothing(t *testing.T) {
 	}
 	// Exactly lines 1, 3 and 6, as GitHub Actions annotations.
 	var lines []string
-	for _, l := range strings.Split(strings.TrimSpace(warn.String()), "\n") {
+	for l := range strings.SplitSeq(strings.TrimSpace(warn.String()), "\n") {
 		if !strings.HasPrefix(l, "::warning file="+curated+",line=") || !strings.HasSuffix(l, ": the kernel or an earlier line already says this; remove it") {
 			t.Errorf("warning %q isn't an annotation with the expected message", l)
 		}

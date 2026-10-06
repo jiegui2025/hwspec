@@ -6,6 +6,7 @@ package smbios
 import (
 	"bytes"
 	"encoding/binary"
+	"slices"
 	"strings"
 )
 
@@ -67,10 +68,8 @@ var placeholders = []string{
 func Clean(s string) string {
 	s = strings.TrimSpace(s)
 	l := strings.ToLower(s)
-	for _, p := range placeholders {
-		if l == p {
-			return ""
-		}
+	if slices.Contains(placeholders, l) {
+		return ""
 	}
 	// Some firmware fills unset serials/part numbers with '0', 0x00 or 0xFF.
 	for i := 0; i < len(s); i++ {
@@ -99,7 +98,7 @@ func Parse(table []byte) []Structure {
 			break
 		}
 		if end > 0 {
-			for _, part := range bytes.Split(rest[:end], []byte{0}) {
+			for part := range bytes.SplitSeq(rest[:end], []byte{0}) {
 				s.Strings = append(s.Strings, string(part))
 			}
 		}
