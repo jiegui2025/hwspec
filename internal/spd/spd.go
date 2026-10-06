@@ -48,6 +48,23 @@ var ddr4DieMbit = map[byte]uint64{
 	6: 16 << 10, 7: 32 << 10, 8: 12 << 10, 9: 24 << 10,
 }
 
+// Span is the byte range [Off, Off+Len) of an SPD image.
+type Span struct{ Off, Len int }
+
+// Layout returns the image size and every byte range Parse reads for the
+// memory type in byte 2, or ok false for a type Parse doesn't decode. An
+// EEPROM read over SMBus costs about 0.16 ms a byte, so a caller can read
+// just these spans into a zeroed image of that size and parse it.
+func Layout(memType byte) (size int, spans []Span, ok bool) {
+	switch memType {
+	case 0x0C: // DDR4: bytes 2-13, then the manufacturing block 320-351
+		return 512, []Span{{0, 16}, {320, 32}}, true
+	case 0x12: // DDR5: bytes 2-3, then the manufacturing block 512-553
+		return 1024, []Span{{0, 16}, {512, 42}}, true
+	}
+	return 0, nil, false
+}
+
 // Parse decodes an SPD image. Only the DDR4 (512-byte) and DDR5
 // (1024-byte) layouts are supported.
 func Parse(b []byte) (*Info, error) {

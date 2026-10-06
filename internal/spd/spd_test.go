@@ -61,6 +61,46 @@ func TestDDR5(t *testing.T) {
 	}
 }
 
+// Readers fetch only Layout's spans from a slow EEPROM, so Parse must not
+// depend on any other byte: changing one outside the spans changes nothing.
+func TestParseReadsOnlyTheLayoutsSpans(t *testing.T) {
+	ddr5 := make([]byte, 1024)
+	ddr5[2], ddr5[3] = 0x12, 0x02
+	ddr5[512], ddr5[513], ddr5[515], ddr5[516] = 0x80, 0x2C, 0x24, 0x33
+	copy(ddr5[517:521], []byte{0xAA, 0xBB, 0xCC, 0xDD})
+	copy(ddr5[521:551], "MTC8C1084S1UC48BA1")
+	ddr5[551], ddr5[552], ddr5[553] = 0x01, 0x80, 0x2C
+	for _, img := range [][]byte{ddr4Image(), ddr5} {
+		size, spans, ok := Layout(img[2])
+		if !ok || size != len(img) {
+			t.Fatalf("Layout(0x%02x) = %d, %v, %v", img[2], size, spans, ok)
+		}
+		want, err := Parse(img)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inSpan := make([]bool, size)
+		for _, s := range spans {
+			for i := s.Off; i < s.Off+s.Len; i++ {
+				inSpan[i] = true
+			}
+		}
+		for i := range img {
+			if inSpan[i] {
+				continue
+			}
+			changed := append([]byte(nil), img...)
+			changed[i] ^= 0xFF
+			if got, _ := Parse(changed); *got != *want {
+				t.Fatalf("type 0x%02x: byte %d outside the layout changed the result: %+v", img[2], i, *got)
+			}
+		}
+	}
+	if _, _, ok := Layout(0x0B); ok {
+		t.Error("Layout claims DDR3, which Parse doesn't decode")
+	}
+}
+
 func TestUnsupportedAndShortImages(t *testing.T) {
 	for name, b := range map[string][]byte{
 		"empty": nil, "ddr3": {0x92, 0x11, 0x0B}, "short ddr4": make([]byte, 300), "short ddr5": append([]byte{0, 0, 0x12}, make([]byte, 500)...),

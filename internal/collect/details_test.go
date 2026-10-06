@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jiegui2025/hwspec/internal/report"
+	"github.com/jiegui2025/hwspec/internal/spd"
 )
 
 // fakeRoot points the collectors at an empty temporary tree and returns
@@ -801,6 +802,56 @@ func TestAbsentPlatformFirmwareIsLeftOut(t *testing.T) {
 	for _, key := range []string{"me_firmware", "ec_firmware", `"tpm"`} {
 		if strings.Contains(string(js), key) {
 			t.Errorf("%s in %s", key, js)
+		}
+	}
+}
+
+// SPD EEPROMs answer over SMBus at about 0.16 ms a byte: only the bytes the
+// parser uses are read, and the result decodes the same as the whole image.
+func TestSPDReadsOnlyTheBytesTheParserUses(t *testing.T) {
+	file, _ := fakeRoot(t)
+	full := make([]byte, 512)
+	for i := range full {
+		full[i] = 0xAA // bytes the parser never looks at
+	}
+	full[2], full[3], full[4], full[6], full[12], full[13] = 0x0C, 0x03, 0x86, 0x00, 0x01, 0x03
+	full[320], full[321], full[323], full[324] = 0x85, 0xF7, 0x21, 0x10
+	copy(full[325:329], []byte{0x00, 0x77, 0x27, 0x03})
+	copy(full[329:349], "J642GU44J2320NL     ")
+	full[349], full[350], full[351] = 0x00, 0x00, 0x00
+	file("/sys/bus/i2c/drivers/ee1004/7-0050/eeprom", string(full))
+
+	got, err := readSPD("/sys/bus/i2c/drivers/ee1004/7-0050/eeprom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, spans, _ := spd.Layout(0x0C)
+	want := make([]byte, 512)
+	for _, s := range spans {
+		copy(want[s.Off:s.Off+s.Len], full[s.Off:s.Off+s.Len])
+	}
+	if string(got) != string(want) {
+		t.Fatal("readSPD read bytes outside the parser's spans, or missed some")
+	}
+	a, _ := spd.Parse(full)
+	b, _ := spd.Parse(got)
+	if a == nil || b == nil || *a != *b {
+		t.Errorf("partial image decodes as %+v, whole image as %+v", b, a)
+	}
+
+	// A short image is still reported as short, an unknown type as unknown.
+	for name, content := range map[string]string{
+		"7-0051": string(full[:400]),
+		"7-0052": "\x00\x00\x0B",
+		"7-0053": "x",
+	} {
+		file("/sys/bus/i2c/drivers/ee1004/"+name+"/eeprom", content)
+	}
+	c := &collector{r: &report.Report{}}
+	c.spdModules()
+	for _, w := range []string{"7-0051: spd: DDR4 image shorter than 512 bytes", "7-0052: spd: memory type 0x0b not supported", "7-0053: spd: too short"} {
+		if !strings.Contains(strings.Join(c.r.Warnings, "\n"), w) {
+			t.Errorf("no warning %q in %q", w, c.r.Warnings)
 		}
 	}
 }
