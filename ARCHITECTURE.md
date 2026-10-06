@@ -25,7 +25,7 @@ flowchart LR
   saved[(saved capture)] -->|hwspec show| report
   kernel --> collect --> report --> resolve --> out
   resolve <-->|lookups| ids
-  report --> advisor["advisor<br/>findings"]
+  report -->|hwspec advise| advisor["advisor<br/>findings"]
   kb[("kb<br/>knowledge base")] --> advisor
   advisor --> advice["advice: text, JSON, YAML"]
 ```
@@ -37,7 +37,7 @@ flowchart LR
 | 3 | `resolve` | fills names from raw IDs, after every capture **and** when a saved capture is shown | changes raw IDs |
 | 4 | `ids` | loads ID databases, picks the newest source, applies overrides, signed sync | touches the network outside `ids update` |
 | 5 | `output` | writes JSON, YAML, terminal-safe text; reads captures back | accepts files that aren't hwspec captures |
-| 6 | `advisor` | applies the knowledge base's rules to a capture: findings with evidence, actions and sources ([ADR 0009](docs/adr/0009-advisor.md)) | reads files, the network or the clock; guesses where the capture lacks a field |
+| 6 | `advisor` (`hwspec advise`) | applies the knowledge base's rules to a capture: findings with evidence, actions and sources ([ADR 0009](docs/adr/0009-advisor.md)) | reads files, the network or the clock; guesses where the capture lacks a field |
 
 ## Packages
 
@@ -66,7 +66,7 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 
 | Package | Responsibility | Depends on |
 |---|---|---|
-| `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring | everything below |
+| `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring; for `advise`, the maintenance record (read safely, the invoking user's under `sudo`) | everything below |
 | `internal/trust` | "can only root change this file?" checks (for `--full` and `smartctl`) | `x/sys/unix` |
 | `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `schema`, `ghw`, `x/sys/unix` |
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |

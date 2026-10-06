@@ -135,6 +135,7 @@ Each run checks the capture's schema and the names it resolves; the VMs also che
 | `hwspec capture --redact -o share.json` | strip serials, UUIDs, MACs, hostname, personal paths (captures of one machine stay linkable: see [SECURITY.md](SECURITY.md#what-redaction-doesnt-do)) |
 | `hwspec show spec.json` | summarise a capture, with names refreshed from today's databases |
 | `hwspec show old.json -o new.json [--redact]` | re-export a capture with refreshed names (optionally redacted) |
+| `hwspec advise [spec.json] [--full] [--redact]` | advice about this machine or a saved capture: devices that need attention, what to do, and the sources behind it ([ADR 0009](docs/adr/0009-advisor.md); the rules grow with the advisor issues on the roadmap) |
 | `hwspec ids` | which ID database sources are in use |
 | `hwspec ids lookup pci 8086:3e92` | resolve one ID |
 | `hwspec ids update [--check]` | install the latest signed databases |
