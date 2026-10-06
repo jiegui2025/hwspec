@@ -111,7 +111,7 @@ flowchart TD
 | Artifact | How it's built | How it's verified |
 |---|---|---|
 | Static binaries (amd64, arm64) | `CGO_ENABLED=0`, reproducible tarballs; `v*` tags publish after the owner approves the `production` environment, and each merge to `main` that passes CI replaces the `edge` pre-release | `SHA256SUMS` and build provenance attestations (`gh attestation verify`); after each publish, `verify.yml` re-checks them, proves tampered copies fail, and runs the published binaries in distro containers (amd64, arm64) and in systemd, OpenRC and sysvinit VMs (amd64) ([Edge builds and verification](CONTRIBUTING.md#edge-builds-and-verification)) |
-| Nix flake | `buildGoModule`, pinned nixpkgs | CI builds and runs it on every PR |
+| Nix flake | `buildGoModule`, pinned nixpkgs | CI builds and runs it on PRs that change the flake, Go code or CI |
 | ID databases | embedded in the binary; weekly signed bundle (`ids-latest`) | ed25519 signature checked against a key built into hwspec |
 
 ## Planned
