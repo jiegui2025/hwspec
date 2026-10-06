@@ -1,0 +1,16 @@
+alias cpu:type:x86,ven0000fam0006mod001A:feature:* intel_uncore
+alias cpu:type:x86,ven0000fam0006mod001E:feature:* intel_uncore
+alias cpu:type:x86,ven0000fam0006mod0025:feature:* intel_uncore
+alias pci:v00008086d00003E92sv*sd*bc03sc*i* i915
+alias pci:v00008086d0000A360sv*sd*bc*sc*i* mei_me
+alias pci:v*d*sv*sd*bc01sc08i02* nvme
+alias pci:v00008086d0000A324sv*sd*bc*sc*i* spi_intel_pci
+alias pci:v00008086d000015BBsv*sd*bc*sc*i* e1000e
+alias pci:v00008086d00002723sv*sd*bc*sc*i* iwlwifi
+alias pci:v00008086d0000A323sv*sd*bc*sc*i* i2c_i801
+alias pci:v00008086d0000A379sv*sd*bc*sc*i* intel_pch_thermal
+alias pci:v00008086d00003EC2sv*sd*bc*sc*i* ie31200_edac
+alias pci:v00008086d0000A348sv*sd*bc*sc*i* snd_soc_avs
+alias pci:v00008086d0000A348sv*sd*bc*sc*i* snd_sof_pci_intel_cnl
+alias pci:v00008086d0000A348sv*sd*bc*sc*i* snd_hda_intel
+alias pci:v00008086d*sv*sd*bc04sc03i00* snd_hda_intel

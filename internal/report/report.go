@@ -41,6 +41,7 @@ type Report struct {
 	TPM       *TPM                  `json:"tpm,omitempty"`
 	Sensors   []Sensor              `json:"sensors"`
 	PCI       []PCIDevice           `json:"pci"`
+	Kernel    *Kernel               `json:"kernel,omitempty"`
 	USB       []USBDevice           `json:"usb"`
 
 	// Warnings lists what couldn't be read and why (e.g. permission denied).
@@ -513,7 +514,49 @@ type PCIDevice struct {
 	Mounting *Mounting `json:"mounting,omitempty"`
 	Identity *Identity `json:"identity,omitempty"` // vendor, model = device name, revision
 	Driver   *Driver   `json:"driver,omitempty"`
+	// ModuleCandidates are the kernel modules whose aliases match a
+	// driverless device's modalias, in the running kernel's module index:
+	// [] when none does. Absent for a device with a driver, and when the
+	// index couldn't be read (kernel.module_index says why).
+	ModuleCandidates []ModuleCandidate `json:"module_candidates,omitzero"`
 }
+
+// ModuleCandidate is a kernel module that claims a device by its alias.
+type ModuleCandidate struct {
+	Module  string `json:"module"`  // with "_" for "-", as modprobe treats them
+	Builtin bool   `json:"builtin"` // built into the kernel: always available
+	Loaded  bool   `json:"loaded"`  // built in, or loaded (/sys/module/<m>/initstate "live")
+}
+
+// Kernel is what the running kernel provides beyond its version
+// (os.kernel).
+type Kernel struct {
+	// ModuleIndex says where the running kernel's module index is, or
+	// what was found instead.
+	ModuleIndex *ModuleIndex `json:"module_index,omitempty"`
+}
+
+// ModuleIndex is what the module trees hold for the running kernel, as
+// found, not why: /lib/modules, /usr/lib/modules and NixOS's
+// /run/booted-system/kernel-modules/lib/modules.
+type ModuleIndex struct {
+	Release string `json:"release"` // os.kernel
+	// Status is "found" (Dir holds its modules.alias), "other_release"
+	// (only other kernels' modules are installed: what an upgrade without
+	// a reboot leaves, the only evidence of one), or "none" (no module tree
+	// at all: a container without the host's, or a kernel built without
+	// modules).
+	Status        string   `json:"status"`
+	Dir           string   `json:"dir,omitempty"`
+	OtherReleases []string `json:"other_releases,omitempty"`
+}
+
+// The module index statuses.
+const (
+	ModulesFound        = "found"
+	ModulesOtherRelease = "other_release"
+	ModulesNone         = "none"
+)
 
 // Mounting is whether a part is soldered on or removable, with what
 // showed it.

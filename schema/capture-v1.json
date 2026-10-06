@@ -2176,6 +2176,60 @@
                 ]
               }
             }
+          },
+          "module_candidates": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "module": {
+                  "type": "string"
+                },
+                "builtin": {
+                  "type": "boolean"
+                },
+                "loaded": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "kernel": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "module_index": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "release": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "dir": {
+              "type": "string"
+            },
+            "other_releases": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       }

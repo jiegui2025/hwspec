@@ -20,6 +20,7 @@
     "/sys/bus/pci/drivers/dw_dmac_pci",
     "/sys/bus/pci/drivers/ehci-pci",
     "/sys/bus/pci/drivers/i2c-designware-pci",
+    "/sys/bus/pci/drivers/intel-nvme-remap",
     "/sys/bus/pci/drivers/intel_pmc_ssram_telemetry",
     "/sys/bus/pci/drivers/intel_scu",
     "/sys/bus/pci/drivers/intel_vsec",
@@ -52,7 +53,7 @@
     "/sys/class/dmi/id/chassis_serial": 13,
     "/sys/class/dmi/id/product_serial": 13,
     "/sys/class/dmi/id/product_uuid": 13,
-    "/sys/class/hwmon/hwmon5/temp1_input": 61,
+    "/sys/class/hwmon/hwmon6/temp1_input": 61,
     "/sys/class/net/wlan0/speed": 22,
     "/sys/firmware/dmi/tables/DMI": 13
   }

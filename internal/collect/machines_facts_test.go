@@ -49,6 +49,20 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["me firmware"] = r.System.MEFirmware != nil && r.System.MEFirmware.Version == "12.0.45.1509" && r.System.MEFirmware.Source == "mei"
 		want["ec firmware"] = r.System.ECFirmware != nil && r.System.ECFirmware.Version == "8.9" && r.System.ECFirmware.Source == "dmi"
 		want["tpm 2"] = r.TPM != nil && r.TPM.SpecVersionMajor == 2
+		// The running kernel's module index (#131): installed, and no
+		// module claims the two driverless devices (the RAM controller and
+		// the LPC bridge), so the advisor has nothing to suggest for them.
+		want["module index found"] = r.Kernel != nil && r.Kernel.ModuleIndex != nil &&
+			r.Kernel.ModuleIndex.Status == report.ModulesFound && r.Kernel.ModuleIndex.Release == r.OS.Kernel &&
+			r.Kernel.ModuleIndex.Dir == "/lib/modules/"+r.OS.Kernel
+		for _, d := range r.PCI {
+			switch d.Address {
+			case "0000:00:14.2", "0000:00:1f.0":
+				want["no module claims "+d.Address] = d.Driver == nil && d.ModuleCandidates != nil && len(d.ModuleCandidates) == 0
+			case "0000:02:00.0":
+				want["a device with a driver has no candidates"] = d.Driver != nil && d.ModuleCandidates == nil
+			}
+		}
 		// Firmware never silently absent (#123): what can't be read says why.
 		unknown := func(fw *report.Firmware, reason string) bool {
 			return fw != nil && fw.Status == report.FirmwareUnknown && strings.Contains(fw.Reason, reason)

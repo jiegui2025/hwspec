@@ -5,7 +5,7 @@ model		: 158
 model name	: Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
 stepping	: 10
 microcode	: 0xfa
-cpu MHz		: 3400.044
+cpu MHz		: 3496.949
 cache size	: 9216 KB
 physical id	: 0
 siblings	: 6
@@ -33,7 +33,7 @@ model		: 158
 model name	: Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
 stepping	: 10
 microcode	: 0xfa
-cpu MHz		: 3400.842
+cpu MHz		: 3404.090
 cache size	: 9216 KB
 physical id	: 0
 siblings	: 6
@@ -61,7 +61,7 @@ model		: 158
 model name	: Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
 stepping	: 10
 microcode	: 0xfa
-cpu MHz		: 3400.275
+cpu MHz		: 3500.262
 cache size	: 9216 KB
 physical id	: 0
 siblings	: 6
@@ -89,7 +89,7 @@ model		: 158
 model name	: Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
 stepping	: 10
 microcode	: 0xfa
-cpu MHz		: 3400.010
+cpu MHz		: 3400.863
 cache size	: 9216 KB
 physical id	: 0
 siblings	: 6
@@ -117,7 +117,7 @@ model		: 158
 model name	: Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
 stepping	: 10
 microcode	: 0xfa
-cpu MHz		: 3400.133
+cpu MHz		: 3400.657
 cache size	: 9216 KB
 physical id	: 0
 siblings	: 6
@@ -145,7 +145,7 @@ model		: 158
 model name	: Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
 stepping	: 10
 microcode	: 0xfa
-cpu MHz		: 3401.711
+cpu MHz		: 3400.601
 cache size	: 9216 KB
 physical id	: 0
 siblings	: 6

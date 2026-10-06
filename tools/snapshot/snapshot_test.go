@@ -599,3 +599,37 @@ func TestRecordingStopsCleanly(t *testing.T) {
 		t.Errorf("unknown version: %v", err)
 	}
 }
+
+// The module index is recorded as the aliases matching the recorded PCI
+// devices, plus a few that don't, whether it's reached through /lib or
+// /usr/lib (trimming twice changes nothing).
+func TestModuleIndexIsTrimmed(t *testing.T) {
+	build := t.TempDir()
+	write(t, filepath.Join(build, "sys/bus/pci/devices/0000:02:00.0/modalias"), []byte("pci:v00008086d00002723sv00008086sd00000084bc02sc80i00\n"))
+	alias := "# comment\nsoftdep x y\nalias a1 m1\nalias a2 m2\nalias a3 m3\nalias a4 m4\nalias pci:v00008086d00002723sv*sd*bc*sc*i* iwlwifi\nalias bad\n"
+	write(t, filepath.Join(build, "usr/lib/modules/7.2.9/modules.alias"), []byte(alias))
+	write(t, filepath.Join(build, "usr/lib/modules/7.2.9/modules.builtin.modinfo"),
+		[]byte("x1.alias=b1\x00x1.license=GPL\x00x2.alias=b2\x00x3.alias=b3\x00x4.alias=b4\x00pcie.alias=pci:v*d*sv*sd*bc02sc80i*\x00"))
+	write(t, filepath.Join(build, "usr/lib/modules/7.2.9/modules.dep"), []byte("kept as is\n"))
+	if err := os.Symlink("usr/lib", filepath.Join(build, "lib")); err != nil {
+		t.Fatal(err)
+	}
+	nixos := filepath.Join(build, "run/booted-system/kernel-modules/lib/modules/7.2.9/modules.alias")
+	write(t, nixos, []byte(alias))
+	if err := trimModuleIndex(build); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(build, "usr/lib/modules/7.2.9")
+	if got, want := read(t, filepath.Join(dir, "modules.alias")), "alias a1 m1\nalias a2 m2\nalias a3 m3\nalias pci:v00008086d00002723sv*sd*bc*sc*i* iwlwifi\n"; got != want {
+		t.Errorf("modules.alias = %q, want %q", got, want)
+	}
+	if got, want := read(t, filepath.Join(dir, "modules.builtin.modinfo")), "x1.alias=b1\x00x2.alias=b2\x00x3.alias=b3\x00pcie.alias=pci:v*d*sv*sd*bc02sc80i*\x00"; got != want {
+		t.Errorf("modules.builtin.modinfo = %q, want %q", got, want)
+	}
+	if got := read(t, nixos); got != read(t, filepath.Join(dir, "modules.alias")) {
+		t.Errorf("NixOS's modules.alias = %q", got)
+	}
+	if got := read(t, filepath.Join(dir, "modules.dep")); got != "kept as is\n" {
+		t.Errorf("modules.dep = %q", got)
+	}
+}

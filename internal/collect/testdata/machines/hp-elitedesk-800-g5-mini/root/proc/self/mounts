@@ -1,8 +1,8 @@
 /dev/nvme0n1p2 / btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
-/dev/nvme0n1p2 /home btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
 /dev/nvme0n1p2 /root btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
-/dev/nvme0n1p2 /srv btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
+/dev/nvme0n1p2 /home btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
 /dev/nvme0n1p2 /var/cache btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
-/dev/nvme0n1p2 /var/log btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
+/dev/nvme0n1p2 /srv btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
 /dev/nvme0n1p2 /var/tmp btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
+/dev/nvme0n1p2 /var/log btrfs rw,noatime,compress=zstd:1,ssd,discard=async,space_cache=v2 0 0
 /dev/nvme0n1p1 /boot vfat rw,relatime,fmask=0077,dmask=0077,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro 0 0
