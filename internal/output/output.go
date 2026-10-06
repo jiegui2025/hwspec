@@ -67,10 +67,15 @@ func writeYAML(w io.Writer, r *report.Report) error {
 }
 
 // blockStyle drops the flow ({...}, "...") styling that parsing JSON leaves
-// on every node. The encoder still quotes strings that would otherwise be
-// read back as numbers or booleans.
+// on every node, except on strings that need their quotes: an encoder
+// writes a plain style node as is, and YAML 1.1 parsers (PyYAML, Psych) read
+// a plain 0000:02:00.0 as the number 120.0 or "on" as true. Which strings
+// those are, yaml.v3 knows: it's what it quotes when encoding a string.
 func blockStyle(n *yaml.Node) {
 	n.Style = 0
+	if n.Kind == yaml.ScalarNode && n.Tag == "!!str" && needsQuotes(n.Value) {
+		n.Style = yaml.DoubleQuotedStyle
+	}
 	for _, c := range n.Content {
 		blockStyle(c)
 	}
@@ -78,6 +83,17 @@ func blockStyle(n *yaml.Node) {
 	if (n.Kind == yaml.SequenceNode || n.Kind == yaml.MappingNode) && len(n.Content) == 0 {
 		n.Style = yaml.FlowStyle
 	}
+}
+
+// needsQuotes reports whether s, written plain, would read back as
+// something other than that string in YAML 1.1 or 1.2. yaml.v3 leaves
+// YAML 1.1's value ("=") and merge ("<<") keys plain; PyYAML refuses them.
+func needsQuotes(s string) bool {
+	if s == "=" || s == "<<" {
+		return true
+	}
+	b, err := yaml.Marshal(s)
+	return err == nil && len(b) > 0 && (b[0] == '"' || b[0] == '\'')
 }
 
 // ErrNotCapture is returned for valid JSON/YAML that isn't a hwspec capture.
