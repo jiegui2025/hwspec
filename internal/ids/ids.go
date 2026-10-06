@@ -269,6 +269,11 @@ func load(k Kind) *db {
 		if err == nil && len(d.names) == 0 {
 			err = errors.New("no entries")
 		}
+		// A truncated or trimmed distro or synced file dated newer than the
+		// embedded copy would otherwise replace it and drop most names.
+		if err == nil && src.parsed == nil && len(d.names) < minEntries[k] {
+			err = fmt.Errorf("only %d entries (expected at least %d)", len(d.names), minEntries[k])
+		}
 		if err != nil {
 			layer.Err = err.Error()
 			d.names, shared = make(map[string]string, sizeHint(s.file)), false

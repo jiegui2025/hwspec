@@ -11,6 +11,7 @@ import (
 // unusable file is skipped with the reason.
 func TestDistributionDatabases(t *testing.T) {
 	isolate(t)
+	allowTinySources(t)
 	systemEnabled = true
 	dir := t.TempDir()
 	oui := write(t, filepath.Join(dir, "oui.txt"), "OUI/MA-L\tOrganization\n# Date: 2099-01-01\n00-1B-DC   (hex)\t\tVencer\n001BDC     (base 16)\t\tVencer Co., Ltd.\n12345      (base 16)\t\tToo short\n")
@@ -104,5 +105,29 @@ func TestManifestAndValidateRefusals(t *testing.T) {
 	}
 	if _, err := Validate(Kind("floppy"), nil); err == nil {
 		t.Error("an unknown database validated")
+	}
+}
+
+// A distro or synced copy dated newer than the embedded one but much too
+// small to be complete (truncated, trimmed, or only touched) doesn't
+// replace it: the reason shows in its layer, and names come from the
+// embedded copy.
+func TestTruncatedNewerSourceDoesntReplaceTheEmbeddedOne(t *testing.T) {
+	isolate(t)
+	systemEnabled = true
+	sys := write(t, filepath.Join(t.TempDir(), "pci.ids"), "# Version: 2999.01.01\n10de  NVIDIA Corporation\n8086  Truncated Intel\n")
+	s := specs[PCI]
+	s.system = []string{sys}
+	specs[PCI] = s
+	Reset()
+	if got := PCIVendor("1002"); got == "" {
+		t.Error("AMD lost its name to a 2-entry distro file")
+	}
+	if got := PCIVendor("8086"); got == "Truncated Intel" {
+		t.Error("the truncated distro file was used")
+	}
+	layers := Layers(PCI)
+	if len(layers) != 2 || layers[0].Source != sys || !strings.Contains(layers[0].Err, "only 2 entries (expected at least 20000)") || layers[1].Source != "embedded" || layers[1].Err != "" {
+		t.Errorf("layers = %+v", layers)
 	}
 }
