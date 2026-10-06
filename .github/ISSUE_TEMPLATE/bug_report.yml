@@ -3,34 +3,77 @@ description: hwspec crashed, reported something wrong, or missed hardware it sho
 title: "fix: "
 labels: ["type: defect", "status: triage"]
 body:
-  - type: textarea
-    id: what
+  - type: markdown
     attributes:
-      label: What happened, and what did you expect?
+      value: |
+        Thanks for reporting this. The boxes below start with small tables: replace the example cells, add rows if you need them, and delete what doesn't apply.
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options:
+        - capture
+        - show
+        - advise
+        - ids
+        - schema or version
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: privilege
+    attributes:
+      label: How it ran
+      options:
+        - as my user
+        - with --full (pkexec)
+        - with sudo
+        - not sure
     validations:
       required: true
   - type: input
-    id: command
+    id: cmdline
     attributes:
-      label: Command you ran
+      label: Full command line
       placeholder: hwspec capture --full -f text
     validations:
       required: true
-  - type: input
-    id: version
+  - type: textarea
+    id: what
     attributes:
-      label: hwspec version (`hwspec version`)
+      label: Expected and actual
+      description: "One row per difference, e.g. `| Memory | 2 modules, 16 GiB each | 1 module listed |`. For missing hardware, say what the device is and how you know it's there (`lspci`, `lsusb`, the vendor's spec sheet)."
+      value: |
+        | | Expected | Actual |
+        |---|---|---|
+        | | | |
     validations:
       required: true
-  - type: input
-    id: distro
+  - type: textarea
+    id: steps
     attributes:
-      label: Distribution and kernel
-      placeholder: Fedora 44, kernel 6.17
+      label: Steps to reproduce
+      value: |
+        | # | Step | Result |
+        |---|---|---|
+        | 1 | `hwspec capture -f text` | |
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        | | |
+        |---|---|
+        | hwspec version (`hwspec version`) | |
+        | Distribution | |
+        | Kernel (`uname -r`) | |
+        | Machine (maker and model) | |
     validations:
       required: true
   - type: textarea
     id: capture
     attributes:
       label: Capture (optional but very helpful)
-      description: Attach the output of `hwspec capture --redact -o spec.json`. `--redact` removes serial numbers, MAC addresses, UUIDs and the hostname.
+      description: Attach the output of `hwspec capture --redact -o spec.json`. `--redact` removes serial numbers, MAC addresses, UUIDs and the hostname. For a crash, paste the error output too.

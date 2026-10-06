@@ -17,7 +17,7 @@ make lint     # golangci-lint (same version and config as CI)
 make cover    # tests with coverage, and the coverage gate
 ```
 
-Read [ARCHITECTURE.md](ARCHITECTURE.md) before larger changes. Design decisions are recorded in [docs/adr/](docs/adr/); a change that alters one needs a new ADR.
+Read [ARCHITECTURE.md](ARCHITECTURE.md) before larger changes. Design decisions are recorded in [docs/adr/](docs/adr/); a change that alters one needs a new ADR, started from [the template](docs/adr/template.md).
 
 ## Pull requests
 
@@ -134,6 +134,8 @@ An item one PR can't deliver is split into sub-issues of it (`gh issue create --
 | Title | `type(scope): summary` with the commit types above, plus `research` and `data` for issues; their PRs use `docs(adr)` for research and `fix(ids)` / `feat(ids)` for data |
 
 Reports from the bug, feature and name-correction forms are triaged into this shape. Maintainers file new items with the [backlog item form](.github/ISSUE_TEMPLATE/backlog_item.yml) in the browser, or from the command line with the same sections: `gh issue create --body-file .github/backlog-issue.md` ([body](.github/backlog-issue.md)).
+
+Every template (issue forms, the backlog body, the [PR template](.github/pull_request_template.md), the [ADR template](docs/adr/template.md)) opens with its tables and, where something flows, a Mermaid skeleton: fill the rows, delete the examples and anything that doesn't apply. The exceptions are deliberate: the accessibility form keeps plain fields, since editing a table in a text box is hard with a screen reader, and the commit template is plain text, since git doesn't render Markdown.
 
 ## Tests
 

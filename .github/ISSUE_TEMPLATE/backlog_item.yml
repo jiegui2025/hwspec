@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Every backlog item is backed by evidence and carries its full solution (CONTRIBUTING.md › Backlog). Reports from the other forms are refined into this shape during triage.
+        Every backlog item is backed by evidence and carries its full solution (CONTRIBUTING.md › Backlog). Reports from the other forms are refined into this shape during triage. Each section starts with its table: fill the rows, add more, and delete example rows. The same body for the command line: `.github/backlog-issue.md`.
   - type: input
     id: parent
     attributes:
@@ -17,56 +17,96 @@ body:
     id: problem
     attributes:
       label: Problem
-      description: What's wrong or missing, and for whom.
+      description: What's wrong or missing, and for whom, in one or two sentences; quote the owner when the item comes from a request. Then the table.
+      value: |
+        | | |
+        |---|---|
+        | Who | |
+        | Today | |
+        | Should | |
     validations:
       required: true
   - type: textarea
     id: evidence
     attributes:
       label: Evidence
-      description: "Facts with sources: path/file.go:123, output of a real run, or an upstream document you read. Nothing from memory. A table works well: | Fact | Source |"
-      placeholder: "| smbios.Clean doesn't treat \"System Product Name\" as a placeholder | internal/smbios/smbios.go:58 |"
+      description: "Facts with sources: path/file.go:123 (from gopls), output of a real run, or an upstream document you read. Nothing from memory. One row per fact: `| what is true | where it was read |`."
+      value: |
+        | Fact | Source |
+        |---|---|
+        | | |
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
       label: Solution
-      description: The design and why; packages and files it touches; a Mermaid diagram where it helps.
+      description: The design and why. The diagram shows the flow the change touches; replace it, or delete it when nothing flows. Compare options in a table when there was a choice.
+      value: |
+        | Part | Change | Files |
+        |---|---|---|
+        | | | |
+
+        ```mermaid
+        flowchart LR
+          accTitle: what the diagram shows, in a few words
+          accDescr: the same flow in one sentence, for screen readers
+          input[input] --> change[what changes] --> result[result]
+        ```
+
+        | Option | For | Against |
+        |---|---|---|
+        | **A (chosen)** | | |
+        | B | | |
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: Steps
-      description: Small, concrete tasks as a checklist.
-      placeholder: "- [ ] Add the strings to placeholders"
+      description: Small, concrete tasks, one commit or so each.
+      value: |
+        - [ ]
     validations:
       required: true
   - type: textarea
     id: acceptance
     attributes:
       label: Acceptance criteria
-      description: Checks that can be tested or observed, as a checklist.
-      placeholder: "- [ ] A capture of a board reporting \"System Product Name\" shows the machine as unknown"
+      description: Checks that can be tested or observed. The PR quotes each one with its evidence.
+      value: |
+        - [ ]
     validations:
       required: true
   - type: textarea
     id: scope
     attributes:
       label: Out of scope / risks
-      description: What this item deliberately leaves out (with the issue that covers it), and what could go wrong.
+      value: |
+        | Left out | Covered by |
+        |---|---|
+        | | |
+
+        | Risk | Mitigation |
+        |---|---|
+        | | |
     validations:
       required: true
   - type: textarea
     id: priority
     attributes:
       label: Priority and size
-      description: Priority (label) and size (board) are set on every item; write the reason here only when the problem doesn't make it evident (impact, risk, deadline, dependency).
-    validations:
-      required: false
+      description: Priority (label) and size (board) are set on every item. Fill the reason only when the problem doesn't make it evident (impact, risk, deadline, dependency).
+      value: |
+        | Priority | Size | Milestone | Depends on | Why |
+        |---|---|---|---|---|
+        | | | | | |
   - type: textarea
     id: questions
     attributes:
       label: Open questions
-      description: Anything you couldn't verify, as a question.
+      description: Anything you couldn't verify, as a question, never as a fact. Delete the table if there are none.
+      value: |
+        | Question | Who can answer | Blocks |
+        |---|---|---|
+        | | | |
