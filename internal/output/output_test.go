@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -470,6 +472,25 @@ func TestYAMLBombsAreRefused(t *testing.T) {
 		}
 		if d := time.Since(start); d > 5*time.Second {
 			t.Errorf("refusing %q took %v", want, d)
+		}
+	}
+}
+
+// BenchmarkYAMLRecordedCapture times YAML output of a real machine's
+// capture (go test -bench YAML ./internal/output).
+func BenchmarkYAMLRecordedCapture(b *testing.B) {
+	data, err := os.ReadFile("../collect/testdata/machines/hp-elitedesk-800-g5-mini/expected.json")
+	if err != nil {
+		b.Fatal(err)
+	}
+	r, err := Read(data)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := YAML(io.Discard, r); err != nil {
+			b.Fatal(err)
 		}
 	}
 }

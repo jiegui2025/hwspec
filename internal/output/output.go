@@ -57,7 +57,7 @@ func YAML(w io.Writer, v any) error {
 	if err := yaml.Unmarshal(js, &node); err != nil {
 		return err
 	}
-	blockStyle(&node)
+	blockStyle(&node, map[string]bool{})
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
@@ -73,13 +73,23 @@ func YAML(w io.Writer, v any) error {
 // writes a plain style node as is, and YAML 1.1 parsers (PyYAML, Psych) read
 // a plain 0000:02:00.0 as the number 120.0 or "on" as true. Which strings
 // those are, yaml.v3 knows: it's what it quotes when encoding a string.
-func blockStyle(n *yaml.Node) {
+//
+// quoted remembers needsQuotes' answer per string: a capture repeats the
+// same keys and values many times, and each answer costs an encode.
+func blockStyle(n *yaml.Node, quoted map[string]bool) {
 	n.Style = 0
-	if n.Kind == yaml.ScalarNode && n.Tag == "!!str" && needsQuotes(n.Value) {
-		n.Style = yaml.DoubleQuotedStyle
+	if n.Kind == yaml.ScalarNode && n.Tag == "!!str" {
+		q, ok := quoted[n.Value]
+		if !ok {
+			q = needsQuotes(n.Value)
+			quoted[n.Value] = q
+		}
+		if q {
+			n.Style = yaml.DoubleQuotedStyle
+		}
 	}
 	for _, c := range n.Content {
-		blockStyle(c)
+		blockStyle(c, quoted)
 	}
 	// Keep empty collections readable as [] / {}.
 	if (n.Kind == yaml.SequenceNode || n.Kind == yaml.MappingNode) && len(n.Content) == 0 {
@@ -87,12 +97,39 @@ func blockStyle(n *yaml.Node) {
 	}
 }
 
+// yaml11Words are the words YAML 1.1 reads as booleans or null, in any
+// case: the only letters-and-digits strings that need quotes.
+var yaml11Words = map[string]bool{
+	"y": true, "n": true, "yes": true, "no": true, "on": true, "off": true,
+	"true": true, "false": true, "null": true,
+}
+
+// plainWord reports whether s is a letter followed by letters, digits and
+// underscores, and not a YAML 1.1 boolean or null: such a string reads back
+// as itself, so needsQuotes can answer without encoding it.
+func plainWord(s string) bool {
+	if s == "" || !isLetter(s[0]) || yaml11Words[strings.ToLower(s)] {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		if c := s[i]; !isLetter(c) && (c < '0' || c > '9') && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func isLetter(c byte) bool { return c|0x20 >= 'a' && c|0x20 <= 'z' }
+
 // needsQuotes reports whether s, written plain, would read back as
 // something other than that string in YAML 1.1 or 1.2. yaml.v3 leaves
 // YAML 1.1's value ("=") and merge ("<<") keys plain; PyYAML refuses them.
 func needsQuotes(s string) bool {
 	if s == "=" || s == "<<" {
 		return true
+	}
+	if plainWord(s) {
+		return false
 	}
 	b, err := yaml.Marshal(s)
 	return err == nil && len(b) > 0 && (b[0] == '"' || b[0] == '\'')
