@@ -1,8 +1,11 @@
 package advisor
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"regexp"
 	"strings"
 
@@ -10,36 +13,114 @@ import (
 	"github.com/jiegui2025/hwspec/internal/report"
 )
 
+func init() {
+	register("pci-without-driver", check{
+		run:       pciWithoutDriver,
+		needs:     []string{"pci[].class_code", "pci[].driver"},
+		available: func(r *report.Report) bool { return r.PCI != nil },
+		provides:  []string{"modalias"},
+		matches:   []string{"pci_class"},
+		// Bridges and other plumbing often have no driver by design, so the
+		// rule must name the classes it cares about.
+		requires: []string{"pci_class"},
+		example: func() (kb.Rule, *report.Report) {
+			return kb.Rule{ID: "pci.no-driver", Check: "pci-without-driver", Category: "needs-attention", Severity: "warning",
+					Title: "No kernel driver", Match: kb.Match{PCIClass: []string{"02"}},
+					Actions: []kb.Action{{Text: "Look it up", Commands: []string{"modprobe -R {modalias}"}}}, Src: []string{"kernel"}},
+				&report.Report{PCI: []report.PCIDevice{
+					{Address: "0000:00:1f.6", VendorID: "8086", DeviceID: "15bc", ClassCode: "020000", Class: "Ethernet controller", Driver: &report.Driver{Name: "e1000e"}},
+					{Address: "0000:02:00.0", VendorID: "8086", DeviceID: "2723", SubVendorID: "8086", SubDeviceID: "0084",
+						ClassCode: "028000", Class: "Network controller", Identity: &report.Identity{Model: "Wi-Fi 6 AX200"}},
+				}}
+		},
+	})
+}
+
 // pciWithoutDriver finds PCI devices of the rule's classes that no kernel
-// driver is bound to. Bridges and other plumbing often have no driver by
-// design, so the rule must name the classes it cares about. What to do is
-// the rule's: its commands may name the device's {modalias}.
+// driver is bound to. What to do is the rule's: its commands may name the
+// device's {modalias}.
 func pciWithoutDriver(in *Input, rule *kb.Rule) ([]hit, error) {
-	if len(rule.Match.PCIClass) == 0 {
-		return nil, errors.New("match.pci_class is empty: name the device classes that need a driver")
-	}
 	var hits []hit
-	for i, d := range in.Report.PCI {
-		if d.Driver != nil || !hasAnyPrefix(strings.ToLower(d.ClassCode), rule.Match.PCIClass) {
+	for m := range pciMatches(in.Report, rule.Match) {
+		if m.dev.Driver != nil {
 			continue
 		}
-		name := d.Class
-		if d.Identity != nil && d.Identity.Model != "" {
-			name = d.Identity.Model
-		}
-		h := hit{
-			device: &DeviceRef{Kind: "pci", Key: d.Address, Name: name},
-			evidence: []Evidence{
-				Present(fmt.Sprintf("pci[%d].class_code", i), d.ClassCode),
-				Absent(fmt.Sprintf("pci[%d].driver", i)),
-			},
-		}
-		if m, ok := pciModalias(d); ok {
-			h.vars = map[string]string{"modalias": m}
+		h := hit{device: m.ref, evidence: append(m.evidence, Absent(m.path("driver")))}
+		if modalias, ok := pciModalias(*m.dev); ok {
+			h.vars = map[string]string{"modalias": modalias}
 		}
 		hits = append(hits, h)
 	}
 	return hits, nil
+}
+
+// pciMatch is a PCI device a rule's common match keys selected, with its
+// reference and the evidence of the match.
+type pciMatch struct {
+	index    int
+	dev      *report.PCIDevice
+	ref      *DeviceRef
+	evidence []Evidence
+}
+
+// path is the capture path of one of the device's fields.
+func (m pciMatch) path(field string) string { return fmt.Sprintf("pci[%d].%s", m.index, field) }
+
+// pciMatches yields the capture's PCI devices that the PCI match keys
+// (pci_class) select; with none set, every device.
+func pciMatches(r *report.Report, match kb.Match) iter.Seq[pciMatch] {
+	return func(yield func(pciMatch) bool) {
+		for i := range r.PCI {
+			d := &r.PCI[i]
+			name := d.Class
+			if d.Identity != nil && d.Identity.Model != "" {
+				name = d.Identity.Model
+			}
+			m := pciMatch{index: i, dev: d, ref: &DeviceRef{Kind: "pci", Key: d.Address, Name: name}}
+			if len(match.PCIClass) > 0 {
+				if !hasAnyPrefix(strings.ToLower(d.ClassCode), match.PCIClass) {
+					continue
+				}
+				m.evidence = append(m.evidence, Present(m.path("class_code"), d.ClassCode))
+			}
+			if !yield(m) {
+				return
+			}
+		}
+	}
+}
+
+// claims is one data value as the knowledge base gives it: the claims of
+// its sources, each {value, src}.
+type claims[V any] []struct {
+	Value V      `json:"value"`
+	Src   string `json:"src"`
+}
+
+// first returns the first claim's value and the source it cites, which
+// the finding then cites too (hit.used).
+func (c claims[V]) first() (V, string) {
+	var zero V
+	if len(c) == 0 {
+		return zero, ""
+	}
+	return c[0].Value, c[0].Src
+}
+
+// decodeData decodes a rule's data into T strictly: a key T doesn't have
+// is refused, so a rule is never applied with part of its data ignored.
+// A check's data func and its run use it the same way.
+func decodeData[T any](raw json.RawMessage) (T, error) {
+	var v T
+	if len(raw) == 0 {
+		return v, errors.New("no data")
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&v); err != nil {
+		return v, err
+	}
+	return v, nil
 }
 
 var (

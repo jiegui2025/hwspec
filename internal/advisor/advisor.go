@@ -184,9 +184,11 @@ type hit struct {
 	vars map[string]string
 }
 
-// A check applies one rule to a capture. An error means the rule's data is
-// unusable.
+// A check applies one rule to a capture. Besides the code, it declares
+// what a rule for it may say, so tools/genkb refuses a rule the check
+// would refuse or ignore in part, and Advise skips one at run time.
 type check struct {
+	// run finds the hits; an error means the rule's data is unusable.
 	run func(in *Input, rule *kb.Rule) ([]hit, error)
 	// needs names the capture fields the check reads, and available says
 	// whether a capture has them: one from before a field existed, or one
@@ -195,17 +197,29 @@ type check struct {
 	needs     []string
 	available func(r *report.Report) bool
 	// provides names the {placeholders} the check can fill in a rule's
-	// commands; tools/genkb refuses any other.
+	// commands.
 	provides []string
+	// matches names the match keys the check honours (kb.Match's JSON
+	// names), and requires those a rule must set: a key the check doesn't
+	// read would widen the rule silently.
+	matches, requires []string
+	// data decodes a rule's data strictly (unknown keys refused): run
+	// decodes it the same way. nil means the check takes no data.
+	data func(raw json.RawMessage) error
+	// example is a rule and a capture on which the check finds something:
+	// the generic tests run every check on its own.
+	example func() (kb.Rule, *report.Report)
 }
 
-var checks = map[string]check{
-	"pci-without-driver": {
-		run:       pciWithoutDriver,
-		needs:     []string{"pci[].class_code", "pci[].driver"},
-		available: func(r *report.Report) bool { return r.PCI != nil },
-		provides:  []string{"modalias"},
-	},
+var checks = map[string]check{}
+
+// register adds a check; each check's file registers it in init, so
+// parallel work on different checks doesn't edit one table.
+func register(name string, c check) {
+	if _, dup := checks[name]; dup {
+		panic("advisor: check " + name + " registered twice")
+	}
+	checks[name] = c
 }
 
 // Checks lists the registered check names, for tools/genkb to validate
@@ -214,14 +228,65 @@ func Checks() []string {
 	return slices.Sorted(maps.Keys(checks))
 }
 
-// Provides lists the placeholders a check fills in its rule's commands,
-// for tools/genkb to validate rules against.
-func Provides(name string) []string {
-	return slices.Clone(checks[name].provides)
+// ValidateRule reports every way rule doesn't fit its check: an unknown
+// check, a match key the check doesn't honour or one it requires missing,
+// data the check can't decode, and a command placeholder the check
+// doesn't fill. tools/genkb refuses such a rule; Advise skips it.
+func ValidateRule(rule *kb.Rule) []error {
+	c, ok := checks[rule.Check]
+	if !ok {
+		return []error{fmt.Errorf("unknown check %q (have %s)", rule.Check, strings.Join(Checks(), ", "))}
+	}
+	errs := c.accepts(rule)
+	for _, a := range rule.Actions {
+		for _, cmd := range a.Commands {
+			for _, name := range placeholders(cmd) {
+				if !slices.Contains(c.provides, name) {
+					errs = append(errs, fmt.Errorf("command %q uses {%s}, which check %q doesn't fill (it fills: %s)",
+						cmd, name, rule.Check, strings.Join(c.provides, ", ")))
+				}
+			}
+		}
+	}
+	return errs
 }
 
-// Placeholders lists the {names} a command uses.
-func Placeholders(command string) []string {
+// accepts checks a rule's match keys and data against what c declares.
+func (c check) accepts(rule *kb.Rule) []error {
+	var errs []error
+	keys := rule.Match.Keys()
+	for _, k := range keys {
+		if !slices.Contains(c.matches, k) {
+			errs = append(errs, fmt.Errorf("check %q doesn't use match.%s (it uses: %s)", rule.Check, k, strings.Join(c.matches, ", ")))
+		}
+	}
+	for _, k := range c.requires {
+		if !slices.Contains(keys, k) {
+			errs = append(errs, fmt.Errorf("match.%s is empty: check %q needs it", k, rule.Check))
+		}
+	}
+	switch {
+	case len(rule.Data) > 0 && c.data == nil:
+		errs = append(errs, fmt.Errorf("check %q takes no data", rule.Check))
+	case c.data != nil:
+		if err := c.data(rule.Data); err != nil {
+			errs = append(errs, fmt.Errorf("data: %w", err))
+		}
+	}
+	return errs
+}
+
+// joinErrors puts errors on one line, for a warning.
+func joinErrors(errs []error) string {
+	msgs := make([]string, len(errs))
+	for i, err := range errs {
+		msgs[i] = err.Error()
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// placeholders lists the {names} a command uses.
+func placeholders(command string) []string {
 	var names []string
 	for _, m := range placeholder.FindAllStringSubmatch(command, -1) {
 		names = append(names, m[1])
@@ -262,6 +327,13 @@ func Advise(in Input) Advice {
 			continue
 		case c.available != nil && !c.available(in.Report):
 			a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s can't evaluate this capture: it needs %s, which the capture doesn't have", rule.ID, strings.Join(c.needs, ", ")))
+			a.RulesSkipped++
+			continue
+		}
+		// A newer knowledge base may use a match key or data this build's
+		// check doesn't read: skipped, never applied more broadly.
+		if errs := c.accepts(rule); len(errs) > 0 {
+			a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s skipped: %s", rule.ID, joinErrors(errs)))
 			a.RulesSkipped++
 			continue
 		}

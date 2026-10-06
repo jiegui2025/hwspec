@@ -3,7 +3,8 @@
 // source) and "rules" (a list), into one gzipped JSON file. It is strict
 // where the binary is lenient: it refuses anything the binary would have
 // to skip (unknown fields and values, uncited rules and claims, unknown or
-// duplicate IDs, unknown checks), an empty knowledge base, .yml files,
+// duplicate IDs, unknown checks, match keys or data a rule's check doesn't
+// take, and placeholders it doesn't fill), an empty knowledge base, .yml files,
 // and YAML values that don't survive as written (0403 read as octal, null).
 //
 //	genkb [-version YYYY-MM-DD] -o FILE DIR   compile DIR into FILE; the
@@ -166,22 +167,14 @@ func compile(dir, version string) (*kb.KB, error) {
 	slices.SortFunc(k.Sources, func(a, b kb.Source) int { return strings.Compare(a.ID, b.ID) })
 	slices.SortFunc(k.Rules, func(a, b kb.Rule) int { return strings.Compare(a.ID, b.ID) })
 	errs = append(errs, k.Validate())
-	known := advisor.Checks()
-	for _, r := range k.Rules {
-		if r.Check != "" && !slices.Contains(known, r.Check) {
-			errs = append(errs, fmt.Errorf("%q: unknown check %q (have %s)", r.ID, r.Check, strings.Join(known, ", ")))
-			continue
+	// What only the check knows: its match keys, its data, its placeholders.
+	for i := range k.Rules {
+		r := &k.Rules[i]
+		if r.Check == "" {
+			continue // k.Validate says so
 		}
-		provides := advisor.Provides(r.Check)
-		for _, a := range r.Actions {
-			for _, c := range a.Commands {
-				for _, name := range advisor.Placeholders(c) {
-					if !slices.Contains(provides, name) {
-						errs = append(errs, fmt.Errorf("%q: command %q uses {%s}, which check %q doesn't fill (it fills: %s)",
-							r.ID, c, name, r.Check, strings.Join(provides, ", ")))
-					}
-				}
-			}
+		for _, err := range advisor.ValidateRule(r) {
+			errs = append(errs, fmt.Errorf("%q: %w", r.ID, err))
 		}
 	}
 	if err := errors.Join(errs...); err != nil {

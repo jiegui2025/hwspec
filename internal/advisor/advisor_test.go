@@ -58,6 +58,18 @@ func machine() *report.Report {
 	}}
 }
 
+// withRun replaces pci-without-driver's run for one test, keeping its
+// declarations.
+func withRun(t *testing.T, run func(*Input, *kb.Rule) ([]hit, error)) {
+	t.Helper()
+	const name = "pci-without-driver"
+	old := checks[name]
+	t.Cleanup(func() { checks[name] = old })
+	c := old
+	c.run = run
+	checks[name] = c
+}
+
 func keys(a Advice) string {
 	var out []string
 	for _, f := range a.Findings {
@@ -171,14 +183,13 @@ func TestEvidenceHasOneShapePerMeaning(t *testing.T) {
 // source it used once; a source the knowledge base lacks is reported.
 func TestConfidenceIsTheWeakestSourceUsed(t *testing.T) {
 	old := checks["pci-without-driver"]
-	t.Cleanup(func() { checks["pci-without-driver"] = old })
-	checks["pci-without-driver"] = check{run: func(in *Input, rule *kb.Rule) ([]hit, error) {
+	withRun(t, func(in *Input, rule *kb.Rule) ([]hit, error) {
 		hits, err := old.run(in, rule)
 		for i := range hits {
 			hits[i].used = []string{"forum", "kernel", "gone"}
 		}
 		return hits, err
-	}}
+	})
 	a := Advise(Input{Report: machine(), KB: knowledge(noDriverRule()), Now: noon})
 	f := a.Findings[0]
 	if f.Confidence != "unknown" || len(f.Sources) != 2 || f.Sources[0].ID != "forum" || f.Sources[1].ID != "kernel" {
@@ -187,13 +198,13 @@ func TestConfidenceIsTheWeakestSourceUsed(t *testing.T) {
 	if strings.Count(strings.Join(a.Warnings, "\n"), `cites source "gone"`) != 1 {
 		t.Errorf("a missing source is reported once per rule: %q", a.Warnings)
 	}
-	checks["pci-without-driver"] = check{run: func(in *Input, rule *kb.Rule) ([]hit, error) {
+	withRun(t, func(in *Input, rule *kb.Rule) ([]hit, error) {
 		hits, err := old.run(in, rule)
 		for i := range hits {
 			hits[i].used = []string{"forum"}
 		}
 		return hits, err
-	}}
+	})
 	if f := Advise(Input{Report: machine(), KB: knowledge(noDriverRule()), Now: noon}).Findings[0]; f.Confidence != "community" {
 		t.Errorf("confidence %q, want community", f.Confidence)
 	}
@@ -372,37 +383,6 @@ func TestTextAdviceIsCompleteAndTerminalSafe(t *testing.T) {
 	}
 }
 
-// Evidence never copies an identifier (ADR 0009), whatever the check: run
-// every check over a capture full of them and look at every path.
-func TestEvidenceNeverCopiesIdentifiers(t *testing.T) {
-	r := machine()
-	r.Hostname = "host"
-	for i := range r.PCI {
-		r.PCI[i].Identity = &report.Identity{Model: "m", Serial: "SERIAL", PartNumber: "PN"}
-	}
-	for name := range checks {
-		rule := noDriverRule()
-		rule.Check, rule.Match = name, kb.Match{PCIClass: []string{"0", "1"}}
-		a := Advise(Input{Report: r, KB: knowledge(rule), Now: noon})
-		if len(a.Findings) == 0 {
-			t.Errorf("%s: no findings to look at", name)
-		}
-		for _, f := range a.Findings {
-			for _, e := range f.Evidence {
-				p := strings.ToLower(e.Path())
-				for _, banned := range []string{"identity", "serial", "uuid", "mac", "hostname", "asset"} {
-					if strings.Contains(p, banned) {
-						t.Errorf("%s: evidence %s copies an identifier", name, e.Path())
-					}
-				}
-				if v, _ := e.Value(); v == "SERIAL" || v == "host" {
-					t.Errorf("%s: evidence %s = %v", name, e.Path(), v)
-				}
-			}
-		}
-	}
-}
-
 // Every ID that goes into the modalias must be exactly hex of its length:
 // one hostile field is enough to make a command unsafe, so each is tried
 // alone, and the command must be dropped with a warning.
@@ -492,9 +472,7 @@ func TestFindingSourcesKeepEveryField(t *testing.T) {
 // A finding about the whole machine has no device; its warnings say so
 // rather than failing.
 func TestMachineWideFindingsWarnWithoutADevice(t *testing.T) {
-	old := checks["pci-without-driver"]
-	t.Cleanup(func() { checks["pci-without-driver"] = old })
-	checks["pci-without-driver"] = check{run: func(*Input, *kb.Rule) ([]hit, error) { return []hit{{}}, nil }}
+	withRun(t, func(*Input, *kb.Rule) ([]hit, error) { return []hit{{}}, nil })
 	a := Advise(Input{Report: machine(), KB: knowledge(noDriverRule()), Now: noon})
 	if len(a.Findings) != 1 || a.Findings[0].Device != nil ||
 		!strings.Contains(strings.Join(a.Warnings, "\n"), "needs {modalias}, which the capture doesn't give for the machine") {
@@ -513,11 +491,8 @@ func TestWarningsAreDedupedPerRuleOnly(t *testing.T) {
 	}
 }
 
-func TestPlaceholdersAreListedForTheGenerator(t *testing.T) {
-	if got := Placeholders("modprobe -R {modalias} {x} {Bad}"); !slices.Equal(got, []string{"modalias", "x"}) {
-		t.Errorf("Placeholders = %q", got)
-	}
-	if got := Provides("pci-without-driver"); !slices.Equal(got, []string{"modalias"}) || Provides("none") != nil {
-		t.Errorf("Provides = %q", got)
+func TestPlaceholdersAreFound(t *testing.T) {
+	if got := placeholders("modprobe -R {modalias} {x} {Bad}"); !slices.Equal(got, []string{"modalias", "x"}) {
+		t.Errorf("placeholders = %q", got)
 	}
 }

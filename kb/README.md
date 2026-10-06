@@ -34,8 +34,8 @@ Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (I
 | `category` | ✅ | `needs-attention`, `performance`, `upgrade`, `firmware` or `maintenance` |
 | `severity` | ✅ | `critical`, `warning` or `info` |
 | `title`, `detail` | title ✅ | what's wrong and why it matters, in plain words |
-| `match` | per check | raw IDs only, never display names: `pci_class` (class code prefixes, 2, 4 or 6 lower-case hex digits, quoted) |
-| `data` | per check | the check's settings, every value a claim list |
+| `match` | per check | raw IDs only, never display names: `pci_class` (class code prefixes, 2, 4 or 6 lower-case hex digits, quoted). Only the keys the rule's check honours (`pci-without-driver`: `pci_class`, required); `genkb` refuses any other, since the check would ignore it and apply the rule more broadly |
+| `data` | per check | the check's settings, every value a claim list, decoded strictly by the check: `genkb` refuses a key it doesn't read, and data for a check that takes none (`pci-without-driver` takes none) |
 | `actions` | | `{distro, text, commands, risk, undo}`: what to do, what can go wrong, how to go back; `distro` is an os-release `ID` or `ID_LIKE` value. Commands are shown, never run; a command may name only the values its check fills (`pci-without-driver`: `{modalias}`, built from the capture's hex IDs); `genkb` refuses any other |
 | `src` | ✅ | the IDs of the sources the rule rests on |
 
