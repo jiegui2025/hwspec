@@ -1,15 +1,34 @@
-## What and why
+<!-- Title: like a commit subject, type(scope): imperative summary, at most 72 characters.
+     Sidebar (CONTRIBUTING.md › Sidebar and linked issues): the issue's type/area/priority labels
+     and milestone, an assignee, project board 6. -->
 
-<!-- What this changes, and the problem it solves. Link issues: Closes #123 -->
+<!-- One or two sentences: what changes for a user or maintainer, and why. No closing keywords here. -->
 
-## How it was tested
+## Changes
 
-<!-- Behaviour tests added or changed; manual checks (distros, hardware) -->
+| Commit | What and why |
+|---|---|
+| `type(scope): …` | |
 
-## Checklist
+<!-- One commit: delete the table, its message is the detail. Add a Mermaid diagram only if a flow changes. -->
 
-- [ ] Every commit follows [Conventional Commits](https://www.conventionalcommits.org/) (`type(scope): summary`), builds and passes tests on its own — PRs are **rebase-merged**, so each lands on `main`
-- [ ] Tests cover the behaviour (not just the lines); `make test` and `make lint` pass
-- [ ] File format changes are additive, or `schema_version` is bumped with an ADR
-- [ ] Docs updated (README, ARCHITECTURE.md, or a new ADR in `docs/adr/`), using diagrams and tables where they help
-- [ ] **Independent review** done (Claude Code: correctness, silent failures, security), every finding fixed, and the review with its resolution table posted as a PR comment
+## Acceptance criteria (#N)
+
+| Criterion (as the issue words it) | Evidence (test name, command output, run link) |
+|---|---|
+| | |
+
+## Verification
+
+- **Fails without the change:** <!-- the mutation or revert, and the failing test's message -->
+- **Real run:** <!-- the command and the lines that matter; before → after when output changes -->
+- **Checks:** <!-- make lint / test, coverage %, scripts/check-*.sh -->
+
+## Limits and follow-ups
+
+<!-- What isn't proven or covered, each with its issue. Delete the section if there's none. -->
+
+Fixes #N
+<!-- One line per issue this PR completes, each on its own line; an attribution line (e.g. Claude Code's 🤖 line) may follow. A PR that delivers one part of a larger
+     issue closes that part's sub-issue: "Fixes #sub", then "Refs #parent".
+     Never write fix/close/resolve + #N in a sentence or a table: GitHub links it and closes that issue. -->

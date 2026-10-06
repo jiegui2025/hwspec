@@ -1,0 +1,30 @@
+
+# Commit message template: git config commit.template .github/commit-template.txt
+# Lines starting with # are dropped. CI checks most of these rules
+# (scripts/check-commits.sh; see CONTRIBUTING.md > Commits for which).
+#
+# Subject: type(scope): imperative summary
+#   at most 72 characters in all, lower case after the colon, no full stop
+#   "add", "fix", "drop", not "added", "fixes", "the …"
+#   types: feat fix docs test refactor perf build ci chore style revert
+#     fix = a bug users see; a CI bug is ci, a test-only change test
+#     issue type data → fix(ids) or feat(ids); research → docs(adr)
+#   scopes: the package or area — cli collect report output ids genids
+#     smbios edid spd trust resolve schema snapshot advisor kb genkb |
+#     release edge vm lint | readme contributing architecture adr
+#   incompatible change: type(scope)!: … plus a BREAKING CHANGE: footer
+#   reverting: revert: <the reverted subject> (rewrite git revert's "Revert …")
+#
+# (blank line)
+# Body, wrapped at 72; feat, fix, refactor and perf need one:
+#   Why: what was wrong or missing, with the evidence.
+#   What: the change as behaviour; name files only when it helps.
+#   Proof: the test that covers it, and that it fails without the change.
+#   Keep it true after review fixes, and rewrap after amending.
+#
+# Footers, each on its own line:
+#   Refs #N                    part of an issue
+#   Fixes #N                   completes it; one line per issue (GitHub
+#                              closes only the first of "Fixes #N, #M")
+#   BREAKING CHANGE: …         with type!
+#   Co-Authored-By: Name <email>

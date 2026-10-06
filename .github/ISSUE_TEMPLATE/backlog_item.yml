@@ -7,6 +7,12 @@ body:
     attributes:
       value: |
         Every backlog item is backed by evidence and carries its full solution (CONTRIBUTING.md › Backlog). Reports from the other forms are refined into this shape during triage.
+  - type: input
+    id: parent
+    attributes:
+      label: Parent issue
+      description: For one part of a larger item, delivered by one PR. Also set it under Relationships → Add parent (or file with `gh issue create --parent N`). Its PR closes this part; the last part's PR also closes the parent.
+      placeholder: "#5 (part 2 of 3)"
   - type: textarea
     id: problem
     attributes:
@@ -46,12 +52,19 @@ body:
     validations:
       required: true
   - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope / risks
+      description: What this item deliberately leaves out (with the issue that covers it), and what could go wrong.
+    validations:
+      required: true
+  - type: textarea
     id: priority
     attributes:
       label: Priority and size
-      description: P0–P3 and XS–XL, each with its reason (impact, risk, deadline, dependency).
+      description: Priority (label) and size (board) are set on every item; write the reason here only when the problem doesn't make it evident (impact, risk, deadline, dependency).
     validations:
-      required: true
+      required: false
   - type: textarea
     id: questions
     attributes:

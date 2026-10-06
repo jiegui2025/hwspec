@@ -1,5 +1,6 @@
 name: Bug report
 description: hwspec crashed, reported something wrong, or missed hardware it should see
+title: "fix: "
 labels: ["type: defect", "status: triage"]
 body:
   - type: textarea

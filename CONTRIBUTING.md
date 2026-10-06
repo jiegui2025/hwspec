@@ -43,8 +43,44 @@ flowchart TD
 | **Every commit builds and passes tests** | Bisectability; fold fixes into the commit they fix (`git commit --fixup`, then `git rebase -i --autosquash`) |
 | **Independent review before merge**, all findings fixed, review posted on the PR | A second pair of eyes with no context bias; the record stays with the change |
 | **One feature or fix per PR** | Reviewable size |
+| **The PR body follows the [template](.github/pull_request_template.md)** | Reviewers find the acceptance evidence and the proof that tests fail without the change in one place |
+| **The sidebar is complete and the PR closes its issue** (below) | Merging closes the right issue and keeps the board true |
 
-Commit types: `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, `style`, `revert`.
+### Commits
+
+Set the template once: `git config commit.template .github/commit-template.txt`. CI's `commits` job ([`scripts/check-commits.sh`](scripts/check-commits.sh)) checks every commit in the PR:
+
+| Part | Rule | Checked |
+|---|---|---|
+| Subject | `type(scope): summary`, at most 72 characters in all, no full stop | ✅ error |
+| Mood | imperative: "add", not "added", "adds" or "the …" | partly: a word list catches articles and past or third-person verbs, not noun phrases |
+| Types | `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, `style`, `revert`; `fix` is a bug users see (a CI bug is `ci`, a test-only change `test`); a revert is `revert: <the reverted subject>`, not git's `Revert "…"` | ✅ error |
+| Scope | the package or area: `cli`, `collect`, `report`, `output`, `ids`, `genids`, `advisor`, `kb`, … `release`, `edge`, `vm`, `readme`, `contributing`, `adr` ([template](.github/commit-template.txt)) | review |
+| Body | blank line 2; *why* (what was wrong, with evidence), *what* (as behaviour), *proof* (the test, and that it fails without the change); wrapped at 72; required for `feat`, `fix`, `refactor`, `perf` | ✅ error; wrap: warning |
+| Footers | `Refs #N` or `Fixes #N`, one issue per line (GitHub closes only the first of `Fixes #1, #2`); `BREAKING CHANGE: …` with `type!`; `Co-Authored-By:` | ✅ `!` needs the footer; a closing keyword anywhere else (any case, with or without a colon): warning |
+| Fixup, squash, WIP | folded in before merging | ✅ error |
+
+### Sidebar and linked issues
+
+Before merging, a PR's sidebar matches its tracking issue, so the merge closes the issue and the board stays right:
+
+| Field | Value |
+|---|---|
+| Development | the issue, through `Fixes #N` on its own line after the body's sections, one line per issue (an attribution line may follow). Check with `gh pr view N --json closingIssuesReferences`: it must list exactly the intended issues |
+| Labels | the issue's `type:`, `area:` and `priority:` labels, plus `type: devops` when the PR changes `.github/` or CI; `status:` and `good first issue` stay on the issue |
+| Milestone | the issue's |
+| Assignee | whoever drives the PR (the owner, for PRs Claude sessions open) |
+| Reviewers | automatic: `.github/CODEOWNERS` requests the owner on every PR they didn't open. GitHub can't request a review from a PR's author, and Claude sessions open PRs as the owner, so those PRs are gated by draft → ready and the independent review instead |
+| Projects | board 6, *In review* (by hand until [#53](https://github.com/jiegui2025/hwspec/issues/53)) |
+
+| Pitfall | Avoid it |
+|---|---|
+| An issue needs several PRs | split it into [sub-issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/adding-sub-issues) (`gh issue create --parent N`), one per PR: each PR says `Fixes #<sub-issue>` and `Refs #<parent>`; the last one also fixes the parent |
+| A closing keyword in prose | GitHub links *fix*, *close* or *resolve* (any form) followed by `#N` anywhere in the body, tables included, and closes that issue on merge (#40, #47, #78). Write `Refs #N` or reword |
+
+### Review comments
+
+The independent review is posted as one comment per round: *Review* (`| # | Severity | Where | Finding | Fix |`), then the author's *Resolutions* (`| # | Resolution |`), then the reviewer's re-verification. Severities: **blocking** (the PR goes back to draft), important, minor; every row is fixed or explicitly accepted with the reason, and every review thread on the PR is resolved before merging (the `main` ruleset requires it).
 
 ### What CI runs
 
@@ -56,7 +92,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 | `flake.nix` / `flake.lock` only | Nix |
 | the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs |
 | `verify.yml` or `scripts/verify-release*.sh` | everything in the next row, plus the tamper test against the live `edge` release (`verify-release`) |
-| `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts (`scripts/changed-areas*.sh`, `check-commits.sh`, `check-mermaid.sh`, `verify-release*.sh`) | everything above except the tamper test, plus actionlint |
+| `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts (`scripts/changed-areas*.sh`, `check-commits*.sh`, `check-mermaid.sh`, `verify-release*.sh`) | everything above except the tamper test, plus actionlint and the scripts' own tests |
 | Markdown | Mermaid rendering check (every diagram must render), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
@@ -81,18 +117,21 @@ Once [#53](https://github.com/jiegui2025/hwspec/issues/53) lands, new issues and
 | **Evidence** | a table of facts, each with its source: `path/file.go:123`, output of a real run, or an upstream document that was actually read; nothing from memory |
 | **Solution** | the design and why, the packages and files it touches, a Mermaid diagram where it helps |
 | **Steps** and **Acceptance criteria** | small concrete tasks; checks that can be tested or observed |
-| **Priority and size** | P0–P3 and XS–XL, each with its reason |
+| **Out of scope / risks** | what the item deliberately leaves out (with the issue that covers it), and what could go wrong |
+| **Priority and size** | a `priority:` label and a board size on every item; the reason in the issue when the problem doesn't make it evident |
 | **Open questions** | anything that couldn't be verified, stated as a question, never as a fact |
+
+An item one PR can't deliver is split into sub-issues of it (`gh issue create --parent N --body-file .github/backlog-issue.md`), one per PR, each with its own acceptance criteria ("Part 2 of 3 of #5"); sections the parent already covers say "see #parent".
 
 | Field | Values |
 |---|---|
-| Priority | **P0** broken for users, now · **P1** next up (release blockers, deadlines) · **P2** planned · **P3** nice to have — always with the reason in the issue |
+| Priority | **P0** broken for users, now · **P1** next up (release blockers, deadlines) · **P2** planned · **P3** nice to have |
 | Size | **XS** < 1 hour · **S** ≤ ½ day · **M** 1–2 days · **L** 3–5 days · **XL** > 1 week (split it) |
 | Milestone | the release it ships in; none means unscheduled |
 | Labels | `type: …`, `area: …`, `priority: P0`–`priority: P3`; `status: triage` until refined; `status: blocked`, `status: needs decision`, `status: deferred` where they apply |
-| Title | `type(scope): summary` with the commit types above, plus `research` and `data` for issues |
+| Title | `type(scope): summary` with the commit types above, plus `research` and `data` for issues; their PRs use `docs(adr)` for research and `fix(ids)` / `feat(ids)` for data |
 
-Reports from the bug, feature and name-correction forms are triaged into this shape; maintainers file new items with the [backlog item form](.github/ISSUE_TEMPLATE/backlog_item.yml).
+Reports from the bug, feature and name-correction forms are triaged into this shape. Maintainers file new items with the [backlog item form](.github/ISSUE_TEMPLATE/backlog_item.yml) in the browser, or from the command line with the same sections: `gh issue create --body-file .github/backlog-issue.md` ([body](.github/backlog-issue.md)).
 
 ## Tests
 
