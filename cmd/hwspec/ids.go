@@ -110,6 +110,7 @@ func (c cli) idsUpdate(args []string) error {
 func (c cli) idsStatus() error {
 	w := tabwriter.NewWriter(c.stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "DATABASE\tNAMES\tSOURCE (newest of embedded, distro, synced; then overrides)")
+	ids.Preload(ids.Kinds...) // all of them are listed: load them in parallel, not one by one
 	for _, k := range ids.Kinds {
 		var parts []string
 		for _, l := range ids.Layers(k) {
