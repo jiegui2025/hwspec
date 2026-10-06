@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 )
 
 // isolate makes lookups use only the embedded data (as on NixOS, which has
@@ -344,5 +345,26 @@ func TestUseEmbeddedOnlyIgnoresTheMachinesSources(t *testing.T) {
 	UseEmbeddedOnly()
 	if at, err := SyncedAt(); err != nil || !at.IsZero() {
 		t.Errorf("SyncedAt = %v, %v", at, err)
+	}
+}
+
+// cleanName's ASCII shortcut gives what the full check gives.
+func TestCleanNameShortcutMatchesTheFullCheck(t *testing.T) {
+	full := func(s string) string {
+		unsafe := func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }
+		return strings.TrimSpace(strings.Map(func(r rune) rune {
+			if unsafe(r) {
+				return -1
+			}
+			return r
+		}, strings.ToValidUTF8(s, "�")))
+	}
+	for _, s := range []string{
+		"Intel Corporation", "  padded  ", "", "~!@#$%^&*()_+{}|:<>?", "tab\there", "del\x7f",
+		"esc\x1b[2J", "bidi\u202eevil", "Bjørn's Ü device", "bad\xffutf8", "zero\u200bwidth",
+	} {
+		if got, want := cleanName(s), full(s); got != want {
+			t.Errorf("cleanName(%q) = %q, want %q", s, got, want)
+		}
 	}
 }
