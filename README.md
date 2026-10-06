@@ -52,7 +52,7 @@ Not captured
 | | hwspec | lshw | inxi | dmidecode | hwinfo |
 |---|---|---|---|---|---|
 | Install | one static binary | distro package (C++) | distro package (Perl, calls helper tools) | distro package (C) | distro package (C) |
-| Same result on every distro (incl. NixOS, Alpine) | ✅ CI-tested on 6 | depends on version | depends on installed tools | depends on version | depends on version |
+| Same result on every distro (incl. NixOS, Alpine) | ✅ CI-tested on 8 ([which](#tested-distros)) | depends on version | depends on installed tools | depends on version | depends on version |
 | Structured output | JSON/YAML, versioned schema | JSON/XML | JSON/XML (`--output`) | text | text |
 | Names hardware offline, signed ID updates | ✅ | distro ID files | distro ID files | — | own database |
 | Keeps raw IDs to re-name old captures | ✅ | IDs in output | partial | — | IDs in output |
@@ -110,6 +110,20 @@ Plus: OS, kernel, boot mode, Secure Boot, VM/container; CPU cores, caches, clock
 | Nix flakes / NixOS | `nix run github:jiegui2025/hwspec -- capture -f text` |
 
 Install to a root-owned location (as above) if you want `--full`; see [Root access](#root-access).
+
+### Tested distros
+
+| Distro | How | When |
+|---|---|---|
+| Ubuntu 24.04, Debian 12, Fedora, Arch, Alpine, NixOS | the static binary in the distro's container, amd64 and arm64 (Arch: amd64) | every PR that changes Go code, and every published build |
+| LMDE 7, Devuan 6 (excalibur, no systemd) | container, amd64 | same |
+| Ubuntu 24.04 and 26.04, Debian 13, Fedora 44, Arch | KVM virtual machine, systemd | every published build, and PRs that change Go code or the VM checks |
+| Alpine 3.24 | VM, OpenRC | same |
+| Debian 13 switched to `sysvinit-core` | VM, sysvinit | same |
+| Linux Mint 22.x | Ubuntu 24.04 underneath (Mint's own container image is Ubuntu's userland); the live ISO is checked by hand before a release | each release |
+| MX Linux | live ISO booted with sysvinit, checked by hand before a release (MX has no container or cloud image) | each release |
+
+Each run checks the capture's schema and the names it resolves; the VMs also check the init system, UEFI boot, VM detection and `--full` (see [CONTRIBUTING](CONTRIBUTING.md#edge-builds-and-verification)).
 
 ## Usage
 

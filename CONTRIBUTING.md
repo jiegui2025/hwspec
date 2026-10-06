@@ -171,6 +171,7 @@ flowchart LR
 | Refresh the ID databases | `make update-ids`, then merge through a PR |
 | Release candidate first | tag `vX.Y.Z-rc.N` on `main`; tags with a `-` publish as **pre-releases**, never as Latest |
 | Approve | the release job runs in the `production` environment: it waits until the owner approves it in the run's page; only `v*` tags may deploy there |
+| Live-ISO check | before the final tag, boot the MX Linux 25.x live ISO with sysvinit and the Linux Mint 22.x live ISO, run the candidate's binary (`hwspec capture -f json`, and `--full`), and attach both captures to the release issue: neither distro has an image CI can boot unattended |
 | Final release | tag `vX.Y.Z` on the same commit once the candidate checks out; GitHub marks it Latest when it's the newest version, so a patch to an older line doesn't take Latest |
 | What's published | `hwspec-vX.Y.Z-linux-{amd64,arm64}.tar.gz` (binary, LICENSE, README), `SHA256SUMS`, provenance attestations |
 | Reproducible | `make release` from the same commit, with the same Go toolchain and gzip, gives byte-identical tarballs (GNU tar, sorted entries, owner 0, the commit time as mtime, gzip without a timestamp); the release log prints `go version`, so a build can be reproduced and its `SHA256SUMS` compared |
