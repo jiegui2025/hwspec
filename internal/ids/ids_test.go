@@ -42,7 +42,7 @@ func TestEmbeddedLookups(t *testing.T) {
 		{"usb class", USBClass("03"), "Human Interface Device"},
 		{"pnp", PNPVendor("del"), "Dell Inc."},
 		{"amdgpu", AMDGPUName("1114", "C2"), "AMD Radeon 860M Graphics"},
-		{"oui", MACVendor("04:0e:3c:91:34:f4"), "HP Inc."},
+		{"oui", MACVendor("04:0e:3c:12:34:56"), "HP Inc."},
 		{"bluetooth", BluetoothCompany(2), "Intel Corp."},
 		{"cpu coffee lake", cpuName("GenuineIntel", 6, 0x9e, 10), "Coffee Lake|Skylake"},
 		{"cpu kaby lake", cpuName("GenuineIntel", 6, 0x9e, 9), "Kaby Lake|Skylake"},
@@ -51,7 +51,7 @@ func TestEmbeddedLookups(t *testing.T) {
 		{"cpu raphael", cpuName("AuthenticAMD", 0x19, 0x61, 2), "Raphael|Zen 4"},
 		{"cpu zen range", cpuName("AuthenticAMD", 0x19, 0x62, 0), "|Zen 4"},
 		{"cpu other vendor", cpuName("HygonGenuine", 0x18, 0, 0), "|"},
-		{"oui local", MACVendor("02:0e:3c:91:34:f4"), ""},
+		{"oui local", MACVendor("02:0e:3c:12:34:56"), ""},
 		{"oui garbage", MACVendor("zz"), ""},
 		{"missing", PCIDevice("8086", "zzzz"), ""},
 	}

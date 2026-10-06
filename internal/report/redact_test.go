@@ -16,7 +16,7 @@ func TestRedactRemovesPersonalPathsAndMACDerivedNames(t *testing.T) {
 			{Name: "enx00e04c680123", MAC: "00:e0:4c:68:01:23"},
 			{Name: "wlp2s0", MAC: "aa:bb:cc:dd:ee:ff"},
 		},
-		Bluetooth: []BluetoothController{{Address: "60:F2:62:15:AB:5C", LocalName: "alice-laptop"}},
+		Bluetooth: []BluetoothController{{Address: "60:F2:62:12:34:56", LocalName: "alice-laptop"}},
 	}
 	r.Redact()
 	parts := r.Storage[0].Partitions
