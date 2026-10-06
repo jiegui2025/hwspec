@@ -20,7 +20,9 @@ env:
 jobs:
   # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
   # to main and merge-queue runs run everything except the VMs and the
-  # tamper test: edge.yml -> verify.yml runs both on the published build.
+  # tamper test: a merged tree's VMs booted in its PR's run, edge.yml ->
+  # verify.yml runs the tamper test on the published build, and releases
+  # boot the VMs again there (#175).
   # A push whose tree is exactly a merged PR's head, whose CI passed,
   # runs nothing more: that tree was just tested (#152).
   changes:
@@ -74,8 +76,8 @@ jobs:
           elif [ "$EVENT" = push ] && tested_pr; then
             printf 'go=false\nnix=false\nworkflows=false\ndocs=false\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           else
-            # Not the VMs: every push to main boots them on the published
-            # edge build (edge.yml -> verify.yml -> vms.yml).
+            # Not the VMs: the merged tree's VMs booted in its PR's run, and
+            # releases boot them again (verify.yml -> vms.yml; #175).
             printf 'go=true\nnix=true\nworkflows=true\ndocs=true\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           fi
 
