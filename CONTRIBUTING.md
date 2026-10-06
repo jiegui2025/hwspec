@@ -54,7 +54,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 |---|---|
 | Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds, 6-distro smoke tests, Nix |
 | `flake.nix` / `flake.lock` only | Nix |
-| `.github/workflows/**` or CI scripts | everything, plus actionlint |
+| `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts | everything, plus actionlint |
 | Markdown | Mermaid rendering check (every diagram must render) |
 | anything | commit messages, PR title |
 

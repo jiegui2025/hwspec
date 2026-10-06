@@ -214,6 +214,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: actionlint (bundled shellcheck, pinned by digest)
         run: docker run --rm -v "$PWD:/repo" -w /repo docker.io/rhysd/actionlint:1.7.12@sha256:9d36088643581e728c969f35141f88139fec77280b2be23c1f66f8e40e1025e7
+      - name: Which CI jobs each kind of change selects
+        run: scripts/changed-areas_test.sh
 
   # Every Mermaid diagram in the Markdown must render (docs rule).
   mermaid:
