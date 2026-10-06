@@ -157,3 +157,21 @@ flowchart LR
 | Reproducible | `make release` from the same commit, with the same Go toolchain and gzip, gives byte-identical tarballs (GNU tar, sorted entries, owner 0, the commit time as mtime, gzip without a timestamp); the release log prints `go version`, so a build can be reproduced and its `SHA256SUMS` compared |
 
 Tags can't be moved or deleted (ruleset *Protect release tags*), so a bad candidate is replaced by the next `-rc.N`.
+
+### Edge builds and verification
+
+```mermaid
+flowchart LR
+  ci["CI green on a push to main"] --> edge["edge.yml (edge environment): build, attest"] --> pre["rolling 'edge' pre-release"]
+  tag[release.yml] --> rel[Release]
+  pre --> verify
+  rel --> verify["verify.yml: SHA256SUMS, attestations,<br/>binaries on 6 distros × amd64/arm64"]
+```
+
+| Workflow | Does |
+|---|---|
+| `edge.yml` | after CI passes on `main`: builds that commit, attests it, and replaces the `edge` pre-release (never Latest) |
+| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner, then runs the published binary in the distro containers on amd64 and arm64 runners. Run it by hand from the Actions tab for any tag. |
+
+- `verify.yml` runs after publishing, so it **detects** a bad release rather than preventing it. A failure means: fix it, then delete or supersede that release.
+- `edge` is deleted and recreated on every publish. Turning on GitHub's immutable releases would break that, so the edge flow has to change before that setting does.
