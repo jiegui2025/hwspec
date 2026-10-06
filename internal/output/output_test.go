@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -441,6 +442,34 @@ func TestTextMountings(t *testing.T) {
 	for _, absent := range []string{"06:00.0", "CPU1", "CPU2"} {
 		if strings.Contains(buf.String(), absent) {
 			t.Errorf("%s got a line (no mounting, or an empty socket)", absent)
+		}
+	}
+}
+
+// A YAML capture is untrusted (show reads files others made), so the
+// parser's limits are part of hwspec's security (SECURITY.md › Parsing): an
+// alias bomb and deep nesting are refused quickly, not expanded.
+func TestYAMLBombsAreRefused(t *testing.T) {
+	var laughs strings.Builder
+	laughs.WriteString("tool: {name: hwspec}\nschema_version: 1\na0: &a0 [lol, lol, lol, lol, lol, lol, lol, lol, lol, lol]\n")
+	for i := 1; i < 10; i++ {
+		fmt.Fprintf(&laughs, "a%d: &a%d [", i, i)
+		for j := range 10 {
+			if j > 0 {
+				laughs.WriteString(", ")
+			}
+			fmt.Fprintf(&laughs, "*a%d", i-1)
+		}
+		laughs.WriteString("]\n")
+	}
+	deep := "hostname: " + strings.Repeat("[", 20000) + strings.Repeat("]", 20000) + "\n"
+	for doc, want := range map[string]string{laughs.String(): "excessive aliasing", deep: "exceeded max depth"} {
+		start := time.Now()
+		if _, err := Read([]byte(doc)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("want an error with %q, got %v", want, err)
+		}
+		if d := time.Since(start); d > 5*time.Second {
+			t.Errorf("refusing %q took %v", want, d)
 		}
 	}
 }
