@@ -27,7 +27,13 @@ func (c *collector) osInfo() {
 	o.PrettyName = rel["PRETTY_NAME"]
 
 	release, machine := uname()
-	o.Kernel = release
+	o.Kernel = readStr("/proc/sys/kernel/osrelease")
+	if o.Kernel == "" {
+		o.Kernel = release
+	}
+	if o.Kernel == "" {
+		c.warn("kernel version: /proc/sys/kernel/osrelease unreadable and uname failed")
+	}
 	o.Arch = machine
 	o.Init = readStr("/proc/1/comm")
 
