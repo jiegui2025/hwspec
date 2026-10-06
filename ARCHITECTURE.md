@@ -55,11 +55,13 @@ flowchart TD
   trust[internal/trust]
 ```
 
+The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in CI (test files excepted).
+
 | Package | Responsibility | Depends on |
 |---|---|---|
 | `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring | everything below |
 | `internal/trust` | "can only root change this file?" checks (for `--full` and `smartctl`) | `x/sys/unix` |
-| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `schema`, `ghw` |
+| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `schema`, `ghw`, `x/sys/unix` |
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |
 | `internal/ids` | ID databases, overrides, sync, decoders (JEDEC, OUI, CPU) | standard library only |
 | `internal/report` | the file format, redaction, sanitising | standard library only |
@@ -92,17 +94,17 @@ flowchart TD
 
 ## Rules
 
-| Rule | In practice |
-|---|---|
-| **The file format is a public interface** | additive changes only, unless `schema_version` is bumped with an ADR (CI compares the JSON Schema with the base's); raw IDs always stored next to names |
-| **Never guess** | unreadable values are omitted, empty or "unknown", never a plausible default; the reason goes in `warnings` |
-| **Collectors degrade, they don't fail** | a missing file, permission error or absent subsystem leaves fields empty; only a broken invariant is an error |
-| **No external tools in the capture path** | kernel interfaces only, except optional `smartctl` (from root-owned system directories, with a timeout) for SATA health |
-| **Captures never touch the network** | only `hwspec ids update` does, and it installs only signed, verified data |
-| **Root is opt-in and minimal** | `--full` re-runs a root-owned binary under `pkexec`; the unprivileged parent writes the file and applies the user's overrides |
-| **Untrusted text is sanitised** | names from devices, captures and databases lose control characters before reaching a terminal |
-| **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware |
-| **Testable seams** | collectors read every file through one root path, and syscalls/subprocesses sit behind swappable functions (saved and restored together, captures serialised). `collect.CollectRecorded` replays a machine recorded by `tools/snapshot`: its files, its answers to calls, its empty directories and unreadable files |
+| Rule | In practice | Enforced by |
+|---|---|---|
+| **The file format is a public interface** | additive changes only, unless `schema_version` is bumped with an ADR (CI compares the JSON Schema with the base's); raw IDs always stored next to names | CI step "The capture format stays compatible" (`genschema check`); `TestCommittedSchemaIsCurrent` (schema matches the structs); review for changes in meaning (PR template checkbox) |
+| **Never guess** | unreadable values are omitted, empty or "unknown", never a plausible default; the reason goes in `warnings` | review; `TestIdenticalModulesAreNotGuessed`, `TestUnreadableSMBIOSIsReported`, the recorded machines' `expected.json` |
+| **Collectors degrade, they don't fail** | a missing file, permission error or absent subsystem leaves fields empty; only a broken invariant is an error | `TestBareSystemReportsWhatIsMissing`, the scenario tests |
+| **No external tools in the capture path** | kernel interfaces only, except optional `smartctl` (from root-owned system directories, with a timeout) for SATA health | depguard `no-subprocesses` (`os/exec` only in `collect/health.go` and the CLI); `TestCapturesRunNoProgramButSmartctl`, `TestSmartctlIsOnlyTakenFromRootOwnedPlaces` |
+| **Captures never touch the network** | only `hwspec ids update` does, and it installs only signed, verified data | depguard `no-network` (`net` only in `ids/sync.go`) and `collect`; `TestCapturesNeverTouchTheNetwork`; CI's distro runs use `--network=none` |
+| **Root is opt-in and minimal** | `--full` re-runs a root-owned binary under `pkexec`; the unprivileged parent writes the file and applies the user's overrides | `TestFullCaptureElevatesOnlyARootOwnedBinary`, `TestFullCaptureRunsTheRootChildThroughPkexec`, `TestWritableOrMissingFilesAreNotTrusted` |
+| **Untrusted text is sanitised** | names from devices, captures and databases lose control characters before reaching a terminal | `TestSanitizeCleansEveryStringInTheReport`, `TestNamesNeverCarryControlCharacters`, `TestTextOutputIsTerminalSafe` |
+| **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware | depguard `stdlib-only` and `parsers-are-pure` (no `os`, `net`, `syscall`, `unsafe`) for SMBIOS, EDID and SPD; byte-level tests for the parsers that live in `collect` and `ids`: `TestNVMeWarningBitsAndEndurance`, `TestNVMeCountersSaturate`, `TestSmartctlVerdictsAndEndurance`, `TestBluetoothManagementReplies`, `TestMalformedIDsAreRejectedWithAReason`, `TestJEDECCodeShapes` |
+| **Testable seams** | collectors read every file through one root path, and syscalls/subprocesses sit behind swappable functions (saved and restored together, captures serialised). `collect.CollectRecorded` replays a machine recorded by `tools/snapshot`: its files, its answers to calls, its empty directories and unreadable files | `TestRecordedMachines`, `TestCollectRecordedRefusesBrokenRecordings` |
 
 ## Distribution
 
@@ -119,6 +121,5 @@ The ranked plan is the [roadmap](README.md#roadmap); these items change the arch
 | Area | Tracking |
 |---|---|
 | Advisor: a knowledge base and rules that turn a capture into advice (drivers, firmware, upgrades, maintenance) | [#5](https://github.com/jiegui2025/hwspec/issues/5) will record the design in ADR 0009; [#7](https://github.com/jiegui2025/hwspec/issues/7)–[#11](https://github.com/jiegui2025/hwspec/issues/11), [#25](https://github.com/jiegui2025/hwspec/issues/25) build it |
-| Package boundaries and "no network in the capture path", enforced in CI | [#29](https://github.com/jiegui2025/hwspec/issues/29) |
 | Gated deployment, verified on real distros after publishing | [#22](https://github.com/jiegui2025/hwspec/issues/22) |
 | Desktop app | [ADR 0007](docs/adr/0007-desktop-ui.md), [#13](https://github.com/jiegui2025/hwspec/issues/13), [#14](https://github.com/jiegui2025/hwspec/issues/14) |

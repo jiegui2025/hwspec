@@ -272,7 +272,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: scripts/verify-release_test.sh edge "$REPO"
 
-  # Every Mermaid diagram in the Markdown must render (docs rule).
+  # Docs rules: every Mermaid diagram in the Markdown renders, and every
+  # decision record is in the ADR index.
   mermaid:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -283,6 +284,8 @@ jobs:
         env:
           MERMAID_IMAGE: docker.io/minlag/mermaid-cli:12.0.0@sha256:30a3ca1a8af8632e9aee021e6a39738ff876239c5307f03734e89c5364ff5f38
         run: git ls-files -z '*.md' | xargs -0 -r scripts/check-mermaid.sh
+      - name: Every decision record is in the ADR index
+        run: scripts/check-adr-index.sh
 
   # The single required check for branch protection. Jobs a change doesn't
   # need are skipped and count as passed; `changes` itself must succeed, or

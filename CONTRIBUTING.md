@@ -57,7 +57,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 | the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs |
 | `verify.yml` or `scripts/verify-release*.sh` | everything in the next row, plus the tamper test against the live `edge` release (`verify-release`) |
 | `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts (`scripts/changed-areas*.sh`, `check-commits.sh`, `check-mermaid.sh`, `verify-release*.sh`) | everything above except the tamper test, plus actionlint |
-| Markdown | Mermaid rendering check (every diagram must render) |
+| Markdown | Mermaid rendering check (every diagram must render), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
 Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs both on the published build.
