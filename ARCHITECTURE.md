@@ -25,6 +25,9 @@ flowchart LR
   saved[(saved capture)] -->|hwspec show| report
   kernel --> collect --> report --> resolve --> out
   resolve <-->|lookups| ids
+  report --> advisor["advisor<br/>findings"]
+  kb[("kb<br/>knowledge base")] --> advisor
+  advisor --> advice["advice: text, JSON, YAML"]
 ```
 
 | Step | Package | Does | Never does |
@@ -34,15 +37,19 @@ flowchart LR
 | 3 | `resolve` | fills names from raw IDs, after every capture **and** when a saved capture is shown | changes raw IDs |
 | 4 | `ids` | loads ID databases, picks the newest source, applies overrides, signed sync | touches the network outside `ids update` |
 | 5 | `output` | writes JSON, YAML, terminal-safe text; reads captures back | accepts files that aren't hwspec captures |
+| 6 | `advisor` | applies the knowledge base's rules to a capture: findings with evidence, actions and sources ([ADR 0009](docs/adr/0009-advisor.md)) | reads files, the network or the clock; guesses where the capture lacks a field |
 
 ## Packages
 
 ```mermaid
 flowchart TD
-  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust & schema
+  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust & schema & advisor & kb
   collect[internal/collect] --> report & resolve & smbios & edid & spd & trust & schema & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(yaml.v3)]
+  advisor[internal/advisor] --> report & kb
+  genkb[tools/genkb] --> kb & advisor & yaml
+  kb[internal/kb]
   genids[tools/genids] --> ids & yaml
   snapshot[tools/snapshot] --> collect & ghw
   genschema[tools/genschema] --> report & schema & jsonschema[(jsonschema-go)]
@@ -67,8 +74,11 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 | `internal/report` | the file format, redaction, sanitising | standard library only |
 | `schema` | the file format's JSON Schema (`capture-vN.json`, embedded) and its URL | standard library only |
 | `internal/output` | serialisation | `report`, `yaml.v3` |
+| `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb` |
+| `internal/kb` | the advisor knowledge base: sources, rules, validation, the embedded copy; pure | standard library only |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `yaml.v3` |
+| `tools/genkb` | build time: `kb/**/*.yaml` → `internal/kb/data/advisor-v1.json.gz`, validated | `kb`, `advisor`, `yaml.v3` |
 | `tools/snapshot` | development: records a machine as a scrubbed test fixture (`internal/collect/testdata/machines`) | `collect`, `ghw` |
 | `tools/genschema` | build time: `report` structs → `schema/capture-vN.json`; CI: the compatibility check | `report`, `schema`, `jsonschema-go` (never linked into `hwspec`) |
 | `internal/smbios/smbiostest` | tests only: builds SMBIOS tables | standard library only |
@@ -103,7 +113,7 @@ flowchart TD
 | **Captures never touch the network** | only `hwspec ids update` does, and it installs only signed, verified data | depguard `no-network` (`net` only in `ids/sync.go`) and `collect`; `TestCapturesNeverTouchTheNetwork` (watches `http.DefaultTransport`) with `TestRequestsOnlyGoThroughTheDefaultTransport` (`ids` has no other way out) and `TestCollectSendsNoPackets` (`collect`'s sockets only talk to the kernel); CI's distro runs use `--network=none` |
 | **Root is opt-in and minimal** | `--full` re-runs a root-owned binary under `pkexec`; the unprivileged parent writes the file and applies the user's overrides | `TestFullCaptureElevatesOnlyARootOwnedBinary`, `TestFullCaptureRunsTheRootChildThroughPkexec`, `TestWritableOrMissingFilesAreNotTrusted` |
 | **Untrusted text is sanitised** | names from devices, captures and databases lose control characters before reaching a terminal | `TestSanitizeCleansEveryStringInTheReport`, `TestNamesNeverCarryControlCharacters`, `TestTextOutputIsTerminalSafe` |
-| **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware | depguard `stdlib-only` and `parsers-are-pure` (no `os`, `net`, `syscall`, `unsafe`) for SMBIOS, EDID and SPD; byte-level tests for the parsers that live in `collect` and `ids`: `TestNVMeWarningBitsAndEndurance`, `TestNVMeCountersSaturate`, `TestSmartctlVerdictsAndEndurance`, `TestBluetoothManagementReplies`, `TestMalformedIDsAreRejectedWithAReason`, `TestJEDECCodeShapes` |
+| **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware | depguard `stdlib-only` and `parsers-are-pure` (no `os`, `io/ioutil`, `net`, `syscall`, `unsafe`) and forbidigo (no `time.Now`, no file-system walks) for SMBIOS, EDID, SPD, the knowledge base and the advisor; byte-level tests for the parsers that live in `collect` and `ids`: `TestNVMeWarningBitsAndEndurance`, `TestNVMeCountersSaturate`, `TestSmartctlVerdictsAndEndurance`, `TestBluetoothManagementReplies`, `TestMalformedIDsAreRejectedWithAReason`, `TestJEDECCodeShapes` |
 | **Testable seams** | collectors read every file through one root path, and syscalls/subprocesses sit behind swappable functions (saved and restored together, captures serialised). `collect.CollectRecorded` replays a machine recorded by `tools/snapshot`: its files, its answers to calls, its empty directories and unreadable files | `TestRecordedMachines`, `TestCollectRecordedRefusesBrokenRecordings` |
 
 ## Distribution

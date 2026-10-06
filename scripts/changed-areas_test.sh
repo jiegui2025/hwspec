@@ -24,6 +24,8 @@ vendor/example.com/x/x.go|true true false false true false
 Makefile|true true false false true false
 scripts/coverage.sh|true true false false true false
 schema/capture-v1.json|true true false false true false
+kb/rules/needs-attention.yaml|true true false false true false
+kb/README.md|false false false true false false
 flake.lock|false true false false false false
 flake.nix|false true false false false false
 .github/workflows/ci.yml|true true true true true false

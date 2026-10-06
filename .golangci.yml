@@ -5,6 +5,7 @@ linters:
     - bodyclose
     - depguard
     - errorlint
+    - forbidigo
     - gocritic
     - gosec
     - misspell
@@ -19,7 +20,7 @@ linters:
       rules:
         stdlib-only:
           list-mode: strict
-          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/schema/*.go", "!$test"]
+          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/kb/*.go", "**/schema/*.go", "!$test"]
           allow: [$gostd]
         # Only internal/ids/sync.go (hwspec ids update) reaches the network,
         # and only collect's health.go (smartctl) and the CLI (pkexec) run
@@ -48,10 +49,14 @@ linters:
             - github.com/jiegui2025/hwspec/schema
             - github.com/jaypipes/ghw
             - golang.org/x/sys/unix
+        # The advisor and its knowledge base are pure too (ADR 0009): the CLI
+        # reads files and machine state and passes them in.
         parsers-are-pure:
-          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "!$test"]
+          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/kb/*.go", "**/internal/advisor/**/*.go", "!$test"]
           deny:
             - pkg: os
+              desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
+            - pkg: io/ioutil
               desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
             - pkg: net
               desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
@@ -67,10 +72,28 @@ linters:
           list-mode: strict
           files: ["**/internal/resolve/*.go", "!$test"]
           allow: [$gostd, github.com/jiegui2025/hwspec/internal/ids, github.com/jiegui2025/hwspec/internal/report]
+        advisor:
+          list-mode: strict
+          files: ["**/internal/advisor/**/*.go", "!$test"]
+          allow: [$gostd, github.com/jiegui2025/hwspec/internal/report, github.com/jiegui2025/hwspec/internal/kb]
+        genkb:
+          list-mode: strict
+          files: ["**/tools/genkb/*.go", "!$test"]
+          allow: [$gostd, github.com/jiegui2025/hwspec/internal/kb, github.com/jiegui2025/hwspec/internal/advisor, gopkg.in/yaml.v3]
         trust:
           list-mode: strict
           files: ["**/internal/trust/*.go", "!$test"]
           allow: [$gostd, golang.org/x/sys/unix]
+    # The pure packages (depguard parsers-are-pure) also can't reach the
+    # file system or the clock through the standard library's other doors.
+    # Applied to those paths only, below.
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^time\.Now$
+          msg: "pure packages get the time as a value (advisor.Input.Now)"
+        - pattern: ^filepath\.(Glob|Walk|WalkDir|EvalSymlinks|Abs)$
+          msg: "pure packages don't read the file system"
     gosec:
       excludes:
         - G104 # unhandled errors: errcheck covers this, with its own exclusions
@@ -87,7 +110,9 @@ linters:
       - std-error-handling
     rules:
       - path: _test\.go
-        linters: [gosec, errcheck]
+        linters: [gosec, errcheck, forbidigo]
+      - path-except: internal/(smbios|edid|spd|kb|advisor)/
+        linters: [forbidigo]
       - path: ^tools/ # build-time generators reading paths given on the command line
         linters: [gosec]
 

@@ -1,0 +1,67 @@
+# Needs attention (#7): devices that don't work as captured.
+# Format: ADR 0009 and kb/README.md. Every rule cites its sources.
+
+sources:
+  kernel-driver-binding:
+    url: https://docs.kernel.org/driver-api/driver-model/binding.html
+    title: Driver Binding (Linux kernel documentation)
+    retrieved: "2026-10-06"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: >-
+      When a driver is attached to a device, the driver's probe() function
+      is called. Within probe(), the driver initializes the device …
+  modprobe-show-alias:
+    url: https://man7.org/linux/man-pages/man8/modprobe.8.html
+    title: modprobe(8), kmod
+    retrieved: "2026-10-06"
+    licence: GPL-2.0-or-later
+    confidence: upstream-doc
+    quote: "Print all module names matching an alias."
+  pci-ids-classes:
+    url: https://pci-ids.ucw.cz/read/PD/
+    title: PCI ID repository, device classes
+    retrieved: "2026-10-06"
+    licence: GPL-2.0-or-later OR BSD-3-Clause
+    confidence: upstream-doc
+    quote: "02 Network controller … 03 Display controller … 0d Wireless controller"
+  pci-ids-multimedia:
+    url: https://pci-ids.ucw.cz/read/PD/04
+    title: PCI ID repository, multimedia controller subclasses
+    retrieved: "2026-10-06"
+    licence: GPL-2.0-or-later OR BSD-3-Clause
+    confidence: upstream-doc
+    quote: "03 Audio device"
+  pci-ids-serial-bus:
+    url: https://pci-ids.ucw.cz/read/PD/0c
+    title: PCI ID repository, serial bus controller subclasses
+    retrieved: "2026-10-06"
+    licence: GPL-2.0-or-later OR BSD-3-Clause
+    confidence: upstream-doc
+    quote: "03 USB controller"
+
+rules:
+  - id: pci.no-driver
+    check: pci-without-driver
+    category: needs-attention
+    severity: warning
+    title: No kernel driver is bound to this device
+    detail: >-
+      A device is only usable once a driver binds to it and initialises it.
+      Network, display, audio, USB and wireless controllers have no other
+      way to work.
+    match:
+      # pci.ids classes: 02 network, 03 display, 0403 audio device,
+      # 0c03 USB controller, 0d wireless.
+      pci_class: ["02", "03", "0403", "0c03", "0d"]
+    actions:
+      - text: >-
+          List the kernel modules that claim this device, by its modalias.
+          If one is listed, load it; if modprobe says none is found, the
+          running kernel has no driver for it (a newer kernel or an
+          out-of-tree driver may).
+        commands:
+          - modprobe -R {modalias}
+          - sudo modprobe MODULE
+        undo: sudo modprobe -r MODULE
+    src: [kernel-driver-binding, modprobe-show-alias, pci-ids-classes, pci-ids-multimedia, pci-ids-serial-bus]

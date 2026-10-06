@@ -1,0 +1,50 @@
+# Advisor knowledge base
+
+The rules `hwspec advise` applies, and the sources they rest on ([ADR 0009](../docs/adr/0009-advisor.md)). `make gen-kb` compiles every YAML file here into `internal/kb/data/advisor-v1.json.gz`, which is embedded in the binary.
+
+```mermaid
+flowchart LR
+  yaml["kb/**/*.yaml<br/>sources + rules"] -->|tools/genkb: validate| gz["internal/kb/data/advisor-v1.json.gz"]
+  gz --> bin["embedded in hwspec"]
+  bin --> advise["hwspec advise"]
+```
+
+Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (ID → source) and `rules` (a list). A rule cites sources by ID; every value in its `data` is a claim list, `[{value: …, src: …}]`. Values are kept as written: quote anything that starts with a zero (`"0403"`), and leave a key out rather than writing `null`.
+
+**Sources**
+
+| Field | Required | Meaning |
+|---|---|---|
+| key | ✅ | the source's ID: lower-case words joined by `.` or `-`, unique across files |
+| `url` | ✅ | an https document someone can open |
+| `mirror` | | an https copy, for when the URL fails |
+| `title`, `doc`, `edition`, `published` | | the document's title, number, revision and date (`"YYYY-MM-DD"`, `"YYYY-MM"` or `"YYYY"`) |
+| `retrieved` | ✅ | when you read it (`"YYYY-MM-DD"`) |
+| `licence` | ✅ | the document's licence (SPDX, e.g. `GPL-2.0-only`) or terms: a quote stays under it |
+| `confidence` | ✅ | `oem-doc`, `upstream-doc`, `measured` or `community` |
+| `quote` | ✅ unless link-only | the words that support the claim, as written |
+| `link_only`, `locator` | | for terms that don't allow quoting (e.g. non-commercial): no quote, and a page or section instead |
+
+**Rules**
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | ✅ | lower-case words joined by `.` or `-`, unique, e.g. `pci.no-driver` |
+| `check` | ✅ | the Go check in `internal/advisor` that applies the rule |
+| `category` | ✅ | `needs-attention`, `performance`, `upgrade`, `firmware` or `maintenance` |
+| `severity` | ✅ | `critical`, `warning` or `info` |
+| `title`, `detail` | title ✅ | what's wrong and why it matters, in plain words |
+| `match` | per check | raw IDs only, never display names: `pci_class` (class code prefixes, 2, 4 or 6 lower-case hex digits, quoted) |
+| `data` | per check | the check's settings, every value a claim list |
+| `actions` | | `{distro, text, commands, risk, undo}`: what to do, what can go wrong, how to go back; `distro` is an os-release `ID` or `ID_LIKE` value. Commands are shown, never run; a command may name only the values its check fills (`pci-without-driver`: `{modalias}`, built from the capture's hex IDs); `genkb` refuses any other |
+| `src` | ✅ | the IDs of the sources the rule rests on |
+
+| Rule | Why |
+|---|---|
+| Every rule and value cites a source | anyone can check a claim; `genkb` refuses uncited ones |
+| A finding's confidence is its weakest source's | a forum post doesn't become an OEM fact by sitting next to one |
+| Where sources disagree, keep both claims | the reader decides; nothing is averaged or guessed |
+| Run `make gen-kb` and commit the result with the YAML | `go test ./tools/genkb` fails while they differ; the file keeps its date until its content changes |
+| `genkb` is strict, `hwspec` lenient | a binary skips, with a warning, a rule using a field or value it doesn't know (the weekly bundle reaches older binaries, #81); `genkb` refuses to build one |
+
+Contributions to this directory are licensed GPL-3.0-or-later, like the code ([ADR 0006](../docs/adr/0006-licence.md)); quoted text keeps its source's licence.
