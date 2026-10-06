@@ -1,0 +1,40 @@
+name: VM images
+
+# The VM checks boot cloud images pinned by URL in scripts/vm-run.sh, and
+# mirrors drop old images (Arch's within weeks). Check weekly that every
+# pinned URL still exists, so a refresh happens before verification of a
+# release fails for a reason unrelated to it. Refreshing: CONTRIBUTING.md.
+
+on:
+  schedule:
+    - cron: "41 4 * * 1" # Mondays 04:41 UTC, after ids.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every pinned image URL still exists
+        run: |
+          gone=0
+          for image in $(scripts/vm-run.sh --list); do
+            url=$(scripts/vm-run.sh --pin "$image" | sed -n 's/^url=//p')
+            if curl -fsSIL --proto '=https' --proto-redir '=https' --retry 3 -o /dev/null "$url"; then
+              echo "ok   $image"
+            else
+              echo "::error::$image: $url is gone; pin a newer image in scripts/vm-run.sh"
+              gone=1
+            fi
+          done
+          exit "$gone"
+      - name: vms.yml boots every image vm-run.sh pins
+        run: |
+          matrix=$(sed -n 's/^ *image: \[\(.*\)\]$/\1/p' .github/workflows/vms.yml | tr -d ' ' | tr ',' '\n' | sort)
+          [ "$matrix" = "$(scripts/vm-run.sh --list | sort)" ] ||
+            { echo "::error::vms.yml's matrix and scripts/vm-run.sh --list differ"; exit 1; }
