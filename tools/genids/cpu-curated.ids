@@ -42,6 +42,7 @@ amd 17 11	Raven Ridge / Great Horned Owl	Zen	url:https://github.com/torvalds/lin
 amd 17 18	Picasso	Zen+	instlat:AuthenticAMD/AuthenticAMD0810F81_K17_Picasso_CPUID.txt kernel:drivers/hwmon/k10temp.c
 amd 17 20	Dali	Zen	instlat:AuthenticAMD/AuthenticAMD0820F01_K17_Dali_CPUID.txt
 amd 17 31	Rome / Castle Peak	Zen 2	instlat:AuthenticAMD/AuthenticAMD0830F10_K17_Rome_CPUID.txt instlat:AuthenticAMD/AuthenticAMD0830F10_K17_CastlePeak_CPUID.txt
+amd 17 47	Cyan Skillfish		kernel:drivers/hwmon/k10temp.c
 amd 17 60	Renoir	Zen 2	instlat:AuthenticAMD/AuthenticAMD0860F01_K17_Renoir_CPUID2.txt
 amd 17 68	Lucienne	Zen 2	instlat:AuthenticAMD/AuthenticAMD0860F81_K17_Lucienne_CPUID04.txt
 amd 17 71	Matisse	Zen 2	instlat:AuthenticAMD/AuthenticAMD0870F10_K17_Matisse_CPUID.txt
