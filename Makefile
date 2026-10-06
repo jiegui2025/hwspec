@@ -87,8 +87,11 @@ gen-ids:
 	go run ./tools/genids cpu $(IDS_SRC)/intel-family.h $(IDS_SRC)/amd.c tools/genids/cpu-curated.ids $(DIR)/cpu.ids.gz
 	go run ./tools/genids manifest $(DIR) $(PREV)
 
-# Refresh the copies embedded in the binary.
-update-ids: fetch-ids gen-ids
+# Refresh the copies embedded in the binary. The steps run in order even
+# under make -j: gen-ids reads what fetch-ids downloads.
+update-ids:
+	$(MAKE) fetch-ids
+	$(MAKE) gen-ids
 	go test ./internal/ids/
 
 clean:
