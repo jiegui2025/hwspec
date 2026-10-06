@@ -39,6 +39,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_sha == github.sha
     runs-on: ubuntu-24.04
+    timeout-minutes: 15 # a hang mustn't hold the check for GitHub's 6 h default (#189)
     # Records deployments. Its "main only" branch policy can't block
     # anything here: under workflow_run, GITHUB_REF is always main.
     environment: edge
