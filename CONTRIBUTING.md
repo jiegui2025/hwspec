@@ -95,10 +95,10 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 | the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs |
 | `verify.yml` or `scripts/verify-release*.sh` | everything in the next row, plus the tamper test against the live `edge` release (`verify-release`) |
 | `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts (`scripts/changed-areas*.sh`, `check-commits*.sh`, `check-mermaid.sh`, `verify-release*.sh`) | everything above except the tamper test, plus actionlint and the scripts' own tests |
-| Markdown | Mermaid rendering check (every diagram must render), ADR index check (every `docs/adr` record is listed) |
+| Markdown | Mermaid rendering check (every diagram in the changed Markdown files must render; every file when CI itself changes), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
-Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs both on the published build.
+Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs both on the published build. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
 
 Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. A `canary-26-04` job runs the tests on the next image (`ubuntu-26.04`) to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 

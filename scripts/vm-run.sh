@@ -95,6 +95,24 @@ mkdir "$seed"
 install -m 755 "$bin" "$seed/hwspec"
 install -m 755 "$here/vm-check.sh" "$seed/vm-check.sh"
 printf 'instance-id: hwspec-%s\nlocal-hostname: hwspec-vm\n' "$image" >"$seed/meta-data"
+# Ubuntu's fallback network config waits for the NIC to come online, which
+# the restricted NIC (no default route) never does: ubuntu-26.04 sat in
+# systemd-networkd-wait-online for 120 s (#152). DHCPv4 only, and the NIC
+# optional, so boot doesn't wait for it.
+case $image in
+ubuntu-*)
+	cat >"$seed/network-config" <<-'EOF'
+		version: 2
+		ethernets:
+		  nics:
+		    match:
+		      name: "e*"
+		    dhcp4: true
+		    dhcp6: false
+		    optional: true
+	EOF
+	;;
+esac
 mount_seed='mkdir -p /run/hwspec-seed && mount -o ro /dev/sr0 /run/hwspec-seed'
 case $mode in
 direct)

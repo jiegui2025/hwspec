@@ -40,13 +40,40 @@ jobs:
         with:
           name: ${{ inputs.artifact }}
           path: payload
+      # apt took 16-43 s per job, with spikes of 138 s and 248 s (#152): the
+      # packages are cached per runner image, so a hit installs offline.
+      - name: QEMU packages' cache key
+        id: debs
+        env:
+          PACKAGES: qemu-system-x86 qemu-utils ovmf genisoimage
+        run: |
+          echo "packages=$PACKAGES" >> "$GITHUB_OUTPUT"
+          echo "key=qemu-debs-$ImageOS-$ImageVersion-$(sha256sum <<<"$PACKAGES" | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/qemu-debs
+          key: ${{ steps.debs.outputs.key }}
       - name: Enable KVM, install QEMU and UEFI firmware
+        env:
+          PACKAGES: ${{ steps.debs.outputs.packages }}
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils ovmf genisoimage
+          # A cached set installs without apt; if it doesn't (the image
+          # changed under the same key), apt installs and the set is rebuilt.
+          if compgen -G ~/qemu-debs/'*.deb' >/dev/null && sudo dpkg -i ~/qemu-debs/*.deb >/dev/null; then
+            echo "installed $(find ~/qemu-debs -name '*.deb' | wc -l) cached packages"
+          else
+            read -ra pkgs <<<"$PACKAGES"
+            sudo apt-get update -q
+            sudo apt-get install -f -y -q # finish or undo a half-done dpkg -i
+            sudo apt-get install -y -q --no-install-recommends --download-only "${pkgs[@]}"
+            rm -rf ~/qemu-debs && mkdir -p ~/qemu-debs
+            cp /var/cache/apt/archives/*.deb ~/qemu-debs/
+            sudo apt-get install -y -q --no-install-recommends "${pkgs[@]}"
+          fi
+          command -v qemu-system-x86_64 qemu-img genisoimage >/dev/null
       - name: Image pin
         id: pin
         shell: bash # -o pipefail: an unknown image must fail here, not behind tee
