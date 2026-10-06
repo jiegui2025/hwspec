@@ -86,7 +86,7 @@ The independent review is posted as one comment per round: *Review* (`| # | Seve
 
 ### What CI runs
 
-CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-areas.sh)): every required check runs when the change can affect what it checks (#189). `ci-ok` is the single required check, and skipped jobs count as passed.
+CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-areas.sh)): every required check runs when the change can affect what it checks (#189). `ci-ok` is the single required check, and skipped jobs count as passed. Every job has a timeout, so a hang fails in minutes rather than holding the check for hours.
 
 | The PR changes | Jobs |
 |---|---|
