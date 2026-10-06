@@ -11,6 +11,7 @@ import (
 
 	"github.com/jiegui2025/hwspec/internal/report"
 	"github.com/jiegui2025/hwspec/internal/resolve"
+	"github.com/jiegui2025/hwspec/schema"
 )
 
 type collector struct {
@@ -49,6 +50,7 @@ func Collect(version string) *report.Report {
 // collectNow is Collect for callers already holding captureMu.
 func collectNow(version string) *report.Report {
 	r := &report.Report{
+		Schema:        schema.URL,
 		SchemaVersion: report.SchemaVersion,
 		Tool:          report.Tool{Name: "hwspec", Version: version},
 		CapturedAt:    time.Now().UTC().Truncate(time.Second),

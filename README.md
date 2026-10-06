@@ -124,6 +124,7 @@ Install to a root-owned location (as above) if you want `--full`; see [Root acce
 | `hwspec ids` | which ID database sources are in use |
 | `hwspec ids lookup pci 8086:3e92` | resolve one ID |
 | `hwspec ids update [--check]` | install the latest signed databases |
+| `hwspec schema` | print the capture format's JSON Schema |
 
 ### Root access
 
@@ -209,7 +210,7 @@ oui 04:0E:3C = HP Inc.
 | Versioning | `schema_version` (currently 1) changes only when a field is renamed, removed or changes meaning; new fields can appear without a bump |
 | Units | bytes, °C, or named in the field (`_mhz`, `_mts`, `_mbps`) |
 | Missing data | omitted, empty or "unknown", with the reason in `warnings`; never guessed |
-| Reference | the Go structs in [internal/report/report.go](internal/report/report.go); a JSON Schema is planned ([#37](https://github.com/jiegui2025/hwspec/issues/37)) |
+| Reference | the Go structs in [internal/report/report.go](internal/report/report.go), published as a JSON Schema (draft 2020-12): [schema/capture-v1.json](schema/capture-v1.json), also printed by `hwspec schema`. Captures from this version on name it in a `$schema` key, so editors can validate them; older v1 captures lack the key and still validate. Unknown fields are allowed, so v1 readers accept files from newer v1 builds. CI fails a schema change other than an added field or a dropped requirement; a field that changes meaning is a review item ([ADR 0003](docs/adr/0003-capture-format.md)) |
 
 ## Roadmap
 
@@ -227,7 +228,6 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#53](https://github.com/jiegui2025/hwspec/issues/53) | chore(board): add PRs to the board and move linked issues automatically | P1 | XS |
 | [#38](https://github.com/jiegui2025/hwspec/issues/38) | chore: back up the ID-signing key offline | P1 | XS |
 | [#22](https://github.com/jiegui2025/hwspec/issues/22) | ci: gated deployment to edge and release, verified on real distros afterwards | P1 | L |
-| [#37](https://github.com/jiegui2025/hwspec/issues/37) | feat(cli): publish a JSON Schema for the capture format, with a compatibility check | P2 | M |
 | [#27](https://github.com/jiegui2025/hwspec/issues/27) | ci: cover Linux Mint and MX Linux (sysvinit) explicitly | P2 | M |
 | [#29](https://github.com/jiegui2025/hwspec/issues/29) | ci: enforce the architecture rules automatically | P2 | S |
 | [#3](https://github.com/jiegui2025/hwspec/issues/3) | chore: release v0.1.0 | P1 | S |

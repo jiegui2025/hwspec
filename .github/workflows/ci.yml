@@ -75,6 +75,8 @@ jobs:
         go: ["1.26", stable]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the base commit's schema, for the compatibility check
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ matrix.go }}
@@ -90,6 +92,22 @@ jobs:
       - name: Coverage gate
         if: matrix.go == 'stable'
         run: scripts/coverage.sh coverage.out "$COVERAGE_MIN" >> "$GITHUB_STEP_SUMMARY"
+      # ADR 0003: a capture field may be added; renaming, removing or retyping
+      # one needs a new schema_version (and with it a new capture-vN.json).
+      - name: The capture format stays compatible
+        if: matrix.go == 'stable' && github.event_name != 'push'
+        shell: bash # -o pipefail: a failed git archive must fail the step
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          # A missing base must fail, not look like "no schema yet".
+          : "${BASE:?no base commit for this event}"
+          git cat-file -e "$BASE^{commit}" || { echo "::error::base commit $BASE isn't in the checkout"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/base"
+          if git cat-file -e "$BASE:schema" 2>/dev/null; then # absent before the schema existed
+            git archive "$BASE" schema | tar -x -C "$RUNNER_TEMP/base"
+          fi
+          go run ./tools/genschema check "$RUNNER_TEMP/base/schema" schema
 
   # The next runner image, before we move to it (#39): informs, never
   # blocks. It's not in ci-ok's needs, and a failure here fails no PR.

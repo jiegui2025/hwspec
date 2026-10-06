@@ -3,7 +3,8 @@
 #        scripts/changed-areas.sh --files < list   (one path per line; tests)
 # Prints key=true|false lines (for $GITHUB_OUTPUT) saying which parts of
 # CI a change between BASE and HEAD needs:
-#   go         Go code, modules, embedded data, fixtures, lint/build config
+#   go         Go code, modules, embedded data, fixtures, the capture schema,
+#              lint/build config
 #   nix        the flake, or anything that changes what it builds
 #   workflows  CI itself: then everything runs, plus actionlint
 #   docs       Markdown (Mermaid diagrams are rendered to check them)
@@ -22,7 +23,7 @@ fi
 match() { grep -Eq "$1" <<<"$files"; }
 
 go=false; nix=false; workflows=false; docs=false; vm=false; verify=false
-match '(\.go$|^go\.(mod|sum|work|work\.sum)$|^vendor/|^(cmd|internal|tools)/|^\.golangci\.ya?ml$|^Makefile$|^scripts/coverage\.sh$)' && go=true
+match '(\.go$|^go\.(mod|sum|work|work\.sum)$|^vendor/|^(cmd|internal|tools|schema)/|^\.golangci\.ya?ml$|^Makefile$|^scripts/coverage\.sh$)' && go=true
 match '^flake\.(nix|lock)$' && nix=true
 match '^(\.github/(workflows|actions)/|\.github/actionlint\.ya?ml$|scripts/(changed-areas(_test)?|check-commits|check-mermaid|verify-release(_test)?)\.sh$)' && workflows=true
 match '\.md$' && docs=true

@@ -13,6 +13,9 @@ import "time"
 const SchemaVersion = 1
 
 type Report struct {
+	// Schema is the URL of the format's JSON Schema (package schema), for
+	// editors and validators. Captures from before it was added lack it.
+	Schema        string    `json:"$schema,omitempty"`
 	SchemaVersion int       `json:"schema_version"`
 	Tool          Tool      `json:"tool"`
 	CapturedAt    time.Time `json:"captured_at"`
