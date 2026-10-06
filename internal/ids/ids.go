@@ -180,7 +180,7 @@ type source struct {
 
 func load(k Kind) *db {
 	s := specs[k]
-	d := &db{names: map[string]string{}}
+	d := &db{names: make(map[string]string, sizeHint(s.file))}
 
 	// Candidates in tie-break order: on equal dates the earlier one wins.
 	var cands []source
@@ -234,7 +234,7 @@ func load(k Kind) *db {
 		}
 		if err != nil {
 			layer.Err = err.Error()
-			d.names = map[string]string{}
+			d.names = make(map[string]string, sizeHint(s.file))
 			d.layers = append(d.layers, layer)
 			continue // fall back to the next newest
 		}
@@ -281,6 +281,15 @@ func syncedManifest() (*Manifest, error) {
 		return nil, err
 	}
 	return ParseManifest(b)
+}
+
+// sizeHint is how many names the embedded copy of a database holds, so
+// its map is allocated once instead of growing through every rehash.
+func sizeHint(file string) int {
+	if m := embeddedManifest(); m != nil {
+		return m.Files[file+".gz"].Entries
+	}
+	return 0
 }
 
 func manifestDate(m *Manifest, file string) string {

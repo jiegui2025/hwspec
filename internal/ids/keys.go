@@ -121,6 +121,9 @@ func isHex(s string) bool {
 // in a terminal: control characters (which could carry escape sequences)
 // are dropped and invalid UTF-8 is replaced.
 func cleanName(s string) string {
+	if printableASCII(s) { // nearly every database name: skip the rune walk
+		return strings.TrimSpace(s)
+	}
 	// Control characters carry escape sequences; Cf (format) characters
 	// include bidi overrides that visually reorder text.
 	unsafe := func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }
@@ -134,6 +137,17 @@ func cleanName(s string) string {
 		}
 		return r
 	}, s))
+}
+
+// printableASCII reports whether s is only bytes 0x20-0x7E: valid UTF-8
+// with no control or format characters, which cleanName would keep as is.
+func printableASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7E {
+			return false
+		}
+	}
+	return true
 }
 
 // CleanName is cleanName for other packages (device strings, captures).
