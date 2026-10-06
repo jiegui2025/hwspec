@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -332,5 +333,16 @@ func TestDataKeysMustBePrintable(t *testing.T) {
 		if err := k.Validate(); err == nil || !strings.Contains(err.Error(), "control or formatting characters") {
 			t.Errorf("%s: %v", data, err)
 		}
+	}
+}
+
+// A rule's match keys are named as the YAML writes them, and only the
+// ones it sets.
+func TestMatchKeysAreTheOnesSet(t *testing.T) {
+	if got := (Match{}).Keys(); got != nil {
+		t.Errorf("no match: %q", got)
+	}
+	if got := (Match{PCIClass: []string{"02"}}).Keys(); !slices.Equal(got, []string{"pci_class"}) {
+		t.Errorf("pci_class: %q", got)
 	}
 }

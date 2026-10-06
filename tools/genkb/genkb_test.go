@@ -190,12 +190,21 @@ func TestInvalidRulesAreRefused(t *testing.T) {
 		"source twice":   {map[string]string{"r.yaml": r, "s.yaml": strings.Replace(r, "id: a.rule", "id: b.rule", 1)}, `source "kernel-a.rule" is defined twice`},
 		"source id":      {map[string]string{"r.yaml": strings.Replace(r, "    url:", "    id: x\n    url:", 1)}, "its id is its key"},
 		"category":       {map[string]string{"r.yaml": strings.Replace(r, "needs-attention", "chores", 1)}, `category "chores"`},
+		// #146: what only the check knows.
+		"no match": {map[string]string{"r.yaml": strings.Replace(r, `    match: {pci_class: ["02"]}`+"\n", "", 1)},
+			`"a.rule": match.pci_class is empty: check "pci-without-driver" needs it`},
+		"no check": {map[string]string{"r.yaml": strings.Replace(r, "    check: pci-without-driver\n", "", 1)}, `rule "a.rule": no check`},
+		"data the check doesn't take": {map[string]string{"r.yaml": strings.Replace(r, "    src: [kernel-a.rule]", "    data: {devicez: [{value: x, src: kernel-a.rule}]}\n    src: [kernel-a.rule]", 1)},
+			`"a.rule": check "pci-without-driver" takes no data`},
 	}
 	for name, c := range cases {
 		dir := writeFiles(t, c.files)
 		code, _, stderr := genkb(t, "-o", filepath.Join(t.TempDir(), "out.gz"), dir)
 		if code != 1 || !strings.Contains(stderr, c.want) {
 			t.Errorf("%s: exit %d, %q; want %q", name, code, stderr, c.want)
+		}
+		if strings.Contains(stderr, `unknown check ""`) {
+			t.Errorf("%s: a rule without a check reported twice: %q", name, stderr)
 		}
 	}
 }

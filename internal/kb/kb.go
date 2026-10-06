@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -137,6 +138,20 @@ type Match struct {
 	// PCIClass holds class code prefixes in hex: "02" is any network
 	// controller, "0403" an HD audio device.
 	PCIClass []string `json:"pci_class,omitempty"`
+}
+
+// Keys names the match keys a rule sets, by their JSON names: a check
+// declares the ones it honours, and a rule setting any other is refused.
+func (m Match) Keys() []string {
+	var keys []string
+	v := reflect.ValueOf(m)
+	for i := range v.NumField() {
+		if !v.Field(i).IsZero() {
+			name, _, _ := strings.Cut(v.Type().Field(i).Tag.Get("json"), ",")
+			keys = append(keys, name)
+		}
+	}
+	return keys
 }
 
 // Action is something the user can do about a finding: what can go wrong,
