@@ -242,8 +242,6 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#53](https://github.com/jiegui2025/hwspec/issues/53) | chore(board): add PRs to the board and move linked issues automatically | P1 | XS |
 | [#38](https://github.com/jiegui2025/hwspec/issues/38) | chore: back up the ID-signing key offline | P1 | XS |
 | [#22](https://github.com/jiegui2025/hwspec/issues/22) | ci: gated deployment to edge and release, verified on real distros afterwards | P1 | L |
-| [#27](https://github.com/jiegui2025/hwspec/issues/27) | ci: cover Linux Mint and MX Linux (sysvinit) explicitly | P2 | M |
-| [#29](https://github.com/jiegui2025/hwspec/issues/29) | ci: enforce the architecture rules automatically | P2 | S |
 | [#3](https://github.com/jiegui2025/hwspec/issues/3) | chore: release v0.1.0 | P1 | S |
 
 ### v0.2.0 — Advisor: turn a capture into advice
@@ -282,6 +280,7 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#52](https://github.com/jiegui2025/hwspec/issues/52) | ci: keep CI running when GitHub-hosted runners are unavailable *(deferred)* | P3 | L |
 | [#28](https://github.com/jiegui2025/hwspec/issues/28) | feat: Windows and macOS support *(deferred)* | P3 | XL |
 | [#57](https://github.com/jiegui2025/hwspec/issues/57) | ci: move the pinned runner image to ubuntu-26.04 | P3 | XS |
+| [#66](https://github.com/jiegui2025/hwspec/issues/66) | fix(ids): name AMD family 17h model 47h (Cyan Skillfish) | P3 | XS |
 
 ## Building
 
