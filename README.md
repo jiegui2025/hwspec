@@ -7,30 +7,44 @@
 **Capture a Linux machine's complete hardware specification to a JSON, YAML or text file. One static binary, any distro, works offline.**
 
 ```console
-$ hwspec capture --full -f text
+$ hwspec capture -f text
+hwspec v0.1.0  ·  captured 2026-10-05 12:00 UTC  ·  limited (not root)
+
 System
   Machine    HP EliteDesk 800 G5 Desktop Mini
-  BIOS       HP R21 Ver. 02.27.00 07/28/2026
+  Chassis    Mini Tower
+  Board      HP 8595
+  Firmware   HP R21 Ver. 02.27.00 07/28/2026
   OS         CachyOS, kernel 7.2.8-1-cachyos (x86_64, uefi, Secure Boot off)
 
 CPU
   Model      Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz
   Codename   Coffee Lake (Skylake cores)
   Cores      6 cores / 6 threads
+  Clock      800–3700 MHz (intel_pstate built in)
+  Cache      L1d 32 KiB×6, L1i 32 KiB×6, L2 256 KiB×6, L3 9 MiB×1
+  Microcode  0xfa
+  Health     health OK, 0 throttle events
 
 Memory
-  Total      32 GiB installed, 31.1 GiB usable
-  DIMM1      16 GiB DDR4 SODIMM 2667 MT/s (rated 3200) Avant Technology J642GU44J2320NL
+  Total      31.1 GiB usable
+  SPD 7-0050 16 GiB DDR4 SODIMM Avant Technology J642GU44J2320NL
 
 Storage
-  nvme0n1    SAMSUNG MZVLB256HAHQ-000L7 238.5 GiB nvme, health OK, 4% worn, 2541 h on
+  nvme0n1    SAMSUNG MZVLB256HAHQ-000L7 238.5 GiB nvme, fw 1L2QEXD7, nvme 1.0
 
 Graphics
-  Display    DELL S2721QS, 3840×2160 @ 60 Hz, 27.0" (card1-DP-3)
+  GPU        Intel Corporation CoffeeLake-S GT2 [UHD Graphics 630], i915
+  Display    DELL S2721QS, 3840×2160 @ 60 Hz, 27.0", card1-DP-3
 
-Bluetooth
-  hci0       Intel Corp. AX200 Bluetooth, Bluetooth 5.2
-...
+Network
+  eno1       Intel Corporation Ethernet Connection (7) I219-LM, ethernet, up, 1000 Mb/s, fw 0.5-4, e1000e
+  …
+
+Not captured
+  - dmi product_serial, product_uuid, chassis_serial, board_serial: needs root (run with --full)
+  - drive health (SMART): needs root (run with --full)
+  - memory modules (SMBIOS): needs root (run with --full)
 ```
 
 ## Why hwspec
@@ -215,6 +229,7 @@ oui 04:0E:3C = HP Inc.
 | `internal/report`, `internal/output` | the file format, redaction, sanitising; JSON/YAML/text |
 | `internal/smbios`, `internal/edid`, `internal/spd`, `internal/trust` | binary parsers (SMBIOS, EDID, RAM SPD); root-ownership checks |
 | `tools/genids` | ID bundle builder |
+| `tools/snapshot` | records a machine as a scrubbed test fixture |
 
 ## Contributing
 
