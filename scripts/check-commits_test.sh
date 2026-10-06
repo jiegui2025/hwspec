@@ -5,11 +5,21 @@
 # nothing.
 set -euo pipefail
 script=$(cd "$(dirname "$0")" && pwd)/check-commits.sh
+# Only the scratch repository may be touched: git exports GIT_DIR and
+# friends to hooks and `rebase --exec`, and they override `git -C`, so the
+# reset --hard below would hit the caller's repository. Drop them, and
+# check where git points before changing anything.
+# shellcheck disable=SC2046 # one variable name per word
+unset $(git rev-parse --local-env-vars)
 repo=$(mktemp -d); trap 'rm -rf "$repo"' EXIT
 # The machine's own git config (hooks, templates, signing) stays out.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
 git -C "$repo" init -q
+if [ "$(git -C "$repo" rev-parse --absolute-git-dir)" != "$repo/.git" ]; then
+	echo "FAIL: git points at $(git -C "$repo" rev-parse --absolute-git-dir), not the scratch repository"
+	exit 1
+fi
 git -C "$repo" commit -q --allow-empty -m "chore: start"
 base=$(git -C "$repo" rev-parse HEAD)
 
