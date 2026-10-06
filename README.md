@@ -211,6 +211,68 @@ oui 04:0E:3C = HP Inc.
 | Missing data | omitted, empty or "unknown", with the reason in `warnings`; never guessed |
 | Reference | the Go structs in [internal/report/report.go](internal/report/report.go); a JSON Schema is planned ([#37](https://github.com/jiegui2025/hwspec/issues/37)) |
 
+## Roadmap
+
+```mermaid
+flowchart LR
+  v1["v0.1.0 — MVP CLI<br/>release, deployment,<br/>verified on real distros"] --> v2["v0.2.0 — Advisor<br/>drivers, firmware, upgrades,<br/>maintenance reminders"] --> v3["v0.3.0 — Desktop app<br/>review, compare, export"]
+```
+
+Items are listed in board rank: priority first, then dependencies (a P1 that waits on others comes after them). The [project board](https://github.com/users/jiegui2025/projects/6) holds the same ranking and each item's status; every issue carries its evidence, full solution and acceptance criteria ([how backlog items are written](CONTRIBUTING.md#backlog)).
+
+### v0.1.0 — MVP CLI: a signed, verified first release
+
+| # | Item | Priority | Size |
+|---|---|---|---|
+| [#53](https://github.com/jiegui2025/hwspec/issues/53) | chore(board): add PRs to the board and move linked issues automatically | P1 | XS |
+| [#39](https://github.com/jiegui2025/hwspec/issues/39) | ci: pin the runner image before ubuntu-latest moves to Ubuntu 26.04 | P1 | XS |
+| [#38](https://github.com/jiegui2025/hwspec/issues/38) | chore: back up the ID-signing key offline | P1 | XS |
+| [#22](https://github.com/jiegui2025/hwspec/issues/22) | ci: gated deployment to edge and release, verified on real distros afterwards | P1 | L |
+| [#46](https://github.com/jiegui2025/hwspec/issues/46) | fix(smbios): treat ASUS and AMI default DMI strings as unknown | P2 | XS |
+| [#51](https://github.com/jiegui2025/hwspec/issues/51) | fix(collect): leave a driver's signing state unknown on kernels without module signing | P2 | XS |
+| [#55](https://github.com/jiegui2025/hwspec/issues/55) | fix(report): --redact keeps week-form manufacture dates at week precision | P2 | XS |
+| [#19](https://github.com/jiegui2025/hwspec/issues/19) | data(ids): cite a source for every curated CPU codename and fix the wrong ones | P2 | S |
+| [#37](https://github.com/jiegui2025/hwspec/issues/37) | feat(cli): publish a JSON Schema for the capture format, with a compatibility check | P2 | M |
+| [#27](https://github.com/jiegui2025/hwspec/issues/27) | ci: cover Linux Mint and MX Linux (sysvinit) explicitly | P2 | M |
+| [#29](https://github.com/jiegui2025/hwspec/issues/29) | ci: enforce the architecture rules automatically | P2 | S |
+| [#3](https://github.com/jiegui2025/hwspec/issues/3) | chore: release v0.1.0 | P1 | S |
+
+### v0.2.0 — Advisor: turn a capture into advice
+
+| # | Item | Priority | Size |
+|---|---|---|---|
+| [#5](https://github.com/jiegui2025/hwspec/issues/5) | research(advisor): advisor design (ADR 0009) | P1 | M |
+| [#26](https://github.com/jiegui2025/hwspec/issues/26) | research(capture): feature parity with Defenestra Chassis | P2 | S |
+| [#7](https://github.com/jiegui2025/hwspec/issues/7) | feat(advisor): needs-attention list for devices without drivers or firmware | P1 | L |
+| [#25](https://github.com/jiegui2025/hwspec/issues/25) | data(advisor): reference database of replacement and upgrade part numbers | P1 | L |
+| [#43](https://github.com/jiegui2025/hwspec/issues/43) | feat(capture): remaining firmware sources (amdgpu blocks, Intel GuC/HuC, Bluetooth HCI revision) and missing SPD EEPROMs | P2 | L |
+| [#10](https://github.com/jiegui2025/hwspec/issues/10) | feat(advisor): firmware versions and update paths | P2 | L |
+| [#8](https://github.com/jiegui2025/hwspec/issues/8) | feat(advisor): driver and configuration alternatives for better performance | P2 | L |
+| [#9](https://github.com/jiegui2025/hwspec/issues/9) | feat(advisor): upgrade and replacement options for key components | P2 | M |
+| [#11](https://github.com/jiegui2025/hwspec/issues/11) | feat(advisor): maintenance reminders | P2 | L |
+| [#18](https://github.com/jiegui2025/hwspec/issues/18) | feat(capture): SATA and USB (SAT) drive health without smartctl | P2 | L |
+| [#12](https://github.com/jiegui2025/hwspec/issues/12) | feat(cli): hwspec diff to compare captures | P3 | M |
+| [#35](https://github.com/jiegui2025/hwspec/issues/35) | data(advisor): correct firmware-reported chassis types from model data | P3 | S |
+
+### v0.3.0 — Desktop app: a native Linux app ([ADR 0007](docs/adr/0007-desktop-ui.md))
+
+| # | Item | Priority | Size |
+|---|---|---|---|
+| [#13](https://github.com/jiegui2025/hwspec/issues/13) | research(ui): desktop app spike: memory, large lists, Flatpak host access and --full (ADR 0007) | P2 | L |
+| [#14](https://github.com/jiegui2025/hwspec/issues/14) | feat(ui): desktop app to review, compare and export captures (tracking) | P2 | XL |
+
+### Unscheduled: when capacity allows; deferred items are marked
+
+| # | Item | Priority | Size |
+|---|---|---|---|
+| [#17](https://github.com/jiegui2025/hwspec/issues/17) | chore(ids): refresh the embedded ID databases automatically, and refuse stale ones at release | P2 | S |
+| [#20](https://github.com/jiegui2025/hwspec/issues/20) | feat(packaging): .deb, .rpm and AUR hwspec-bin from the release workflow | P2 | M |
+| [#15](https://github.com/jiegui2025/hwspec/issues/15) | ci: update the Nix vendorHash automatically on Dependabot Go module PRs | P3 | S |
+| [#16](https://github.com/jiegui2025/hwspec/issues/16) | chore: keep the committed genids binary in history, and block new build artifacts in CI | P3 | XS |
+| [#30](https://github.com/jiegui2025/hwspec/issues/30) | ci: automate the independent Claude Code review on every PR *(deferred)* | P3 | M |
+| [#52](https://github.com/jiegui2025/hwspec/issues/52) | ci: keep CI running when GitHub-hosted runners are unavailable *(deferred)* | P3 | L |
+| [#28](https://github.com/jiegui2025/hwspec/issues/28) | feat: Windows and macOS support *(deferred)* | P3 | XL |
+
 ## Building
 
 | Command | Does |
@@ -238,7 +300,7 @@ oui 04:0E:3C = HP Inc.
 | [CONTRIBUTING.md](CONTRIBUTING.md) | development, tests, the PR and review flow |
 | [ARCHITECTURE.md](ARCHITECTURE.md), [docs/adr/](docs/adr/) | how the code is organised and why |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability |
-| [Project board](https://github.com/users/jiegui2025/projects/6) | roadmap, defects and maintenance |
+| [Roadmap](#roadmap), [project board](https://github.com/users/jiegui2025/projects/6) | what's next, defects and maintenance |
 
 ## Licence
 
