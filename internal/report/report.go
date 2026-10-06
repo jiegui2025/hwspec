@@ -282,11 +282,25 @@ type Memory struct {
 	TotalBytes uint64 `json:"total_bytes"`
 	SwapBytes  uint64 `json:"swap_bytes"`
 	// From SMBIOS (root only).
-	InstalledBytes   uint64         `json:"installed_bytes,omitempty"`
-	MaxCapacityBytes uint64         `json:"max_capacity_bytes,omitempty"`
-	Slots            int            `json:"slots,omitempty"`
-	ECC              string         `json:"ecc,omitempty"`
-	Modules          []MemoryModule `json:"modules"`
+	InstalledBytes   uint64 `json:"installed_bytes,omitempty"`
+	MaxCapacityBytes uint64 `json:"max_capacity_bytes,omitempty"`
+	Slots            int    `json:"slots,omitempty"`
+	ECC              string `json:"ecc,omitempty"`
+	// SlotUsage lists every memory slot the firmware describes (SMBIOS
+	// type 17, root only), used or empty. Absent means not read, never
+	// "no slots"; it is never inferred from the usable memory.
+	SlotUsage []MemorySlot   `json:"slot_usage,omitempty"`
+	Modules   []MemoryModule `json:"modules"`
+}
+
+// MemorySlot is one memory slot and whether a module is in it.
+type MemorySlot struct {
+	Locator     string `json:"locator"`
+	BankLocator string `json:"bank_locator,omitempty"`
+	// Populated is whether a module is in the slot; absent when the
+	// firmware doesn't say.
+	Populated  *bool  `json:"populated,omitempty"`
+	FormFactor string `json:"form_factor,omitempty"`
 }
 
 type MemoryModule struct {

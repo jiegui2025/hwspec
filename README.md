@@ -89,7 +89,7 @@ flowchart LR
 |---|---|---|---|---|
 | System, board | model, SKU, serial¹, UUID¹; expansion slots and onboard devices as the firmware lists them¹ | BIOS/UEFI version, date; Intel ME (CSME) and embedded controller firmware; TPM spec version | — | — |
 | CPU | model, signature, codename, microarchitecture; socket package (LGA, BGA…), socketed or soldered¹ | microcode | frequency scaling | thermal throttling since boot |
-| RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank (SMBIOS¹) | — | — | ECC errors (EDAC) |
+| RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank, and every slot used or empty (SMBIOS¹) | — | — | ECC errors (EDAC) |
 | Disks | model, serial | ✅ | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
 | GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS | ✅; hardware clock range and the measured clock at capture (i915, amdgpu) | — |
 | Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool | ✅ | error and drop rates |

@@ -707,3 +707,59 @@ func TestRootCaptureRecordsTheFirmwareTables(t *testing.T) {
 		t.Errorf("packages %+v, slots %d, onboard %d", r.CPU.Packages, len(r.Board.Slots), len(r.Board.OnboardDevices))
 	}
 }
+
+// Every memory slot the firmware describes is listed, used or empty: the
+// reference machine's two SODIMM slots (DIMM1/ChannelB, DIMM3/ChannelA,
+// both used, as `dmidecode -t 17` printed them on 2026-10-06), and a
+// four-slot board with two empty.
+func TestMemorySlotUsage(t *testing.T) {
+	yes, no := new(bool), new(bool)
+	*yes = true
+	for _, c := range []struct {
+		name    string
+		modules []smbiostest.Module
+		slots   int
+		want    []report.MemorySlot
+	}{
+		{"reference machine", []smbiostest.Module{
+			{Array: 0x0007, SizeMiB: 16384, Locator: "DIMM1", Bank: "ChannelB", FormFactor: 0x0D, Type: 0x1A, SpeedMTs: 3200},
+			{Array: 0x0007, SizeMiB: 16384, Locator: "DIMM3", Bank: "ChannelA", FormFactor: 0x0D, Type: 0x1A, SpeedMTs: 3200},
+		}, 2, []report.MemorySlot{
+			{Locator: "DIMM1", BankLocator: "ChannelB", Populated: yes, FormFactor: "SODIMM"},
+			{Locator: "DIMM3", BankLocator: "ChannelA", Populated: yes, FormFactor: "SODIMM"},
+		}},
+		{"two of four used", []smbiostest.Module{
+			{Array: 0x0007, SizeMiB: 8192, Locator: "DIMM_A1", FormFactor: 0x09, Type: 0x22},
+			{Array: 0x0007, Locator: "DIMM_A2", FormFactor: 0x09},
+			{Array: 0x0007, SizeMiB: 8192, Locator: "DIMM_B1", FormFactor: 0x09, Type: 0x22},
+			{Array: 0x0007, Locator: "DIMM_B2", FormFactor: 0x09},
+		}, 4, []report.MemorySlot{
+			{Locator: "DIMM_A1", Populated: yes, FormFactor: "DIMM"}, {Locator: "DIMM_A2", Populated: no, FormFactor: "DIMM"},
+			{Locator: "DIMM_B1", Populated: yes, FormFactor: "DIMM"}, {Locator: "DIMM_B2", Populated: no, FormFactor: "DIMM"},
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			table := smbiostest.MemoryArray(0x0007, 64<<20, uint16(c.slots), 0x03)
+			for _, m := range c.modules {
+				table = append(table, smbiostest.MemoryDevice(m)...)
+			}
+			file, _ := fakeRoot(t)
+			file("/sys/firmware/dmi/tables/DMI", string(append(table, smbiostest.End()...)))
+			col := &collector{r: &report.Report{}, privileged: true}
+			col.smbiosModules()
+			mem := col.r.Memory
+			if !reflect.DeepEqual(mem.SlotUsage, c.want) || mem.Slots != c.slots {
+				t.Errorf("slots %d %+v\nwant %d %+v", mem.Slots, mem.SlotUsage, c.slots, c.want)
+			}
+			used := 0
+			for _, s := range c.want {
+				if s.Populated != nil && *s.Populated {
+					used++
+				}
+			}
+			if len(mem.Modules) != used {
+				t.Errorf("%d modules, want %d", len(mem.Modules), used)
+			}
+		})
+	}
+}

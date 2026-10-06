@@ -119,9 +119,13 @@ type MemoryArray struct {
 }
 
 type MemoryDevice struct {
-	Locator       string
-	BankLocator   string
-	SizeBytes     uint64 // 0 = empty slot
+	Locator     string
+	BankLocator string
+	SizeBytes   uint64 // 0 = empty slot, or a module of unknown size (see Installed)
+	// Installed says whether a module is in the slot: true for a size or
+	// "unknown" (FFFFh, or 7FFFh without the Extended Size field), false
+	// for 0 (DSP0134 7.18, Size), nil when the structure has no Size.
+	Installed     *bool
 	FormFactor    string
 	Type          string
 	SpeedMTs      int
@@ -236,9 +240,11 @@ func MemoryDevices(structs []Structure) []MemoryDevice {
 			d.DataWidth = int(v)
 		}
 		if size, ok := s.u16(0x0C); ok {
+			installed := size != 0
+			d.Installed = &installed
 			switch {
 			case size == 0 || size == 0xFFFF:
-				// empty or unknown
+				// empty, or installed with its size unknown
 			case size == 0x7FFF:
 				if ext, ok := s.u32(0x1C); ok {
 					d.SizeBytes = uint64(ext&0x7FFFFFFF) << 20

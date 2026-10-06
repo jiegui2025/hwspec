@@ -56,6 +56,9 @@ func (c *collector) smbiosModules() {
 		}
 	}
 	for _, d := range smbios.MemoryDevices(structs) {
+		m.SlotUsage = append(m.SlotUsage, report.MemorySlot{
+			Locator: d.Locator, BankLocator: d.BankLocator, Populated: d.Installed, FormFactor: d.FormFactor,
+		})
 		if d.SizeBytes == 0 {
 			continue // empty slot
 		}
