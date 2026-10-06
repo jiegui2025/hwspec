@@ -174,9 +174,32 @@ flowchart LR
 | Live-ISO check | before the final tag, boot the MX Linux 25.x live ISO with sysvinit and the Linux Mint 22.x live ISO, run the candidate's binary (`hwspec capture -f json`, and `--full`), and attach both captures to the release issue: neither distro has an image CI can boot unattended |
 | Final release | tag `vX.Y.Z` on the same commit once the candidate checks out; GitHub marks it Latest when it's the newest version, so a patch to an older line doesn't take Latest |
 | What's published | `hwspec-vX.Y.Z-linux-{amd64,arm64}.tar.gz` (binary, LICENSE, README), `SHA256SUMS`, provenance attestations |
-| Reproducible | `make release` from the same commit, with the same Go toolchain and gzip, gives byte-identical tarballs (GNU tar, sorted entries, owner 0, the commit time as mtime, gzip without a timestamp); the release log prints `go version`, so a build can be reproduced and its `SHA256SUMS` compared |
+| Reproducible | byte-identical tarballs from a git checkout of the tag, with the release job's Go, GNU tar and gzip: [Reproduce a release](#reproduce-a-release) |
 
 Tags can't be moved or deleted (ruleset *Protect release tags*), so a bad candidate is replaced by the next `-rc.N`.
+
+### Reproduce a release
+
+`make release` packs deterministically (GNU tar, sorted entries, owner 0, the commit time as every mtime, `gzip -n`), so anyone can rebuild a release and compare it with the published `SHA256SUMS`. Releases only: `edge` builds don't log their toolchain.
+
+| A rebuild needs | Why | Otherwise |
+|---|---|---|
+| a git checkout of the tag, and `git` in the build environment | Go stamps the module version, `vcs.revision`, `vcs.time` and `vcs.modified` into the binary from git, and the Makefile takes `SOURCE_DATE_EPOCH` (every file's mtime) from `git log` | a build from `git archive`, a source tarball, or an image without `git` (such as `golang:*-alpine`) differs, silently |
+| only that tag fetched | Go stamps the highest version tag on the commit, and a final release is tagged on its candidate's commit | `git clone --branch v0.1.0-rc.1` also fetches `v0.1.0`, and the rebuild says `v0.1.0` |
+| the job's Go, GNU tar and gzip | the release job's *Toolchain* step prints all three | a different Go gives a different binary. The official `golang` image's tar and gzip reproduced `v0.1.0-rc.1` |
+
+With podman (docker works the same, without `:Z`), where `1.27.1` is the job's `go version` without the `go` prefix:
+
+```sh
+git init -q hwspec-vX.Y.Z && cd hwspec-vX.Y.Z
+git fetch -q --no-tags --depth=1 https://github.com/jiegui2025/hwspec.git +refs/tags/vX.Y.Z:refs/tags/vX.Y.Z
+git checkout -q vX.Y.Z
+podman run --rm -v "$PWD:/src:Z" -w /src docker.io/library/golang:1.27.1 \
+  sh -c 'git config --global --add safe.directory /src && make -s release VERSION=vX.Y.Z'
+gh release download vX.Y.Z -R jiegui2025/hwspec -p SHA256SUMS -O - | diff - build/SHA256SUMS
+```
+
+No output from `diff` means the published tarballs were built from this tag. Who built them is a separate check: their attestations ([Verifying downloads](SECURITY.md#verifying-downloads)).
 
 ### Edge builds and verification
 
