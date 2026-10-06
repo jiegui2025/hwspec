@@ -1,6 +1,7 @@
 // Package smbios parses the raw SMBIOS table the kernel exposes at
-// /sys/firmware/dmi/tables/DMI (root only). It decodes only the memory
-// structures (types 16 and 17), which sysfs doesn't expose any other way.
+// /sys/firmware/dmi/tables/DMI (root only). It decodes what sysfs doesn't
+// expose any other way: memory (types 16 and 17), processor sockets (4),
+// expansion slots (9) and onboard devices (41).
 package smbios
 
 import (

@@ -184,6 +184,43 @@ type System struct {
 type Board struct {
 	Identity *Identity `json:"identity,omitempty"`
 	AssetTag string    `json:"asset_tag,omitempty"`
+	// Slots and OnboardDevices are the firmware's SMBIOS tables (types 9
+	// and 41, root only) as it states them. Their addresses can be wrong:
+	// compare them with the PCI topology before trusting them.
+	Slots          []Slot          `json:"slots,omitempty"`
+	OnboardDevices []OnboardDevice `json:"onboard_devices,omitempty"`
+}
+
+// CPUPackage is one processor socket's entry (SMBIOS type 4).
+type CPUPackage struct {
+	Designation string `json:"designation"`       // the socket's label, e.g. U3E1
+	Package     string `json:"package,omitempty"` // e.g. "Socket LGA1151", "Socket BGA1528"
+	// Mounting is "socket" or "soldered" when the package says so.
+	Mounting  string `json:"mounting,omitempty"`
+	Populated bool   `json:"populated"`
+}
+
+// Slot is an expansion slot the firmware lists (SMBIOS type 9).
+type Slot struct {
+	Designation string `json:"designation"`      // e.g. "Slot3 / M2 SSD"
+	Type        string `json:"type,omitempty"`   // e.g. "PCI Express Gen 3 x4"
+	Width       string `json:"width,omitempty"`  // electrical width, e.g. "x4"; the type's xN is the physical one
+	Usage       string `json:"usage,omitempty"`  // Available, In use, Unavailable
+	Length      string `json:"length,omitempty"` // e.g. "Long Length"
+	ID          int    `json:"id"`               // 0 is a valid slot number (ACPI _SUN)
+	// Address is the PCI address the firmware gives for the slot, as
+	// written; "" when it gives none.
+	Address string `json:"address,omitempty"`
+}
+
+// OnboardDevice is a device the firmware says is soldered onto the board
+// (SMBIOS type 41).
+type OnboardDevice struct {
+	Designation string `json:"designation"`    // e.g. "Onboard IGD"
+	Type        string `json:"type,omitempty"` // e.g. "Video"
+	Enabled     bool   `json:"enabled"`
+	Instance    int    `json:"instance,omitempty"`
+	Address     string `json:"address,omitempty"` // as for Slot.Address
 }
 
 type CPU struct {
@@ -193,21 +230,25 @@ type CPU struct {
 	ModelID  int `json:"model_id,omitempty"`
 	Stepping int `json:"stepping,omitempty"`
 	// Codename and Microarchitecture come from the cpu ID database.
-	Codename          string     `json:"codename,omitempty"`
-	Microarchitecture string     `json:"microarchitecture,omitempty"`
-	Sockets           int        `json:"sockets"`
-	Cores             int        `json:"cores"`
-	Threads           int        `json:"threads"`
-	CoreTypes         []CoreType `json:"core_types,omitempty"` // hybrid CPUs (Intel P/E cores)
-	MinFreqMHz        int        `json:"min_freq_mhz,omitempty"`
-	MaxFreqMHz        int        `json:"max_freq_mhz,omitempty"`
-	Governor          string     `json:"governor,omitempty"`
-	Caches            []Cache    `json:"caches"`
-	Virtualization    string     `json:"virtualization,omitempty"` // vmx, svm
-	Flags             []string   `json:"flags"`
-	Firmware          *Firmware  `json:"firmware,omitempty"` // microcode
-	Driver            *Driver    `json:"driver,omitempty"`   // frequency scaling
-	Health            *Health    `json:"health,omitempty"`
+	Codename          string `json:"codename,omitempty"`
+	Microarchitecture string `json:"microarchitecture,omitempty"`
+	Sockets           int    `json:"sockets"`
+	// Packages is what the firmware says each processor socket takes
+	// (SMBIOS type 4, root only), and whether that package is socketed
+	// or soldered.
+	Packages       []CPUPackage `json:"packages,omitempty"`
+	Cores          int          `json:"cores"`
+	Threads        int          `json:"threads"`
+	CoreTypes      []CoreType   `json:"core_types,omitempty"` // hybrid CPUs (Intel P/E cores)
+	MinFreqMHz     int          `json:"min_freq_mhz,omitempty"`
+	MaxFreqMHz     int          `json:"max_freq_mhz,omitempty"`
+	Governor       string       `json:"governor,omitempty"`
+	Caches         []Cache      `json:"caches"`
+	Virtualization string       `json:"virtualization,omitempty"` // vmx, svm
+	Flags          []string     `json:"flags"`
+	Firmware       *Firmware    `json:"firmware,omitempty"` // microcode
+	Driver         *Driver      `json:"driver,omitempty"`   // frequency scaling
+	Health         *Health      `json:"health,omitempty"`
 }
 
 type CoreType struct {

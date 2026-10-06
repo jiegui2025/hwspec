@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"testing"
@@ -250,7 +251,7 @@ func TestUnreadableSMBIOSIsReported(t *testing.T) {
 	}
 	c := &collector{r: &report.Report{}, privileged: true}
 	c.smbiosModules()
-	if !hasWarning(c.r, "memory modules (SMBIOS)") {
+	if !hasWarning(c.r, "SMBIOS table (") {
 		t.Errorf("warnings = %v", c.r.Warnings)
 	}
 }
@@ -629,5 +630,80 @@ func TestRootOnlySPDNeedsRoot(t *testing.T) {
 	c.spdModules()
 	if !hasWarning(c.r, "memory module SPD 1-0051: needs root") {
 		t.Errorf("warnings = %v", c.r.Warnings)
+	}
+}
+
+// With root, the capture records the firmware's processor socket, slots
+// and onboard devices as the reference machine's table states them, and
+// reads the table once for memory and these.
+func TestFirmwareSlotsSocketAndOnboardDevices(t *testing.T) {
+	file, _ := fakeRoot(t)
+	file("/sys/firmware/dmi/tables/DMI", string(smbiostest.EliteDesk800G5Mini()))
+	reads := 0
+	traceRead = func(path string) {
+		if path == "/sys/firmware/dmi/tables/DMI" {
+			reads++
+		}
+	}
+	c := &collector{r: &report.Report{}, privileged: true}
+	c.memory()
+	c.firmwareTables()
+	if reads != 1 {
+		t.Errorf("DMI read %d times, want 1", reads)
+	}
+	if want := []report.CPUPackage{{Designation: "U3E1", Package: "Socket LGA1151", Mounting: "socket", Populated: true}}; !reflect.DeepEqual(c.r.CPU.Packages, want) {
+		t.Errorf("packages %+v", c.r.CPU.Packages)
+	}
+	b := c.r.Board
+	wantSlots := []report.Slot{
+		{Designation: "Slot1 / DGPU PCIEXP", Type: "PCI Express Gen 3 x8", Width: "x8", Usage: "Available", Length: "Long Length", ID: 1, Address: "0000:00:01.0"},
+		{Designation: "Slot2 / M2 WLAN/BT", Type: "PCI Express Gen 3 x1", Width: "x1", Usage: "In use", Length: "Other", ID: 2, Address: "0000:00:1c.7"},
+		{Designation: "Slot3 / M2 SSD", Type: "PCI Express Gen 3 x4", Width: "x4", Usage: "In use", Length: "Other", ID: 3, Address: "0000:00:1b.4"},
+		{Designation: "Slot4 / M2 SSD", Type: "PCI Express Gen 3 x4", Width: "x4", Usage: "Available", Length: "Other", ID: 4, Address: "0000:00:1b.0"},
+		{Designation: "Slot5 / TBT Fiber Combo", Type: "PCI Express Gen 3 x4", Width: "x4", Usage: "Available", Length: "Long Length", ID: 5, Address: "0000:00:1d.0"},
+	}
+	if !reflect.DeepEqual(b.Slots, wantSlots) {
+		t.Errorf("slots\n got %+v\nwant %+v", b.Slots, wantSlots)
+	}
+	// False flags and slot 0 are written, not left out.
+	js, _ := json.Marshal([]any{report.CPUPackage{}, report.OnboardDevice{}, report.Slot{}})
+	for _, want := range []string{`"populated":false`, `"enabled":false`, `"id":0`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("%s lacks %s", js, want)
+		}
+	}
+	if want := []report.OnboardDevice{{Designation: "Onboard IGD", Type: "Video", Enabled: true, Instance: 1, Address: "0000:00:02.0"},
+		{Designation: "Onboard Lan", Type: "Ethernet", Enabled: true, Instance: 1, Address: "0000:00:1f.6"}}; !reflect.DeepEqual(b.OnboardDevices, want) {
+		t.Errorf("onboard %+v", b.OnboardDevices)
+	}
+}
+
+// Without root the table is unreadable: no slots, socket or onboard
+// devices, and only memory's one warning about it.
+func TestFirmwareTablesNeedRootAndWarnOnce(t *testing.T) {
+	file, _ := fakeRoot(t)
+	file("/sys/firmware/dmi/tables/DMI", string(smbiostest.EliteDesk800G5Mini()))
+	unreadable = map[string]error{"/sys/firmware/dmi/tables/DMI": syscall.EACCES}
+	c := &collector{r: &report.Report{}}
+	c.smbiosModules()
+	c.firmwareTables()
+	if c.r.CPU.Packages != nil || c.r.Board.Slots != nil || c.r.Board.OnboardDevices != nil {
+		t.Errorf("got %+v %+v", c.r.CPU.Packages, c.r.Board)
+	}
+	if len(c.r.Warnings) != 1 || !hasWarning(c.r, "SMBIOS table (memory modules and slots, CPU sockets, expansion slots, onboard devices): needs root") {
+		t.Errorf("warnings %q", c.r.Warnings)
+	}
+}
+
+// A whole capture as root records the firmware's socket, slots and
+// onboard devices: the collector is part of Collect, not only callable.
+func TestRootCaptureRecordsTheFirmwareTables(t *testing.T) {
+	file, _ := fakeRoot(t)
+	asMachine(t, "x86_64", 0)
+	file("/proc/cpuinfo", "flags\t\t: fpu sse2\n")
+	file("/sys/firmware/dmi/tables/DMI", string(smbiostest.EliteDesk800G5Mini()))
+	r := Collect("test")
+	if len(r.CPU.Packages) != 1 || r.CPU.Packages[0].Package != "Socket LGA1151" || len(r.Board.Slots) != 5 || len(r.Board.OnboardDevices) != 2 {
+		t.Errorf("packages %+v, slots %d, onboard %d", r.CPU.Packages, len(r.Board.Slots), len(r.Board.OnboardDevices))
 	}
 }
