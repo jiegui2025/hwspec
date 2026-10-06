@@ -60,5 +60,5 @@ Redaction removes direct identifiers; it doesn't make captures of the same machi
 
 | Artifact | Check |
 |---|---|
-| Release tarball | `sha256sum -c --ignore-missing SHA256SUMS` and `gh attestation verify hwspec-vX.Y.Z-linux-amd64.tar.gz --repo jiegui2025/hwspec` |
+| Release tarball | `sha256sum -c --ignore-missing SHA256SUMS` and `gh attestation verify hwspec-vX.Y.Z-linux-amd64.tar.gz --repo jiegui2025/hwspec --signer-workflow jiegui2025/hwspec/.github/workflows/release.yml --source-ref refs/tags/vX.Y.Z --deny-self-hosted-runners`: the same checks `verify.yml` makes, so an attestation from another workflow, ref or a self-hosted runner doesn't pass |
 | ID database bundle | automatic: `hwspec ids update` refuses anything not signed by a key in `trustedKeys` (`internal/ids/manifest.go`) |

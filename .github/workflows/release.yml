@@ -16,8 +16,50 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  # Before the owner is asked to approve anything, and without any write
+  # permission (#191): the tag is a plain version on a commit that is on
+  # main, CI passed on that commit, and no dependency has a known
+  # vulnerability. The tests ran in CI on this commit; the job that can
+  # publish and sign runs none of them.
+  checks:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      checks: read # the commit's ci-ok
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # main's history, to check the tag is on it
+          persist-credentials: false
+      - name: Validate the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        # The tag reaches make and shell; only plain semantic versions.
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::tag '$TAG' is not vX.Y.Z[-pre]"; exit 1; }
+      - name: The tag is on main, and CI passed on it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          git merge-base --is-ancestor "$SHA" origin/main || { echo "::error::$SHA isn't on main: release only what main holds"; exit 1; }
+          # This workflow's own ci-ok, not a check of that name another app
+          # could post.
+          gh api "repos/$REPO/commits/$SHA/check-runs?check_name=ci-ok" \
+            --jq '[.check_runs[] | select(.conclusion == "success" and .app.slug == "github-actions")] | length > 0' | grep -qx true \
+            || { echo "::error::no passing ci-ok on $SHA"; exit 1; }
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          cache: false
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+
+  release:
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     environment: production # owner approval; v* tags only
     permissions:
       contents: write      # create the release
@@ -25,19 +67,19 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # the build never sees the write token
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
           cache: false # release builds never reuse a cache other workflows wrote
-      - name: Validate the tag
+      - name: Validate the tag (again, where it reaches make and the shell)
         env:
           TAG: ${{ github.ref_name }}
-        # The tag reaches make and shell; only plain semantic versions.
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::tag '$TAG' is not vX.Y.Z[-pre]"; exit 1; }
       - name: Toolchain, for reproducing this build
         run: go version && tar --version | sed -n 1p && gzip --version | sed -n 1p
-      - run: make test
       - run: make release VERSION="$TAG"
         env:
           TAG: ${{ github.ref_name }}
