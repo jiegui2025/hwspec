@@ -280,7 +280,6 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#52](https://github.com/jiegui2025/hwspec/issues/52) | ci: keep CI running when GitHub-hosted runners are unavailable *(deferred)* | P3 | L |
 | [#28](https://github.com/jiegui2025/hwspec/issues/28) | feat: Windows and macOS support *(deferred)* | P3 | XL |
 | [#57](https://github.com/jiegui2025/hwspec/issues/57) | ci: move the pinned runner image to ubuntu-26.04 | P3 | XS |
-| [#66](https://github.com/jiegui2025/hwspec/issues/66) | fix(ids): name AMD family 17h model 47h (Cyan Skillfish) | P3 | XS |
 
 ## Building
 
