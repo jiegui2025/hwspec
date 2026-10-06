@@ -64,7 +64,7 @@ models:
 | Every rule and value cites a source | anyone can check a claim; `genkb` refuses uncited ones |
 | A finding's confidence is its weakest source's | a forum post doesn't become an OEM fact by sitting next to one |
 | Where sources disagree, keep both claims | the reader decides; nothing is averaged or guessed |
-| Run `make gen-kb` and commit the result with the YAML | `go test ./tools/genkb` fails while they differ; the file keeps its date until its content changes |
+| Run `make gen-kb` and commit the result with the YAML | `go test ./tools/genkb` fails while they differ. The file's `version` is the UTC time its content last changed, and is kept until it changes again; CI fails a changed file that kept an old version (`genkb later`) |
 | `genkb` is strict, `hwspec` lenient | a binary skips, with a warning, a rule using a field or value it doesn't know (the weekly bundle reaches older binaries, #81); `genkb` refuses to build one |
 
 Contributions to this directory are licensed GPL-3.0-or-later, like the code ([ADR 0006](../docs/adr/0006-licence.md)); quoted text keeps its source's licence.

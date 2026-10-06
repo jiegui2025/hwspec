@@ -85,11 +85,16 @@ gen-ids:
 	go run ./tools/genids jedec $(IDS_SRC)/decode-dimms $(DIR)/jedec.ids.gz
 	go run ./tools/genids bluetooth $(IDS_SRC)/bluetooth.yaml $(DIR)/bluetooth.ids.gz
 	go run ./tools/genids cpu $(IDS_SRC)/intel-family.h $(IDS_SRC)/amd.c tools/genids/cpu-curated.ids $(DIR)/cpu.ids.gz
+ifneq ($(DIR),internal/ids/data)
+	# A bundle also carries the committed knowledge base(s), as they are
+	# (ADR 0009, #81); the embedded ID data doesn't (kb embeds its own).
+	cp internal/kb/data/advisor-v*.json.gz $(DIR)/
+endif
 	go run ./tools/genids manifest $(DIR) $(PREV)
 
 # Compile the advisor's knowledge base (kb/**/*.yaml, ADR 0009) into the
-# copy embedded in the binary. Its version is the date its content last
-# changed: today's (UTC) when it changes, else the file keeps its own.
+# copy embedded in the binary. Its version is the time its content last
+# changed: the current UTC time when it changes, else the file keeps its own.
 # Commit it with the YAML: go test ./tools/genkb fails while they differ.
 gen-kb:
 	go run ./tools/genkb -o internal/kb/data/advisor-v1.json.gz kb

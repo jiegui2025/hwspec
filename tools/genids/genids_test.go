@@ -5,7 +5,9 @@ import (
 	"compress/gzip"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -579,5 +581,182 @@ func TestWorkflowStepsThroughTheCommandLine(t *testing.T) {
 		if code := run(args, io.Discard, io.Discard); code != 1 {
 			t.Errorf("%v: exit %d", args, code)
 		}
+	}
+}
+
+// kbBundle is bundle(t) plus the committed knowledge base.
+func kbBundle(t *testing.T) string {
+	t.Helper()
+	dir := bundle(t)
+	b, err := os.ReadFile("../../internal/kb/data/" + ids.AdvisorFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(dir, ids.AdvisorFile), string(b))
+	return dir
+}
+
+// #81: the bundle carries the knowledge base (every format present),
+// dated by its version and counted by its rules, and verification checks
+// it like the databases; a knowledge base that shrank more than 5% needs
+// HWSPEC_ALLOW_SHRINK=1.
+func TestBundlesCarryTheKnowledgeBase(t *testing.T) {
+	dir := kbBundle(t)
+	write(t, filepath.Join(dir, "advisor-v2.json.gz"), gz(t, `{"format":2,"version":"2026-01-01T00:00:00Z","rules":[{},{},{}]}`))
+	if out := runOK(t, "manifest", dir); !strings.Contains(out, ids.AdvisorFile) {
+		t.Errorf("manifest output: %s", out)
+	}
+	m := readManifest(t, dir)
+	b, _ := os.ReadFile(filepath.Join(dir, ids.AdvisorFile))
+	version, rules, err := ids.CheckAdvisor(ids.AdvisorFile, b)
+	if f := m.Files[ids.AdvisorFile]; err != nil || f.Date != version || f.Entries != rules || f.Size != int64(len(b)) {
+		t.Errorf("manifest entry %+v (version %s, %d rules, %v)", f, version, rules, err)
+	}
+	if f := m.Files["advisor-v2.json.gz"]; f.Date != "2026-01-01T00:00:00Z" || f.Entries != 3 {
+		t.Errorf("another format's entry %+v", f)
+	}
+	if out := runOK(t, "verify", dir); !strings.Contains(out, fmt.Sprintf("verified %d databases and knowledge bases", len(ids.Kinds)+2)) {
+		t.Errorf("verify output: %s", out)
+	}
+
+	shrank := func(t *testing.T) string {
+		prev := filepath.Join(t.TempDir(), "prev.json")
+		writeManifest(t, prev, &ids.Manifest{Format: ids.ManifestFormat, GeneratedAt: time.Now(),
+			Files: map[string]ids.ManifestFile{ids.AdvisorFile: {Entries: 1000, SHA256: strings.Repeat("0", 64), Size: 1, Date: "2026-01-01"}}})
+		return prev
+	}
+	dir = kbBundle(t)
+	if err := manifest(io.Discard, dir, shrank(t)); err == nil || !strings.Contains(err.Error(), "rules, down from 1000") {
+		t.Errorf("manifest of a shrunken knowledge base: %v", err)
+	}
+	if err := manifest(io.Discard, dir, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := verify(io.Discard, dir, shrank(t)); err == nil || !strings.Contains(err.Error(), "rules, down from 1000") {
+		t.Errorf("verify of a shrunken knowledge base: %v", err)
+	}
+	t.Setenv("HWSPEC_ALLOW_SHRINK", "1")
+	if err := manifest(io.Discard, dir, shrank(t)); err != nil {
+		t.Errorf("HWSPEC_ALLOW_SHRINK=1: %v", err)
+	}
+	if err := verify(io.Discard, dir, shrank(t)); err != nil {
+		t.Errorf("verify with HWSPEC_ALLOW_SHRINK=1: %v", err)
+	}
+}
+
+// What manifest refuses and verification catches in a knowledge base.
+func TestKnowledgeBaseTampering(t *testing.T) {
+	dir := kbBundle(t)
+	write(t, filepath.Join(dir, ids.AdvisorFile), gz(t, `{"format":2,"version":"2026-10-06T12:00:00Z","rules":[{}]}`))
+	if err := manifest(io.Discard, dir, ""); err == nil || !strings.Contains(err.Error(), "format 2, but the name says 1") {
+		t.Errorf("manifest of a mislabelled knowledge base: %v", err)
+	}
+	for name, mutate := range map[string]func(t *testing.T, dir string){
+		"swapped": func(t *testing.T, dir string) { write(t, filepath.Join(dir, ids.AdvisorFile), gz(t, "{}")) },
+		"swapped, still valid": func(t *testing.T, dir string) {
+			// The same rules and version, other bytes: only the hash tells.
+			write(t, filepath.Join(dir, ids.AdvisorFile), gz(t, gunzip(t, filepath.Join(dir, ids.AdvisorFile))+"\n"))
+		},
+		"rule count": func(t *testing.T, dir string) {
+			withEntry(t, dir, ids.AdvisorFile, func(f *ids.ManifestFile) { f.Entries++ })
+		},
+		"version": func(t *testing.T, dir string) {
+			withEntry(t, dir, ids.AdvisorFile, func(f *ids.ManifestFile) { f.Date = "2020-01-01T00:00:00Z" })
+		},
+		"unlisted file": func(t *testing.T, dir string) { write(t, filepath.Join(dir, "advisor-v9.json.gz"), "x") },
+		"structure": func(t *testing.T, dir string) {
+			bad := gz(t, `{"format":1,"version":"2026-10-06T12:00:00Z","rules":[]}`)
+			write(t, filepath.Join(dir, ids.AdvisorFile), bad)
+			withEntry(t, dir, ids.AdvisorFile, func(f *ids.ManifestFile) {
+				sum := sha256.Sum256([]byte(bad))
+				f.SHA256, f.Size = hex.EncodeToString(sum[:]), int64(len(bad))
+			})
+		},
+		"missing": func(t *testing.T, dir string) { os.Remove(filepath.Join(dir, ids.AdvisorFile)) },
+	} {
+		dir := kbBundle(t)
+		if err := manifest(io.Discard, dir, ""); err != nil {
+			t.Fatal(err)
+		}
+		mutate(t, dir)
+		if err := verify(io.Discard, dir, ""); err == nil {
+			t.Errorf("%s: verified", name)
+		}
+	}
+	// A knowledge base dated in the future, consistently in its file and
+	// the manifest, is refused too.
+	dir = bundle(t)
+	write(t, filepath.Join(dir, ids.AdvisorFile), gz(t, `{"format":1,"version":"2999-01-01T00:00:00Z","rules":[{}]}`))
+	if err := manifest(io.Discard, dir, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := verify(io.Discard, dir, ""); err == nil || !strings.Contains(err.Error(), "in the future") {
+		t.Errorf("a future knowledge base: %v", err)
+	}
+}
+
+// The shrink guard compares exactly: 2 → 1, 10 → 9 and 19 → 18 are drops
+// of more than 5% (integer division let them through); 20 → 19 is 5%.
+func TestShrinkIsExact(t *testing.T) {
+	t.Setenv("HWSPEC_ALLOW_SHRINK", "")
+	for _, c := range []struct {
+		n, was int
+		want   bool
+	}{{1, 2, true}, {9, 10, true}, {18, 19, true}, {19, 20, false}, {95, 100, false}, {94, 100, true}, {5, 0, false}, {0, 1, true}} {
+		if got := shrank(c.n, c.was); got != c.want {
+			t.Errorf("%d after %d: %v", c.n, c.was, got)
+		}
+	}
+	t.Setenv("HWSPEC_ALLOW_SHRINK", "1")
+	if shrank(1, 2) {
+		t.Error("HWSPEC_ALLOW_SHRINK=1 ignored")
+	}
+}
+
+// Before signing, the bundle's knowledge bases must be the committed
+// ones byte for byte: a build job can't publish rules of its own.
+func TestVerifyComparesTheKnowledgeBaseWithTheCommittedOne(t *testing.T) {
+	committed := "../../internal/kb/data"
+	dir := kbBundle(t)
+	if err := manifest(io.Discard, dir, ""); err != nil {
+		t.Fatal(err)
+	}
+	if out := runOK(t, "verify", dir, "", committed); !strings.Contains(out, "verified") {
+		t.Errorf("verify: %s", out)
+	}
+	// A knowledge base of the build job's own, made consistent with the
+	// manifest: everything else verifies, the comparison doesn't.
+	own := gz(t, `{"format":1,"version":"2026-10-06T23:00:00Z","sources":[],"rules":[{"id":"x"}]}`)
+	write(t, filepath.Join(dir, ids.AdvisorFile), own)
+	if err := manifest(io.Discard, dir, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := verify(io.Discard, dir, ""); err != nil {
+		t.Fatalf("the swapped bundle should pass the other checks: %v", err)
+	}
+	if err := sameAsCommitted(dir, committed); err == nil || !strings.Contains(err.Error(), "differs from the committed") {
+		t.Errorf("swapped: %v", err)
+	}
+	var stderr bytes.Buffer
+	if code := run([]string{"verify", dir, "", committed}, &bytes.Buffer{}, &stderr); code != 1 {
+		t.Errorf("genids verify with the committed dir: exit %d %s", code, stderr.String())
+	}
+	other := t.TempDir()
+	write(t, filepath.Join(other, "advisor-v2.json.gz"), "x")
+	if err := sameAsCommitted(dir, other); err == nil || !strings.Contains(err.Error(), "aren't the committed") {
+		t.Errorf("another set: %v", err)
+	}
+	if err := sameAsCommitted(t.TempDir(), committed); err == nil {
+		t.Error("a bundle without the knowledge base passed")
+	}
+	unreadable := t.TempDir()
+	if err := os.Mkdir(filepath.Join(unreadable, ids.AdvisorFile), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := sameAsCommitted(unreadable, committed); err == nil {
+		t.Error("an unreadable bundle file passed")
+	}
+	if err := sameAsCommitted(committed, unreadable); err == nil {
+		t.Error("an unreadable committed file passed")
 	}
 }

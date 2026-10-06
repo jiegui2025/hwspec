@@ -12,7 +12,7 @@ import (
 
 func valid() *KB {
 	return &KB{
-		Format: Format, Version: "2026-10-06",
+		Format: Format, Version: "2026-10-06T12:00:00Z",
 		Sources: []Source{
 			{ID: "forum", URL: "https://forum.example/t/1", Retrieved: "2026-10-06", Licence: "CC-BY-NC-SA-3.0",
 				Confidence: "community", LinkOnly: true, Locator: "post 3"},
@@ -125,7 +125,7 @@ func TestValidateNamesEveryProblem(t *testing.T) {
 		want  string
 	}{
 		{"format", func(k *KB) { k.Format = 2 }, "format 2"},
-		{"version", func(k *KB) { k.Version = "2026-99-99" }, "isn't YYYY-MM-DD"},
+		{"version", func(k *KB) { k.Version = "2026-99-99" }, "isn't a UTC time"},
 		{"rule id", func(k *KB) { k.Rules[0].ID = "PCI No Driver" }, "isn't lower-case"},
 		{"duplicate rule", func(k *KB) { k.Rules = append(k.Rules, k.Rules[0]) }, `"pci.no-driver": duplicate id`},
 		{"unsorted rules", func(k *KB) {
@@ -176,7 +176,7 @@ func TestValidateNamesEveryProblem(t *testing.T) {
 			t.Errorf("%s: error %v, want it to mention %q", c.name, err, c.want)
 		}
 	}
-	k := &KB{Format: Format, Version: "2026-10-06", Sources: []Source{{}}, Rules: []Rule{{}}}
+	k := &KB{Format: Format, Version: "2026-10-06T12:00:00Z", Sources: []Source{{}}, Rules: []Rule{{}}}
 	if err := k.Validate(); err == nil || !strings.Contains(err.Error(), "rule 1:") || !strings.Contains(err.Error(), "source 1:") {
 		t.Errorf("unnamed: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestValidateNamesEveryProblem(t *testing.T) {
 // field or value costs one rule (or source, and the rules citing it), with
 // the reason, never the whole knowledge base or a rule applied in part.
 func TestParseSkipsWhatItCantFullyUnderstand(t *testing.T) {
-	file := `{"format":1,"version":"2026-10-06","firmware":{"hp":{}},
+	file := `{"format":1,"version":"2026-10-06T12:00:00Z","firmware":{"hp":{}},
 	"sources":[
 	 {"id":"kernel","url":"https://docs.kernel.org/x.html","retrieved":"2026-10-06","licence":"GPL-2.0-only","confidence":"upstream-doc","quote":"words","archived_url":"https://web.archive.org/x"},
 	 {"id":"rumour","url":"https://x.example","retrieved":"2026-10-06","licence":"x","confidence":"hearsay","quote":"q"},
@@ -243,11 +243,12 @@ func TestParseRefusesWhatItCantReadAtAll(t *testing.T) {
 		"flipped byte":  {flipped, "knowledge base:"},
 		"not JSON":      {gz(t, []byte("rules:")), "invalid character"},
 		"newer format":  {gz(t, []byte(`{"format":2,"rules":{"new":"shape"}}`)), "format 2, this build reads 1"},
-		"no format":     {gz(t, []byte(`{"version":"2026-10-06"}`)), "format missing, this build reads 1"},
+		"no format":     {gz(t, []byte(`{"version":"2026-10-06T12:00:00Z"}`)), "format missing, this build reads 1"},
 		"no version":    {gz(t, []byte(`{"format":1,"sources":[],"rules":[]}`)), `version "" isn't`},
-		"invalid date":  {gz(t, []byte(`{"format":1,"version":"2026-02-30","sources":[],"rules":[]}`)), `version "2026-02-30"`},
-		"too large":     {gz(t, bytes.Repeat([]byte(" "), maxSize+1)), "larger than"},
-		"wrong section": {gz(t, []byte(`{"format":1,"version":"2026-10-06","rules":{}}`)), "cannot unmarshal"},
+		"invalid date":  {gz(t, []byte(`{"format":1,"version":"2026-02-30T12:00:00Z","sources":[],"rules":[]}`)), `version "2026-02-30T12:00:00Z"`},
+		"a date only":   {gz(t, []byte(`{"format":1,"version":"2026-10-06","sources":[],"rules":[]}`)), `version "2026-10-06" isn't a UTC time`},
+		"too large":     {gz(t, bytes.Repeat([]byte(" "), 4<<20+1)), "larger than 4194304 bytes"},
+		"wrong section": {gz(t, []byte(`{"format":1,"version":"2026-10-06T12:00:00Z","rules":{}}`)), "cannot unmarshal"},
 	}
 	for name, c := range cases {
 		if _, err := Parse(c.data); err == nil || !strings.Contains(err.Error(), c.want) {
@@ -300,7 +301,7 @@ func TestEveryTextFieldMustBePrintable(t *testing.T) {
 // Parse keeps the first of two sources with one ID, sorts sources, and
 // counts skipped rules apart from skipped sources and sections.
 func TestParseKeepsSourcesInOrderAndCountsRules(t *testing.T) {
-	file := `{"format":1,"version":"2026-10-06","extra":{},
+	file := `{"format":1,"version":"2026-10-06T12:00:00Z","extra":{},
 	"sources":[
 	 {"id":"z","url":"https://z.example","retrieved":"2026-10-06","licence":"x","confidence":"community","quote":"z"},
 	 {"id":"a","url":"https://a.example","retrieved":"2026-10-06","licence":"x","confidence":"oem-doc","quote":"first"},

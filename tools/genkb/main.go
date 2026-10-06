@@ -7,12 +7,15 @@
 // take, and placeholders it doesn't fill), an empty knowledge base, .yml files,
 // and YAML values that don't survive as written (0403 read as octal, null).
 //
-//	genkb [-version YYYY-MM-DD] -o FILE DIR   compile DIR into FILE; the
-//	                                          version is today (UTC), or
-//	                                          FILE's own when nothing else
-//	                                          changed
-//	genkb check FILE DIR                      fail unless FILE is DIR compiled
-//	                                          (with FILE's own version)
+//	genkb [-version TIME] -o FILE DIR   compile DIR into FILE; the version
+//	                                    is now (UTC, 2026-10-06T14:03:05Z),
+//	                                    or FILE's own when nothing else
+//	                                    changed
+//	genkb check FILE DIR                fail unless FILE is DIR compiled
+//	                                    (with FILE's own version)
+//	genkb later BASE FILE               fail if FILE's content differs from
+//	                                    BASE's without a later version (CI,
+//	                                    against the PR's base)
 package main
 
 import (
@@ -37,7 +40,7 @@ import (
 	"github.com/jiegui2025/hwspec/internal/kb"
 )
 
-const usage = "usage: genkb [-version YYYY-MM-DD] -o FILE DIR | check FILE DIR"
+const usage = "usage: genkb [-version TIME] -o FILE DIR | check FILE DIR | later BASE FILE"
 
 func main() {
 	os.Exit(run(os.Args[1:], time.Now(), os.Stdout, os.Stderr))
@@ -48,8 +51,10 @@ func run(args []string, now time.Time, stdout, stderr io.Writer) int {
 	switch {
 	case len(args) == 3 && args[0] == "check":
 		err = check(stdout, args[1], args[2])
+	case len(args) == 3 && args[0] == "later":
+		err = later(stdout, args[1], args[2])
 	case len(args) == 3 && args[0] == "-o":
-		err = write(args[1], args[2], "", now.UTC().Format("2006-01-02"))
+		err = write(args[1], args[2], "", now.UTC().Format(kb.VersionLayout))
 	case len(args) == 5 && args[0] == "-version" && args[2] == "-o":
 		err = write(args[3], args[4], args[1], "")
 	default:
@@ -63,12 +68,52 @@ func run(args []string, now time.Time, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// write compiles dir into out. Without an explicit version it is today's,
+// later checks that a compiled knowledge base whose content differs from
+// base's has a later version: the version is what a binary compares to
+// pick the newer copy (ADR 0009), so two contents must never share one,
+// nor may a change go back in time. A missing base (the file is new) is
+// fine.
+func later(stdout io.Writer, base, file string) error {
+	old, err := os.ReadFile(base)
+	if errors.Is(err, fs.ErrNotExist) {
+		fmt.Fprintf(stdout, "%s: no base copy, nothing to compare\n", file)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	cur, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	b, err := kb.Parse(old)
+	if err != nil {
+		// Only across a change of the file's own format (the date-only
+		// versions before #185): the base passed its own CI on main.
+		fmt.Fprintf(stdout, "%s: the base copy isn't readable by this build (%v); nothing to compare\n", file, err)
+		return nil
+	}
+	k, err := kb.Parse(cur)
+	if err != nil {
+		return fmt.Errorf("%s: %w", file, err)
+	}
+	if sameContent(old, k) {
+		fmt.Fprintf(stdout, "%s: content unchanged\n", file)
+		return nil
+	}
+	if have, _ := kb.Parse(cur); have.Version <= b.Version {
+		return fmt.Errorf("%s changed since the base copy but its version %s isn't later than %s: run make gen-kb", file, have.Version, b.Version)
+	}
+	fmt.Fprintf(stdout, "%s: content changed, version later than the base's\n", file)
+	return nil
+}
+
+// write compiles dir into out. Without an explicit version it is now,
 // unless out already holds the same sources and rules: then out keeps its
 // version, so rebuilding unchanged sources changes no bytes.
-func write(out, dir, version, today string) error {
+func write(out, dir, version, now string) error {
 	if version == "" {
-		version = today
+		version = now
 		if old, err := os.ReadFile(out); err == nil {
 			if k, err := kb.Parse(old); err == nil {
 				if same, err := compile(dir, k.Version); err == nil && sameContent(old, same) {

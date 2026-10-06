@@ -36,7 +36,7 @@ func noDriverRule() kb.Rule {
 }
 
 func knowledge(rules ...kb.Rule) *kb.KB {
-	return &kb.KB{Format: kb.Format, Version: "2026-10-06", Sources: sources(), Rules: rules}
+	return &kb.KB{Format: kb.Format, Version: "2026-10-06T12:00:00Z", Sources: sources(), Rules: rules}
 }
 
 func machine() *report.Report {
@@ -84,7 +84,7 @@ func keys(a Advice) string {
 // driver, or a NIC with one, is not.
 func TestPCIDevicesWithoutADriverNeedAttention(t *testing.T) {
 	a := Advise(Input{Report: machine(), KB: knowledge(noDriverRule()), Now: noon})
-	if a.AdviceVersion != Version || a.KBVersion != "2026-10-06" || a.Live || a.Redacted || len(a.Warnings) != 0 ||
+	if a.AdviceVersion != Version || a.KBVersion != "2026-10-06T12:00:00Z" || a.Live || a.Redacted || len(a.Warnings) != 0 ||
 		a.RulesApplied != 1 || a.RulesSkipped != 0 || len(a.CaptureSHA256) != 64 {
 		t.Fatalf("header %+v", a)
 	}
@@ -328,7 +328,7 @@ func TestTextAdviceIsCompleteAndTerminalSafe(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		"this machine  ·  knowledge base 2026-10-06",
+		"this machine  ·  knowledge base 2026-10-06T12:00:00Z",
 		"WARNING  No kernel driver  (needs-attention, pci.no-driver)",
 		"Device     pci 0000:02:00.0  Wi-Fi 6 AX200",
 		"Why        Devices need a driver.",
@@ -371,7 +371,7 @@ func TestTextAdviceIsCompleteAndTerminalSafe(t *testing.T) {
 		a    Advice
 		want string
 	}{
-		{Advice{KBVersion: "2026-10-06", RulesApplied: 3}, "saved capture  ·  knowledge base 2026-10-06\n\nNothing found by the 3 rules."},
+		{Advice{KBVersion: "2026-10-06T12:00:00Z", RulesApplied: 3}, "saved capture  ·  knowledge base 2026-10-06T12:00:00Z\n\nNothing found by the 3 rules."},
 		{Advice{RulesApplied: 1}, "Nothing found by the 1 rule."},
 		{Advice{RulesApplied: 2, RulesSkipped: 1}, "Nothing found by 2 of 3 rules; 1 couldn't be applied (see Warnings)."},
 		{Advice{RulesApplied: 1, Warnings: []string{"capture: usb: denied", "capture: dmi: denied"}}, "The capture couldn't read everything (2 warnings below), which can hide findings."},

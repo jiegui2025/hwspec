@@ -66,7 +66,11 @@ func TestSectionsRoundTrip(t *testing.T) {
 // An older binary's reader (frozen before this change) skips the new
 // sections, each with a warning, and still applies its rules.
 func TestOlderReadersSkipTheSections(t *testing.T) {
-	b, err := Encode(withSections())
+	// The frozen reader predates timestamp versions (#185); no released
+	// binary has it, so it's given the date it understood.
+	k := withSections()
+	k.Version = "2026-10-06"
+	b, err := Encode(k)
 	if err != nil {
 		t.Fatal(err)
 	}

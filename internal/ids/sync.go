@@ -137,8 +137,8 @@ func Update(ctx context.Context, opt UpdateOptions) (*UpdateResult, error) {
 	for _, name := range names {
 		want := remote.Files[name]
 		kind, ok := KindForFile(name)
-		if !ok {
-			continue // a database this build doesn't know yet
+		if !ok && name != AdvisorFile {
+			continue // a database or knowledge-base format this build doesn't know
 		}
 		res := FileUpdate{File: name, Date: want.Date, Entries: want.Entries, Status: "new"}
 		path := filepath.Join(syncedDir, name)
@@ -160,6 +160,24 @@ func Update(ctx context.Context, opt UpdateOptions) (*UpdateResult, error) {
 		}
 		if int64(len(gz)) != want.Size || sha(gz) != want.SHA256 {
 			return nil, fmt.Errorf("%s: checksum mismatch, not installing", name)
+		}
+		if name == AdvisorFile {
+			// Checked as far as this package can; the CLI parses it, and
+			// falls back to the built-in copy if it doesn't.
+			version, rules, err := CheckAdvisor(name, gz)
+			if err != nil {
+				return nil, err
+			}
+			// The signed manifest says what it is: a file that disagrees,
+			// or claims a version from the future, isn't installed.
+			switch {
+			case version != want.Date || rules != want.Entries:
+				return nil, fmt.Errorf("%s: version %s with %d rules, but the manifest says %s with %d", name, version, rules, want.Date, want.Entries)
+			case version > time.Now().UTC().Add(24*time.Hour).Format(advisorVersion):
+				return nil, fmt.Errorf("%s: version %s is in the future", name, version)
+			}
+			downloads[name] = gz
+			continue
 		}
 		zr, err := gzip.NewReader(bytes.NewReader(gz))
 		if err != nil {

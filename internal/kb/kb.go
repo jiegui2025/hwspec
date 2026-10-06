@@ -77,8 +77,11 @@ func names[T ~string](all []T) string {
 
 // KB is a compiled knowledge base.
 type KB struct {
-	Format  int      `json:"format"`
-	Version string   `json:"version"` // YYYY-MM-DD: the date the content last changed (ADR 0009)
+	Format int `json:"format"`
+	// Version is when the content last changed, as a UTC time to the
+	// second (VersionLayout): unique per content, so the copy with the
+	// later version is the newer one (ADR 0009, amended for #185).
+	Version string   `json:"version"`
 	Sources []Source `json:"sources"` // sorted by ID
 	Rules   []Rule   `json:"rules"`   // sorted by ID
 	// The data sections (#25), each sorted by ID.
@@ -182,6 +185,10 @@ const (
 	year  = "2006"
 )
 
+// VersionLayout is a knowledge base's version: the UTC time its content
+// last changed, to the second. Versions compare as strings.
+const VersionLayout = "2006-01-02T15:04:05Z"
+
 // printable reports the first string that would reach a terminal with
 // control or invisible formatting characters (escape sequences, bidi
 // overrides) or invalid UTF-8: knowledge-base text is shown to people.
@@ -231,8 +238,9 @@ func isDate(s string, layouts ...string) bool {
 }
 
 // maxSize bounds the decompressed file, so a corrupt or hostile bundle
-// can't exhaust memory.
-const maxSize = 32 << 20
+// can't exhaust memory: decoding JSON takes many times its size. The
+// knowledge base is a few kilobytes; 4 MiB leaves room for years.
+const maxSize = 4 << 20
 
 // Parse decompresses and decodes a compiled knowledge base of this format.
 // It is lenient where a newer knowledge base may have grown, so one new
@@ -277,8 +285,8 @@ func Parse(gz []byte) (*KB, error) {
 	if err := json.Unmarshal(raw, &file); err != nil {
 		return nil, fmt.Errorf("knowledge base: %w", err)
 	}
-	if !isDate(file.Version, day) {
-		return nil, fmt.Errorf("knowledge base: version %q isn't YYYY-MM-DD", file.Version)
+	if !isDate(file.Version, VersionLayout) {
+		return nil, fmt.Errorf("knowledge base: version %q isn't a UTC time such as 2026-10-06T14:03:05Z", file.Version)
 	}
 	k := &KB{Format: file.Format, Version: file.Version, Sources: []Source{}, Rules: []Rule{}}
 	// A newer knowledge base may add whole sections (#10's firmware): this
@@ -414,8 +422,8 @@ func (k *KB) Validate() error {
 	if k.Format != Format {
 		errs = append(errs, fmt.Errorf("format %d, want %d", k.Format, Format))
 	}
-	if !isDate(k.Version, day) {
-		errs = append(errs, fmt.Errorf("version %q isn't YYYY-MM-DD", k.Version))
+	if !isDate(k.Version, VersionLayout) {
+		errs = append(errs, fmt.Errorf("version %q isn't a UTC time such as 2026-10-06T14:03:05Z", k.Version))
 	}
 	seen := map[string]bool{}
 	for i, s := range k.Sources {
