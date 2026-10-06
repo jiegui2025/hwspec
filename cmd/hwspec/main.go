@@ -115,7 +115,9 @@ func pickFormat(format, outPath, def string) (string, error) {
 	if format == "" {
 		format = output.FormatFromPath(outPath)
 		// An extension we don't know would otherwise silently get the default.
-		if ext := filepath.Ext(outPath); format == "" && ext != "" {
+		// A dotfile's name (".hwspec") isn't an extension; "." still is refused.
+		base := filepath.Base(outPath)
+		if ext := filepath.Ext(outPath); format == "" && ext != "" && (ext != base || base == ".") {
 			return "", fmt.Errorf("can't tell the format from %q; use -f %s", ext, strings.Join(output.Formats, "|"))
 		}
 	}

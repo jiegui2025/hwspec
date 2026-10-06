@@ -8,19 +8,33 @@ import (
 	"testing"
 )
 
-func TestUnknownOutputExtensionIsAnError(t *testing.T) {
+// The format comes from -f, else the output file's extension, else the
+// default; an extension hwspec doesn't know is refused with the fix to use.
+func TestFormatComesFromTheFlagOrTheOutputExtension(t *testing.T) {
 	cases := []struct{ format, path, want string }{
 		{"", "spec.json", "json"}, {"", "spec.yml", "yaml"}, {"", "spec.txt", "text"},
 		{"", "", "json"}, {"yaml", "spec.xml", "yaml"}, {"", "-", "json"},
 		{"", "spec.yaml", "yaml"}, {"", "myspec", "json"},
+		{"", "SPEC.JSON", "json"}, {"", "out.d/spec", "json"},
+		// A dotfile's name isn't an extension.
+		{"", ".hwspec", "json"}, {"", "out/.hwspec", "json"},
 	}
 	for _, c := range cases {
 		if got, err := pickFormat(c.format, c.path, "json"); err != nil || got != c.want {
 			t.Errorf("pickFormat(%q, %q) = %q, %v; want %q", c.format, c.path, got, err, c.want)
 		}
 	}
-	if _, err := pickFormat("", "spec.xml", "json"); err == nil || !strings.Contains(err.Error(), ".xml") {
-		t.Errorf("spec.xml: err = %v, want an error naming .xml", err)
+	for path, ext := range map[string]string{"spec.xml": ".xml", ".hwspec.xml": ".xml"} {
+		_, err := pickFormat("", path, "json")
+		if err == nil || !strings.Contains(err.Error(), ext) || !strings.Contains(err.Error(), "use -f json|yaml|text") {
+			t.Errorf("%s: err = %v, want an error naming %s and the -f fix", path, err, ext)
+		}
+	}
+	// A directory isn't a file to write: refuse it before capturing.
+	for _, dir := range []string{".", "dir/.", ".."} {
+		if _, err := pickFormat("", dir, "json"); err == nil {
+			t.Errorf("%s: accepted as an output file", dir)
+		}
 	}
 	if _, err := pickFormat("csv", "", "json"); err == nil {
 		t.Error("unknown -f accepted")
