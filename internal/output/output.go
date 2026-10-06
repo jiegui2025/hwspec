@@ -37,17 +37,19 @@ func Write(w io.Writer, r *report.Report, format string) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(r)
 	case "yaml":
-		return writeYAML(w, r)
+		return YAML(w, r)
 	case "text":
 		return writeText(w, r)
 	}
 	return fmt.Errorf("unknown format %q (want one of %s)", format, strings.Join(Formats, ", "))
 }
 
-// writeYAML goes through JSON so the YAML uses the same field names and
-// order as the JSON (JSON is valid YAML, and yaml.Node keeps key order).
-func writeYAML(w io.Writer, r *report.Report) error {
-	js, err := json.Marshal(r)
+// YAML writes v as block-style YAML. It goes through JSON so the YAML uses
+// the same field names and order as the JSON (JSON is valid YAML, and
+// yaml.Node keeps key order), and quotes the strings YAML 1.1 parsers
+// would misread. Captures and advice documents both use it.
+func YAML(w io.Writer, v any) error {
+	js, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
