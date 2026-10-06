@@ -13,6 +13,15 @@ import (
 	"unicode"
 )
 
+// allowTinySources lets a test's one-line database files count as
+// complete: tests of which source wins aren't about minimum sizes.
+func allowTinySources(t *testing.T) {
+	t.Helper()
+	old := minEntries
+	minEntries = map[Kind]int{}
+	t.Cleanup(func() { minEntries = old; Reset() })
+}
+
 // isolate makes lookups use only the embedded data (as on NixOS, which has
 // no hwdata path), plus whatever the test sets up, and restores afterwards.
 func isolate(t *testing.T) {
@@ -170,6 +179,7 @@ func cpuName(vendor string, family, model, stepping int) string {
 
 func TestNewestSourceWins(t *testing.T) {
 	isolate(t)
+	allowTinySources(t)
 	dir := t.TempDir()
 	systemEnabled = true
 	sys := filepath.Join(dir, "sys-pci.ids")

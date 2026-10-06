@@ -98,8 +98,8 @@ flowchart TD
 
 | Source | Guard against pinning itself as "newest" |
 |---|---|
-| Distro copy | a future header date is ignored; a future file time ranks it oldest |
-| Synced copy | dated only by its signed manifest; unused if the manifest is unreadable; CI refuses future dates before signing |
+| Distro copy | a future header date is ignored; a future file time ranks it oldest; a file with fewer entries than the database's minimum (truncated, trimmed) is skipped, with the reason in `hwspec ids` |
+| Synced copy | dated only by its signed manifest; unused if the manifest is unreadable; CI refuses future dates before signing; skipped below the minimum entry count too |
 | Embedded copy | dated by its manifest, checked by `genids verify` at build time |
 
 ## Rules
