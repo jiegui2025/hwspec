@@ -1,7 +1,12 @@
 name: Release
 
-# Push a tag like v0.2.0 to publish binaries. Release notes are generated
-# from the merged pull requests (titled with Conventional Commits).
+# Push a tag like v0.2.0 to publish binaries. The job waits in the
+# `production` environment until the owner approves it (v* tags only).
+# Tags with a "-" (v0.1.0-rc.1) publish as pre-releases, never as Latest;
+# for final tags GitHub decides Latest by version, so a patch to an older
+# line (v0.1.1 after v0.2.0) doesn't take it.
+# Release notes are generated from the merged pull requests (titled with
+# Conventional Commits).
 
 on:
   push:
@@ -13,6 +18,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-24.04
+    environment: production # owner approval; v* tags only
     permissions:
       contents: write      # create the release
       id-token: write      # sign provenance attestations
@@ -29,6 +35,7 @@ jobs:
         # The tag reaches make and shell; only plain semantic versions.
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::tag '$TAG' is not vX.Y.Z[-pre]"; exit 1; }
+      - run: go version # the toolchain, for reproducing this build
       - run: make test
       - run: make release VERSION="$TAG"
         env:
@@ -42,5 +49,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }} # via env, never interpolated into the script
         run: |
+          channel=() # final: GitHub marks it Latest only if it's the newest version
+          if [[ "$TAG" == *-* ]]; then
+            channel=(--prerelease --latest=false) # release candidates never become Latest
+          fi
           gh release create "$TAG" build/hwspec-*.tar.gz build/SHA256SUMS \
-            --title "hwspec $TAG" --generate-notes --verify-tag --latest
+            --title "hwspec $TAG" --generate-notes --verify-tag "${channel[@]}"
