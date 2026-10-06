@@ -3,3 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/jiegui2025/hwspec/security/advisories/new
     about: Please report security issues privately, not as public issues.
+  - name: Code of conduct problem
+    url: https://github.com/jiegui2025/hwspec/blob/main/CODE_OF_CONDUCT.md#reporting-an-issue
+    about: Report it privately to GitHub Support ("Report content" on the comment, or "Block or report" on the profile), not as a public issue. There is no private channel to the maintainers.
