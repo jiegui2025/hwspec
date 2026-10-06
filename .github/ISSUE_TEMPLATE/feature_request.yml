@@ -3,17 +3,57 @@ description: Suggest new hardware coverage, output, or behaviour
 title: "feat: "
 labels: ["type: feature", "status: triage"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. The boxes below start with small tables: replace the example cells and delete what doesn't apply. The [roadmap](https://github.com/jiegui2025/hwspec#roadmap) shows what's already planned.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - capture (new hardware or details)
+        - output (text, JSON, YAML, other formats)
+        - advice (hwspec advise)
+        - hardware ID names
+        - packaging or install
+        - desktop app
+        - other
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
-      label: What do you want to do that hwspec can't?
+      label: What you want to do
+      description: "For example: I want to see which memory slots are empty, so that I know whether I can add RAM without replacing a module; today I open the case or search the maker's manual."
+      value: |
+        | | |
+        |---|---|
+        | I want to | |
+        | so that | |
+        | Today I | |
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: What would you like hwspec to do?
+      label: What hwspec would do
+      description: "The command and what it would print, e.g. `| hwspec capture -f text | Memory  slot 2 of 4 empty |`. If the idea changes a flow (several steps or commands), a Mermaid diagram helps: edit the outline below, or delete it."
+      value: |
+        | Command | Output it would print |
+        |---|---|
+        | | |
+
+        ```mermaid
+        flowchart LR
+          run[run hwspec] --> see[see the new information]
+        ```
   - type: textarea
-    id: alternatives
+    id: hardware
     attributes:
-      label: Workarounds you use today
+      label: Hardware this applies to (optional)
+      description: Makes and models where you saw the need, and where hwspec could read the information if you know (`/sys/...`, a tool that shows it).
+      value: |
+        | Machine or device | Where the information is |
+        |---|---|
+        | | |

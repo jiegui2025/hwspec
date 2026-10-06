@@ -3,30 +3,30 @@ description: A device, CPU codename, memory maker or similar is named wrongly or
 title: "data(ids): "
 labels: ["type: data", "status: triage"]
 body:
-  - type: dropdown
-    id: database
+  - type: markdown
     attributes:
-      label: Database
-      options: [pci, usb, pnp, oui, jedec, amdgpu, bluetooth, cpu, not sure]
-    validations:
-      required: true
-  - type: input
-    id: id
+      value: |
+        One row per ID; several corrections can go in one report. `hwspec ids lookup KIND ID` shows what hwspec resolves today.
+
+        | Database | Names | ID looks like |
+        |---|---|---|
+        | `pci` | PCI vendors and devices | `8086:3e92` |
+        | `usb` | USB vendors and products | `046d:c52b` |
+        | `pnp` | monitor makers | `DEL` |
+        | `oui` | MAC address vendors | `04:0E:3C` |
+        | `jedec` | memory makers | `F785` |
+        | `amdgpu` | AMD GPU retail names | `1002:73bf:c1` |
+        | `bluetooth` | Bluetooth chip makers | `2` |
+        | `cpu` | CPU codenames | `intel:6:9e:10` |
+  - type: textarea
+    id: corrections
     attributes:
-      label: The ID (`hwspec ids lookup KIND ID` shows what hwspec resolves today)
-      placeholder: "cpu intel:6:9e:10 or pci 8086:3e92"
-    validations:
-      required: true
-  - type: input
-    id: correct
-    attributes:
-      label: Correct name
-    validations:
-      required: true
-  - type: input
-    id: source
-    attributes:
-      label: Source (datasheet, vendor page, …)
+      label: Corrections
+      description: "One row per ID, e.g. `| pci | 8086:3e92 | (nothing) | UHD Graphics 630 | link to the datasheet |`. The source can be a datasheet, the vendor's page, or the device's own label. Write \"not sure\" in the Database column if you don't know which one."
+      value: |
+        | Database | ID | hwspec shows | Correct name | Source |
+        |---|---|---|---|---|
+        | | | | | |
     validations:
       required: true
   - type: markdown
