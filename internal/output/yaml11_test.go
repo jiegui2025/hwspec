@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/jiegui2025/hwspec/internal/report"
 )
