@@ -3,6 +3,7 @@ package collect
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -88,6 +89,42 @@ func (c *collector) smbiosModules() {
 // spdDrivers are the kernel drivers that expose module EEPROMs.
 var spdDrivers = []string{"ee1004", "spd5118"}
 
+// readSPD reads only the bytes spd.Parse uses into a zeroed image of the
+// full size. EEPROM reads go over SMBus at about 0.16 ms a byte, so a whole
+// DDR4 image costs about 80 ms per module, the spans about 8 ms. An image
+// too short for its type comes back short, for spd.Parse to report.
+func readSPD(path string) ([]byte, error) {
+	f, err := openFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	head := make([]byte, 3)
+	n, err := f.ReadAt(head, 0)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+	size, spans, ok := spd.Layout(head[2])
+	if n < len(head) || !ok {
+		return head[:n], nil // too short, or a type spd doesn't decode
+	}
+	// sysfs gives the EEPROM's size; a smaller file is a truncated image.
+	if st, err := f.Stat(); err == nil && st.Size() > 0 && st.Size() < int64(size) {
+		return head, nil
+	}
+	img := make([]byte, size)
+	for _, s := range spans {
+		got, err := f.ReadAt(img[s.Off:s.Off+s.Len], int64(s.Off))
+		if errors.Is(err, io.EOF) {
+			return img[:s.Off+got], nil
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return img, nil
+}
+
 // spdModules adds what each module's own SPD EEPROM says: maker (as a JEDEC
 // code), DRAM maker, part number, serial, manufacture date. Matched to the
 // SMBIOS modules by serial or part number; without SMBIOS (no root) the
@@ -101,7 +138,7 @@ func (c *collector) spdModules() {
 			if !strings.Contains(dev, "-") {
 				continue // bind, unbind, module, uevent
 			}
-			raw, err := readFile("/sys/bus/i2c/drivers/" + drv + "/" + dev + "/eeprom")
+			raw, err := readSPD("/sys/bus/i2c/drivers/" + drv + "/" + dev + "/eeprom")
 			if err != nil {
 				c.warnRead("memory module SPD "+dev, err)
 				continue
