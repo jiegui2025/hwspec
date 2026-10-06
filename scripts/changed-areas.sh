@@ -25,7 +25,7 @@ match() { grep -Eq "$1" <<<"$files"; }
 go=false; nix=false; workflows=false; docs=false; vm=false; verify=false
 match '(\.go$|^go\.(mod|sum|work|work\.sum)$|^vendor/|^(cmd|internal|tools|schema)/|^\.golangci\.ya?ml$|^Makefile$|^scripts/coverage\.sh$)' && go=true
 match '^flake\.(nix|lock)$' && nix=true
-match '^(\.github/(workflows|actions)/|\.github/actionlint\.ya?ml$|scripts/(changed-areas(_test)?|check-adr-index|check-commits|check-mermaid|verify-release(_test)?)\.sh$)' && workflows=true
+match '^(\.github/(workflows|actions)/|\.github/actionlint\.ya?ml$|scripts/(changed-areas(_test)?|check-adr-index|check-commits(_test)?|check-mermaid|verify-release(_test)?)\.sh$)' && workflows=true
 match '\.md$' && docs=true
 match '^(scripts/vm-[a-z-]+\.sh|\.github/workflows/vms\.yml)$' && vm=true
 match '^(scripts/verify-release(_test)?\.sh|\.github/workflows/verify\.yml)$' && verify=true

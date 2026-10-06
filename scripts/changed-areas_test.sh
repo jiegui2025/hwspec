@@ -28,6 +28,8 @@ flake.lock|false true false false false false
 flake.nix|false true false false false false
 .github/workflows/ci.yml|true true true true true false
 .github/actionlint.yaml|true true true true true false
+scripts/check-commits_test.sh|true true true true true false
+scripts/check-commits.sh|true true true true true false
 scripts/changed-areas.sh|true true true true true false
 scripts/changed-areas_test.sh|true true true true true false
 scripts/check-adr-index.sh|true true true true true false
