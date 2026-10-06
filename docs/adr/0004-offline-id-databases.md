@@ -1,6 +1,6 @@
 # 4. Offline ID databases, newest source wins, signed sync
 
-**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged · amended 2026-10-06 by [ADR 0009](0009-advisor.md): the bundle also carries the advisor knowledge base (`advisor-v1.json.gz`), built from `main`'s `kb/` rather than an upstream source
 
 ## Context
 

@@ -120,6 +120,6 @@ The ranked plan is the [roadmap](README.md#roadmap); these items change the arch
 
 | Area | Tracking |
 |---|---|
-| Advisor: a knowledge base and rules that turn a capture into advice (drivers, firmware, upgrades, maintenance) | [#5](https://github.com/jiegui2025/hwspec/issues/5) will record the design in ADR 0009; [#7](https://github.com/jiegui2025/hwspec/issues/7)–[#11](https://github.com/jiegui2025/hwspec/issues/11), [#25](https://github.com/jiegui2025/hwspec/issues/25) build it |
+| Advisor: a knowledge base and rules that turn a capture into advice (drivers, firmware, upgrades, maintenance) | [ADR 0009](docs/adr/0009-advisor.md) ([#5](https://github.com/jiegui2025/hwspec/issues/5)); [#7](https://github.com/jiegui2025/hwspec/issues/7)–[#11](https://github.com/jiegui2025/hwspec/issues/11), [#25](https://github.com/jiegui2025/hwspec/issues/25) build it |
 | Desktop app | [ADR 0007](docs/adr/0007-desktop-ui.md), [#13](https://github.com/jiegui2025/hwspec/issues/13), [#14](https://github.com/jiegui2025/hwspec/issues/14) |
 | Feature parity with Defenestra Chassis: what hwspec adds (sensors-only captures, GPU clocks, device roles, PCI IRQs and resources), leaves to the app, or rules out (a root daemon) | [#26](https://github.com/jiegui2025/hwspec/issues/26) (the comparison and the owner's decisions); [#87](https://github.com/jiegui2025/hwspec/issues/87)–[#91](https://github.com/jiegui2025/hwspec/issues/91) build it; [#90](https://github.com/jiegui2025/hwspec/issues/90) asks for an ADR before D-Bus sources |
