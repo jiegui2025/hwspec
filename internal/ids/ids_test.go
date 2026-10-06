@@ -349,6 +349,39 @@ func TestUseEmbeddedOnlyIgnoresTheMachinesSources(t *testing.T) {
 	}
 }
 
+// Preloading loads databases without counting them as used: a report lists
+// only the databases a lookup needed.
+func TestPreloadDoesntCountAsUse(t *testing.T) {
+	isolate(t)
+	Preload(Kinds...)
+	if got := Loaded(); len(got) != 0 {
+		t.Fatalf("Loaded() after Preload = %v, want nothing", got)
+	}
+	if PCIVendor("8086") == "" {
+		t.Fatal("no name for Intel")
+	}
+	if got := Loaded(); len(got) != 1 || got[PCI] == "" {
+		t.Errorf("Loaded() after one PCI lookup = %v, want only pci", got)
+	}
+}
+
+// The embedded names are parsed once and shared; overrides apply to a copy,
+// so they never leak into a later load without them.
+func TestOverridesDontLeakIntoTheSharedEmbeddedNames(t *testing.T) {
+	isolate(t)
+	embedded := PCIVendor("8086")
+	overridesPath = write(t, filepath.Join(t.TempDir(), "overrides.ids"), "pci 8086 = Overridden Intel\n")
+	Reset()
+	if got := PCIVendor("8086"); got != "Overridden Intel" {
+		t.Fatalf("with overrides: %q", got)
+	}
+	overridesPath = ""
+	Reset()
+	if got := PCIVendor("8086"); got != embedded {
+		t.Errorf("after dropping the overrides: %q, want %q", got, embedded)
+	}
+}
+
 // cleanName's ASCII shortcut gives what the full check gives.
 func TestCleanNameShortcutMatchesTheFullCheck(t *testing.T) {
 	full := func(s string) string {
@@ -367,22 +400,6 @@ func TestCleanNameShortcutMatchesTheFullCheck(t *testing.T) {
 		if got, want := cleanName(s), full(s); got != want {
 			t.Errorf("cleanName(%q) = %q, want %q", s, got, want)
 		}
-	}
-}
-
-// Preloading loads databases without counting them as used: a report lists
-// only the databases a lookup needed.
-func TestPreloadDoesntCountAsUse(t *testing.T) {
-	isolate(t)
-	Preload(Kinds...)
-	if got := Loaded(); len(got) != 0 {
-		t.Fatalf("Loaded() after Preload = %v, want nothing", got)
-	}
-	if PCIVendor("8086") == "" {
-		t.Fatal("no name for Intel")
-	}
-	if got := Loaded(); len(got) != 1 || got[PCI] == "" {
-		t.Errorf("Loaded() after one PCI lookup = %v, want only pci", got)
 	}
 }
 
