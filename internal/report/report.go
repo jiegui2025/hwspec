@@ -291,16 +291,17 @@ type GPU struct {
 	DeviceID   string `json:"device_id"`
 	// Identity.Model is the retail name where known (AMD: libdrm's
 	// amdgpu.ids), otherwise the chip name; Chip is always the chip name.
-	Chip      string    `json:"chip,omitempty"`
-	Subsystem string    `json:"subsystem,omitempty"`
-	VRAMBytes uint64    `json:"vram_bytes,omitempty"`
-	BootVGA   bool      `json:"boot_vga"`
-	DRMCard   string    `json:"drm_card,omitempty"`
-	Link      *PCIeLink `json:"pcie_link,omitempty"`
-	Outputs   []string  `json:"outputs"` // connectors, e.g. DP-1, HDMI-A-1
-	Identity  *Identity `json:"identity,omitempty"`
-	Firmware  *Firmware `json:"firmware,omitempty"`
-	Driver    *Driver   `json:"driver,omitempty"`
+	Chip      string     `json:"chip,omitempty"`
+	Subsystem string     `json:"subsystem,omitempty"`
+	VRAMBytes uint64     `json:"vram_bytes,omitempty"`
+	Clocks    *GPUClocks `json:"clocks,omitempty"`
+	BootVGA   bool       `json:"boot_vga"`
+	DRMCard   string     `json:"drm_card,omitempty"`
+	Link      *PCIeLink  `json:"pcie_link,omitempty"`
+	Outputs   []string   `json:"outputs"` // connectors, e.g. DP-1, HDMI-A-1
+	Identity  *Identity  `json:"identity,omitempty"`
+	Firmware  *Firmware  `json:"firmware,omitempty"`
+	Driver    *Driver    `json:"driver,omitempty"`
 }
 
 type Display struct {
@@ -406,6 +407,22 @@ type PCIDevice struct {
 	Link        *PCIeLink `json:"pcie_link,omitempty"`
 	Identity    *Identity `json:"identity,omitempty"` // vendor, model = device name, revision
 	Driver      *Driver   `json:"driver,omitempty"`
+}
+
+// GPUClocks is the graphics core's hardware clock range, and its measured
+// clock when the capture was taken: a moment's value, not a sustained one.
+// Present only when the driver exposes them without root.
+type GPUClocks struct {
+	MinFreqMHz int `json:"min_freq_mhz"`
+	MaxFreqMHz int `json:"max_freq_mhz"`
+	// ActualFreqMHz is the measured clock. i915 may read 0 while the GPU
+	// is in RC6 (by generation: a Gen9 GPU reads its minimum instead);
+	// a value below the range is amdgpu's deep-sleep clock. Absent when
+	// the driver doesn't report it or reports one outside the range.
+	ActualFreqMHz *int `json:"actual_freq_mhz,omitempty"`
+	// Source names the interface: "i915" (gt_RPn/RP0/act_freq_mhz) or
+	// "amdgpu" (pp_dpm_sclk).
+	Source string `json:"source"`
 }
 
 type PCIeLink struct {

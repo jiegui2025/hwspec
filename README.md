@@ -34,7 +34,7 @@ Storage
   nvme0n1    SAMSUNG MZVLB256HAHQ-000L7 238.5 GiB nvme, fw 1L2QEXD7, nvme 1.0
 
 Graphics
-  GPU        Intel Corporation CoffeeLake-S GT2 [UHD Graphics 630], i915
+  GPU        Intel Corporation CoffeeLake-S GT2 [UHD Graphics 630], 350–1100 MHz (350 MHz at capture), i915
   Display    DELL S2721QS, 3840×2160 @ 60 Hz, 27.0", card1-DP-3
 
 Network
@@ -91,7 +91,7 @@ flowchart LR
 | CPU | model, signature, codename, microarchitecture | microcode | frequency scaling | thermal throttling since boot |
 | RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank (SMBIOS¹) | — | — | ECC errors (EDAC) |
 | Disks | model, serial | ✅ | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
-| GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS | ✅ | — |
+| GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS | ✅; hardware clock range and the measured clock at capture (i915, amdgpu) | — |
 | Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool | ✅ | error and drop rates |
 | Audio | card, codec chips | — | ✅ | — |
 | Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |

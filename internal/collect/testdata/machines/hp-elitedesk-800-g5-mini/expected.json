@@ -295,6 +295,12 @@
       "vendor_id": "8086",
       "device_id": "3e92",
       "chip": "CoffeeLake-S GT2 [UHD Graphics 630]",
+      "clocks": {
+        "min_freq_mhz": 350,
+        "max_freq_mhz": 1100,
+        "actual_freq_mhz": 350,
+        "source": "i915"
+      },
       "boot_vga": true,
       "drm_card": "card1",
       "outputs": [

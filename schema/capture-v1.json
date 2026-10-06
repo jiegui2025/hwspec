@@ -869,6 +869,29 @@
             "type": "integer",
             "minimum": 0
           },
+          "clocks": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "min_freq_mhz": {
+                "type": "integer"
+              },
+              "max_freq_mhz": {
+                "type": "integer"
+              },
+              "actual_freq_mhz": {
+                "type": [
+                  "null",
+                  "integer"
+                ]
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
           "boot_vga": {
             "type": "boolean"
           },
