@@ -127,7 +127,7 @@ func CollectRecorded(dir, version string) (*report.Report, error) {
 		if fw, ok := m.Ethtool[ifname]; ok {
 			return fw, nil
 		}
-		return "", errors.New("operation not supported")
+		return "", syscall.EOPNOTSUPP
 	}
 	readBTInfo = func(index uint16) (*mgmtInfo, error) {
 		if info, ok := bt[index]; ok {

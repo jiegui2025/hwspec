@@ -133,6 +133,7 @@ var ecRelease = regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
 
 func (c *collector) dmi() {
 	if !exists(dmiDir) {
+		c.r.System.Firmware = report.UnknownFirmware("no DMI (SMBIOS) tables, where the kernel reports the system firmware version")
 		// Device-tree boards (most ARM) name themselves there instead.
 		if model := strings.TrimRight(readStr("/proc/device-tree/model"), "\x00"); model != "" {
 			c.r.System.Identity = &report.Identity{Model: model}
@@ -174,6 +175,8 @@ func (c *collector) dmi() {
 	if fw := firmwareVersion(get("bios_version"), "dmi"); fw != nil {
 		fw.Vendor, fw.Date, fw.Release = get("bios_vendor"), get("bios_date"), get("bios_release")
 		s.Firmware = fw
+	} else {
+		s.Firmware = report.UnknownFirmware("the DMI tables give no BIOS version")
 	}
 	// The embedded controller's release, from SMBIOS type 0: the kernel
 	// prints "%u.%u" and leaves the file out when the firmware says FFh.FFh
@@ -182,6 +185,7 @@ func (c *collector) dmi() {
 		s.ECFirmware = &report.Firmware{Version: ec, Source: "dmi"}
 	} else if ec != "" {
 		c.warn("dmi ec_firmware_release: unexpected %q", ec)
+		s.ECFirmware = report.UnknownFirmware("ec_firmware_release isn't in the kernel's format")
 	}
 
 	b := &c.r.Board

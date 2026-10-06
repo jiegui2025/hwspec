@@ -1,6 +1,6 @@
 # 8. Identity, firmware, driver and health blocks on every device
 
-**Status:** Accepted (2026-10-05) · Issue [#24](https://github.com/jiegui2025/hwspec/issues/24)
+**Status:** Accepted (2026-10-05) · Issue [#24](https://github.com/jiegui2025/hwspec/issues/24) · amended 2026-10-06: firmware is never silently absent ([#123](https://github.com/jiegui2025/hwspec/issues/123))
 
 ## Context
 
@@ -83,3 +83,31 @@ classDiagram
 | One shape for every device: consumers and the desktop app handle all four topics uniformly | every collector, the resolver, redaction and the text output change at once |
 | Redaction covers identity blocks generically (serials, manufacture-date-adjacent identifiers) | captures from before this change are pre-release and not migrated |
 | New sources (SPD, ethtool, EDAC, `/sys/module`) slot into existing blocks | `schema_version` stays 1: the format was never released in the old shape |
+
+## Amendment (2026-10-06): firmware is never silently absent
+
+The owner's rule (#114): a part that has firmware always says so. A missing firmware block read as "this part has no firmware" when it meant "hwspec couldn't read it", and nothing told the two apart.
+
+| Aspect | Rule |
+|---|---|
+| The block | every part that has firmware carries a `firmware` block: a `version` with its `source`, or `status: "unknown"` with a `reason` (e.g. "needs --full", "the kernel doesn't expose this drive's firmware revision", "… not read yet, see #43") and no version. Nothing in between. Additive under ADR 0003: `status` and `reason` are new fields, and `version` and `source` are left out of an unknown block |
+| Which parts have firmware | the table below. A part hwspec can't detect gets no block at all: the ME and EC have one exactly when they were found |
+| Enforced by | a test that walks every recorded and synthetic capture and fails on a firmware-bearing part with neither a version nor an explained `unknown` (`checkFirmwareComplete`, `internal/collect`) |
+| Text output | "firmware unknown (reason)" where a version would be |
+
+| Part | Firmware | Without a version |
+|---|---|---|
+| System | BIOS/UEFI (DMI) | "no DMI (SMBIOS) tables …" or "the DMI tables give no BIOS version" |
+| Intel ME (CSME) | `mei` `fw_ver` | when found: why the kernel gave none |
+| Embedded controller | DMI EC release | a release DMI gives but that doesn't parse: "ec_firmware_release isn't in the kernel's format"; no release: no block (an EC that DMI doesn't report can't be detected) |
+| TPM | 2.0: udev's `tpm2_id` record (`ID_TPM2_MODALIAS` `fw…`, readable by anyone); 1.2: the kernel's `caps` file. Querying the TPM itself is [#122](https://github.com/jiegui2025/hwspec/issues/122) | "udev didn't record it, and hwspec doesn't query the TPM yet"; 1.2: why `caps` gave none |
+| CPU | microcode | x86: `/proc/cpuinfo` gives none; elsewhere the kernel doesn't report it |
+| Disk | NVMe, SCSI, MMC revision | "the drive reports …" for a placeholder, else "the kernel doesn't expose this drive's firmware revision"; a virtual disk, and a block device without a device link (md RAID, zvols), have no block |
+| GPU | VBIOS (amdgpu, NVIDIA); Intel GuC, HuC, DMC ([#43](https://github.com/jiegui2025/hwspec/issues/43)) | after the driver: "no driver is bound", "the driver reports no VBIOS version", "vbios_version can't be read: …", the NVIDIA file's answer, "hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet", or "the DRIVER driver doesn't expose a firmware version" |
+| Network adapter | ethtool | an empty answer or no support: "the driver reports no firmware version (ethtool)"; any other error: "ethtool can't ask the driver: …", with a warning |
+| Bluetooth controller | HCI revision ([#43](https://github.com/jiegui2025/hwspec/issues/43)) | "hwspec doesn't read the controller's HCI revision yet" |
+| USB device | device release (`bcdDevice`, which the kernel always creates) | "bcdDevice can't be read" |
+| Display, battery, memory module, audio codec | not exposed by the kernel | no block |
+| Other PCI devices | some expose one (a Thunderbolt controller's `nvm_version`, some adapters' `fw_ver`) | not read by hwspec yet: no block until they are |
+
+Reasons say what happened in plain words; the issues that will read a missing version are named here, not in the captures.

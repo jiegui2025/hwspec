@@ -334,6 +334,10 @@
         "model": "CoffeeLake-S GT2 [UHD Graphics 630]",
         "revision": "00"
       },
+      "firmware": {
+        "status": "unknown",
+        "reason": "hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet"
+      },
       "driver": {
         "name": "i915",
         "module": "i915",
@@ -460,6 +464,10 @@
         "vendor": "Intel Corp.",
         "model": "AX200 Bluetooth"
       },
+      "firmware": {
+        "status": "unknown",
+        "reason": "hwspec doesn't read the controller's HCI revision yet"
+      },
       "driver": {
         "name": "btusb",
         "module": "btusb",
@@ -525,7 +533,12 @@
   ],
   "batteries": [],
   "tpm": {
-    "spec_version_major": 2
+    "spec_version_major": 2,
+    "firmware": {
+      "vendor": "IFX",
+      "version": "7.85.1166080",
+      "source": "udev"
+    }
   },
   "sensors": [
     {

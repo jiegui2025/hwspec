@@ -49,6 +49,15 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["me firmware"] = r.System.MEFirmware != nil && r.System.MEFirmware.Version == "12.0.45.1509" && r.System.MEFirmware.Source == "mei"
 		want["ec firmware"] = r.System.ECFirmware != nil && r.System.ECFirmware.Version == "8.9" && r.System.ECFirmware.Source == "dmi"
 		want["tpm 2"] = r.TPM != nil && r.TPM.SpecVersionMajor == 2
+		// Firmware never silently absent (#123): what can't be read says why.
+		unknown := func(fw *report.Firmware, reason string) bool {
+			return fw != nil && fw.Status == report.FirmwareUnknown && strings.Contains(fw.Reason, reason)
+		}
+		// The SLB9670's firmware, as udev's tpm2_id records it (no root needed).
+		want["tpm firmware IFX 7.85.1166080 from udev"] = r.TPM != nil && r.TPM.Firmware.Known() &&
+			r.TPM.Firmware.Vendor == "IFX" && r.TPM.Firmware.Version == "7.85.1166080" && r.TPM.Firmware.Source == "udev"
+		want["igpu firmware: GuC/HuC not read yet (#43)"] = len(r.GPUs) == 1 && unknown(r.GPUs[0].Firmware, "GuC, HuC, DMC")
+		want["bluetooth firmware: HCI revision not read yet (#43)"] = len(r.Bluetooth) == 1 && unknown(r.Bluetooth[0].Firmware, "HCI revision")
 		// Mounting without root: the kernel's labels for the IGD and the
 		// LAN come from SMBIOS type 41 (index files present), so both are
 		// onboard; the Wi-Fi and NVMe need the root-only slot table. A

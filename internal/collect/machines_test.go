@@ -34,6 +34,7 @@ func TestRecordedMachines(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			r := captureMachine(t, dir)
 			checkFeatureRules(t, r)
+			checkFirmwareComplete(t, r)
 			if facts, ok := machineFacts[name]; ok {
 				facts(t, r)
 			} else {
@@ -64,8 +65,8 @@ func checkFeatureRules(t *testing.T, r *report.Report) {
 		if id != nil && id.Empty() {
 			t.Errorf("%s: empty identity block (blocks appear only when something was read)", where)
 		}
-		if fw != nil && (fw.Version == "" || fw.Source == "") {
-			t.Errorf("%s: firmware without version or source: %+v", where, fw)
+		if fw != nil && !firmwareExplained(fw) {
+			t.Errorf("%s: firmware without version and source, or an explained unknown: %+v", where, fw)
 		}
 		if d != nil {
 			if d.Name == "" {
@@ -102,6 +103,11 @@ func checkFeatureRules(t *testing.T, r *report.Report) {
 // every device.
 func walkBlocks(r *report.Report, fn func(where string, id *report.Identity, fw *report.Firmware, d *report.Driver, h *report.Health)) {
 	fn("system", r.System.Identity, r.System.Firmware, nil, nil)
+	fn("me", nil, r.System.MEFirmware, nil, nil)
+	fn("ec", nil, r.System.ECFirmware, nil, nil)
+	if r.TPM != nil {
+		fn("tpm", nil, r.TPM.Firmware, nil, nil)
+	}
 	fn("board", r.Board.Identity, nil, nil, nil)
 	fn("cpu", r.CPU.Identity, r.CPU.Firmware, r.CPU.Driver, r.CPU.Health)
 	for _, m := range r.Memory.Modules {
@@ -120,7 +126,7 @@ func walkBlocks(r *report.Report, fn func(where string, id *report.Identity, fw 
 		fn("nic "+n.Name, n.Identity, n.Firmware, n.Driver, n.Health)
 	}
 	for _, b := range r.Bluetooth {
-		fn("bluetooth "+b.Name, b.Identity, nil, b.Driver, nil)
+		fn("bluetooth "+b.Name, b.Identity, b.Firmware, b.Driver, nil)
 	}
 	for _, a := range r.Audio {
 		fn("audio "+a.Name, nil, nil, a.Driver, nil)
@@ -140,6 +146,66 @@ func walkBlocks(r *report.Report, fn func(where string, id *report.Identity, fw 
 			fn("usb "+u.Path+" interface", nil, nil, &d, nil)
 		}
 	}
+}
+
+// firmwareExplained is a firmware block with a version and its source, or
+// an unknown one with the reason, nothing in between.
+func firmwareExplained(fw *report.Firmware) bool {
+	if fw.Status == report.FirmwareUnknown {
+		return fw.Reason != "" && fw.Version == "" && fw.Source == ""
+	}
+	return fw.Status == "" && fw.Reason == "" && fw.Version != "" && fw.Source != ""
+}
+
+// firmwareGaps lists the parts that have firmware but no firmware block
+// (ADR 0008: never silently absent). The ME and EC have a block exactly
+// when they were found; displays and batteries don't expose firmware, a
+// virtual disk's is the host's, and a block device the kernel can't place
+// on a bus (md RAID, a zvol: no device link) isn't a drive.
+func firmwareGaps(r *report.Report) []string {
+	var gaps []string
+	need := func(where string, fw *report.Firmware) {
+		if fw == nil {
+			gaps = append(gaps, where)
+		}
+	}
+	need("system", r.System.Firmware)
+	need("cpu", r.CPU.Firmware)
+	if r.TPM != nil {
+		need("tpm", r.TPM.Firmware)
+	}
+	for _, d := range r.Storage {
+		if d.Type != "virtual" && d.Transport != "unknown" {
+			need("disk "+d.Name, d.Firmware)
+		}
+	}
+	for _, g := range r.GPUs {
+		need("gpu "+g.PCIAddress, g.Firmware)
+	}
+	for _, n := range r.Network {
+		need("nic "+n.Name, n.Firmware)
+	}
+	for _, b := range r.Bluetooth {
+		need("bluetooth "+b.Name, b.Firmware)
+	}
+	for _, u := range r.USB {
+		need("usb "+u.Path, u.Firmware)
+	}
+	return gaps
+}
+
+// checkFirmwareComplete fails on a part with firmware but no block, and
+// on a block that is neither a version nor an explained unknown.
+func checkFirmwareComplete(t *testing.T, r *report.Report) {
+	t.Helper()
+	if gaps := firmwareGaps(r); len(gaps) > 0 {
+		t.Errorf("firmware silently absent on %s", strings.Join(gaps, ", "))
+	}
+	walkBlocks(r, func(where string, _ *report.Identity, fw *report.Firmware, _ *report.Driver, _ *report.Health) {
+		if fw != nil && !firmwareExplained(fw) {
+			t.Errorf("%s: firmware %+v is neither a version with its source nor an explained unknown", where, fw)
+		}
+	})
 }
 
 func compareExpected(t *testing.T, path string, r *report.Report) {

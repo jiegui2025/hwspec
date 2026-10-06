@@ -451,7 +451,8 @@ func fakeMachine(t *testing.T, src string, cloneErr error) {
 	on := true
 	capture = func(string) *report.Report {
 		return &report.Report{OS: report.OS{Arch: "riscv64"},
-			Network:   []report.NIC{{Name: "enx00e04c680123", Firmware: &report.Firmware{Version: "1.0"}}, {Name: "lo"}},
+			Network: []report.NIC{{Name: "enx00e04c680123", Firmware: &report.Firmware{Version: "1.0"}}, {Name: "lo"},
+				{Name: "eth1", Firmware: report.UnknownFirmware("the driver reports no firmware version (ethtool)")}},
 			Bluetooth: []report.BluetoothController{{Name: "hci0", Address: "60:F2:62:12:34:56", Version: "5.2", ManufacturerID: 2, Powered: &on}, {Name: "hci1"}}}
 	}
 }
@@ -486,7 +487,7 @@ func TestRecordWritesTheTreeAndMachineJSON(t *testing.T) {
 			t.Errorf("machine.json lacks %s:\n%s", want, m)
 		}
 	}
-	if strings.Contains(m, "hci1") || strings.Contains(m, `"lo"`) {
+	if strings.Contains(m, "hci1") || strings.Contains(m, `"lo"`) || strings.Contains(m, "eth1") {
 		t.Errorf("devices without answers recorded:\n%s", m)
 	}
 	if leftovers, _ := filepath.Glob(filepath.Join(dir, "m", ".snapshot-*")); len(leftovers) != 0 {

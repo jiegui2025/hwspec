@@ -70,16 +70,35 @@ type Identity struct {
 	ManufactureDateSource string `json:"manufacture_date_source,omitempty"` // spd, edid, battery
 }
 
-// Firmware is the firmware a part runs, as the part or its driver reports it.
+// Firmware is the firmware a part runs, as the part or its driver reports
+// it. A part that has firmware always has this block (ADR 0008): with a
+// version and its source, or, when the version can't be read, Status
+// "unknown" and the Reason, never silently absent.
 type Firmware struct {
 	Vendor  string `json:"vendor,omitempty"`
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 	Date    string `json:"date,omitempty"`
 	Release string `json:"release,omitempty"`
 	// Source says where the version was read: dmi, microcode, nvme, scsi
-	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios, nvidia, mei.
-	Source string `json:"source"`
+	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the
+	// NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's
+	// tpm2_id), caps (a TPM 1.2).
+	Source string `json:"source,omitempty"`
+	Status string `json:"status,omitempty"` // "unknown" when Version couldn't be read
+	Reason string `json:"reason,omitempty"` // why it's unknown, e.g. "needs --full"
 }
+
+// FirmwareUnknown is Firmware.Status for a version that couldn't be read.
+const FirmwareUnknown = "unknown"
+
+// UnknownFirmware is the block of a part whose firmware version can't be
+// read, and why.
+func UnknownFirmware(reason string) *Firmware {
+	return &Firmware{Status: FirmwareUnknown, Reason: reason}
+}
+
+// Known says whether the block holds a version.
+func (f *Firmware) Known() bool { return f != nil && f.Version != "" }
 
 // Driver is the kernel driver bound to a part.
 type Driver struct {
@@ -191,7 +210,8 @@ type System struct {
 type TPM struct {
 	// SpecVersionMajor is the TCG specification major version the TPM
 	// implements (1 or 2).
-	SpecVersionMajor int `json:"spec_version_major"`
+	SpecVersionMajor int       `json:"spec_version_major"`
+	Firmware         *Firmware `json:"firmware,omitempty"`
 }
 
 type Board struct {
@@ -422,6 +442,7 @@ type BluetoothController struct {
 	Bus            string    `json:"bus,omitempty"`
 	BusAddress     string    `json:"bus_address,omitempty"`
 	Identity       *Identity `json:"identity,omitempty"` // the USB/PCI adapter
+	Firmware       *Firmware `json:"firmware,omitempty"`
 	Driver         *Driver   `json:"driver,omitempty"`
 }
 

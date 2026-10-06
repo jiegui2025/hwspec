@@ -190,7 +190,7 @@ func answers(m *collect.Machine) error {
 	m.Arch = r.OS.Arch
 	m.Ethtool = map[string]string{}
 	for _, n := range r.Network {
-		if n.Firmware != nil {
+		if n.Firmware.Known() {
 			m.Ethtool[macs.text(n.Name)] = n.Firmware.Version
 		}
 	}
@@ -347,7 +347,7 @@ var mountPoints = map[string]bool{
 // block reader); true marks the ones naming one part or person, kept with
 // a placeholder. Every other line of a udev record is dropped.
 var udevKeys = map[string]bool{
-	"ID_MODEL": false, "ID_MODEL_ENC": false, "ID_FS_TYPE": false,
+	"ID_MODEL": false, "ID_MODEL_ENC": false, "ID_FS_TYPE": false, "ID_TPM2_MODALIAS": false,
 	"ID_SERIAL": true, "ID_SERIAL_SHORT": true, "ID_SCSI_SERIAL": true, "ID_WWN": true, "ID_WWN_WITH_EXTENSION": true,
 	"ID_FS_LABEL": true, "ID_FS_LABEL_ENC": true, "ID_FS_UUID": true, "ID_FS_UUID_ENC": true, "ID_PART_ENTRY_UUID": true,
 }

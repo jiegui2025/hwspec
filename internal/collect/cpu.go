@@ -46,7 +46,7 @@ func (c *collector) cpu() {
 	if model != "" || vendor != "" {
 		out.Identity = &report.Identity{Vendor: vendor, Model: model}
 	}
-	out.Firmware = firmwareVersion(c.cpuinfoField("microcode"), "microcode")
+	out.Firmware = firmwareOrUnknown(firmwareVersion(c.cpuinfoField("microcode"), "microcode"), microcodeReason())
 	out.Family, _ = strconv.Atoi(c.cpuinfoField("cpu family"))
 	out.ModelID, _ = strconv.Atoi(c.cpuinfoField("model"))
 	out.Stepping, _ = strconv.Atoi(c.cpuinfoField("stepping"))
@@ -234,4 +234,15 @@ func countCPUList(s string) int {
 		}
 	}
 	return n
+}
+
+// microcodeReason says why the microcode revision is missing: the kernel
+// reports it in /proc/cpuinfo on x86 only.
+func microcodeReason() string {
+	switch _, arch := uname(); arch {
+	case "x86_64", "i386", "i486", "i586", "i686":
+		return "the kernel's /proc/cpuinfo gives no microcode revision"
+	default:
+		return "the kernel doesn't report CPU microcode on " + arch
+	}
 }

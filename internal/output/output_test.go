@@ -494,3 +494,35 @@ func BenchmarkYAMLRecordedCapture(b *testing.B) {
 		}
 	}
 }
+
+// An unknown firmware version is shown as unknown, with the reason,
+// wherever a version would be: never as an empty version.
+func TestTextShowsUnknownFirmwareWithTheReason(t *testing.T) {
+	r := sample()
+	r.System.Firmware = report.UnknownFirmware("the DMI tables give no BIOS version")
+	r.System.MEFirmware = report.UnknownFirmware("the kernel got no version from the Management Engine")
+	r.CPU.Firmware = report.UnknownFirmware("the kernel doesn't report CPU microcode on aarch64")
+	r.TPM = &report.TPM{SpecVersionMajor: 2, Firmware: report.UnknownFirmware("needs --full")}
+	r.Bluetooth = []report.BluetoothController{{Name: "hci0", Firmware: report.UnknownFirmware("not read yet, see #43")}}
+	r.GPUs = []report.GPU{{PCIAddress: "0000:00:02.0", Firmware: &report.Firmware{Status: report.FirmwareUnknown}}}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"Firmware   unknown (the DMI tables give no BIOS version)",
+		"ME         Management Engine firmware unknown (the kernel got no version from the Management Engine)",
+		"Microcode  unknown (the kernel doesn't report CPU microcode on aarch64)",
+		"TPM        TPM 2 (TCG spec major version), firmware unknown (needs --full)",
+		"firmware unknown (not read yet, see #43)",
+		"firmware unknown\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("text lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "fw ,") || strings.Contains(out, "fw \n") {
+		t.Errorf("an unknown version shown as empty:\n%s", out)
+	}
+}

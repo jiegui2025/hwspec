@@ -102,6 +102,7 @@ func TestCapturesRunNoProgramButSmartctl(t *testing.T) {
 		return []byte(`{"smart_status":{"passed":true}}`), nil
 	}
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	if len(r.Storage) != 2 {
 		t.Fatalf("storage = %+v, want sda and sdb", r.Storage)
 	}

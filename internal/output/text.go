@@ -45,17 +45,21 @@ func writeText(w io.Writer, r *report.Report) error {
 		line("Chassis", "%s", r.System.ChassisType)
 	}
 	line("Board", "%s", product(r.Board.Identity))
-	if fw := r.System.Firmware; fw != nil {
+	if fw := r.System.Firmware; fw.Known() {
 		line("Firmware", "%s", join(fw.Vendor, fw.Version, fw.Date))
+	} else if fw != nil {
+		line("Firmware", "%s", unknownFirmware(fw))
 	}
-	if fw := r.System.MEFirmware; fw != nil {
+	if fw := r.System.MEFirmware; fw.Known() {
 		line("ME", "%s", join(fw.Vendor, "Management Engine firmware", fw.Version))
+	} else if fw != nil {
+		line("ME", "Management Engine firmware %s", unknownFirmware(fw))
 	}
 	if fw := r.System.ECFirmware; fw != nil {
 		line("EC", "embedded controller firmware %s", fw.Version)
 	}
 	if r.TPM != nil {
-		line("TPM", "TPM %d (TCG spec major version)", r.TPM.SpecVersionMajor)
+		line("TPM", "%s", withParts(fmt.Sprintf("TPM %d (TCG spec major version)", r.TPM.SpecVersionMajor), fwText(r.TPM.Firmware)))
 	}
 	sb := ""
 	if r.OS.SecureBoot != nil {
@@ -104,8 +108,10 @@ func writeText(w io.Writer, r *report.Report) error {
 	if len(caches) > 0 {
 		line("Cache", "%s", strings.Join(caches, ", "))
 	}
-	if fw := r.CPU.Firmware; fw != nil {
+	if fw := r.CPU.Firmware; fw.Known() {
 		line("Microcode", "%s", fw.Version)
+	} else if fw != nil {
+		line("Microcode", "%s", unknownFirmware(fw))
 	}
 	if h := r.CPU.Health; h != nil {
 		line("Health", "%s", healthText(h))
@@ -245,7 +251,7 @@ func writeText(w io.Writer, r *report.Report) error {
 			if bt.Powered != nil && !*bt.Powered {
 				s += ", off"
 			}
-			line(bt.Name, "%s", withParts(s, driverText(bt.Driver)))
+			line(bt.Name, "%s", withParts(s, fwText(bt.Firmware), driverText(bt.Driver)))
 		}
 	}
 
@@ -389,10 +395,21 @@ func model(id *report.Identity) string {
 }
 
 func fwText(fw *report.Firmware) string {
-	if fw == nil {
+	switch {
+	case fw == nil:
 		return ""
+	case !fw.Known():
+		return "firmware " + unknownFirmware(fw)
 	}
 	return "fw " + fw.Version
+}
+
+// unknownFirmware says that a firmware version is unknown, and why.
+func unknownFirmware(fw *report.Firmware) string {
+	if fw.Reason == "" {
+		return "unknown"
+	}
+	return "unknown (" + fw.Reason + ")"
 }
 
 // driverText names the driver and flags what matters for maintenance:
