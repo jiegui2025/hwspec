@@ -1,0 +1,72 @@
+# HP EliteDesk 800 G5 Desktop Mini (the reference machine): memory (#129,
+# part 2 of #25). Every value cites the page it's on. HP's documents carry
+# no reuse licence that was found, so they are linked, never quoted. Where
+# two documents disagree, both claims are kept.
+
+sources:
+  hp-ds-2019-12-memory:
+    url: https://www8.hp.com/h20195/v2/GetDocument.aspx?docname=4AA7-5436EEAP
+    mirror: https://objects.icecat.biz/objects/mmo_73305915_1576357194_921_21430.pdf
+    title: HP EliteDesk 800 G5 Desktop Mini datasheet
+    doc: 4AA7-5436EEAP
+    published: "2019-12"
+    retrieved: "2026-10-06"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "p. 2, specifications table: Maximum memory, Memory slots"
+  hp-ds-2019-12-notes:
+    url: https://www8.hp.com/h20195/v2/GetDocument.aspx?docname=4AA7-5436EEAP
+    mirror: https://objects.icecat.biz/objects/mmo_73305915_1576357194_921_21430.pdf
+    title: HP EliteDesk 800 G5 Desktop Mini datasheet
+    doc: 4AA7-5436EEAP
+    published: "2019-12"
+    retrieved: "2026-10-06"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "p. 4, footnote 4 (memory data rate)"
+  hp-msg-2019-09-memory:
+    url: https://h10032.www1.hp.com/ctg/Manual/c06439994.pdf
+    title: Maintenance and Service Guide, HP EliteDesk 800 G5 Desktop Mini
+    doc: L21594-002
+    edition: "2"
+    published: "2019-09"
+    retrieved: "2026-10-06"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "pp. 30-31, Memory modules: specifications, slots and channels, operating modes"
+
+models:
+  hp.elitedesk-800-g5-mini:
+    match: {sys_vendor: HP, product_name: "HP EliteDesk 800 G5 Desktop Mini", board_name: "8595"}
+    data:
+      memory:
+        slots: [{value: 2, src: hp-ds-2019-12-memory}, {value: 2, src: hp-msg-2019-09-memory}]
+        # Left out on purpose: the guide's troubleshooting note "DIMM1 or XMM1
+        # must always be installed. DIMM1 must be installed before DIMM2, and
+        # DIMM3 must be installed before DIMM4" (p. 62, PDF p. 70) is generic
+        # text naming slots this board doesn't have; pp. 30-31 describe it.
+        slot_map:
+          - value: [{locator: DIMM1, channel: B}, {locator: DIMM3, channel: A}]
+            src: hp-msg-2019-09-memory
+        type: [{value: DDR4, src: hp-ds-2019-12-memory}, {value: DDR4, src: hp-msg-2019-09-memory}]
+        module_form_factor: [{value: SODIMM, src: hp-ds-2019-12-memory}, {value: SODIMM, src: hp-msg-2019-09-memory}]
+        # The datasheet and the service guide disagree: both are shown.
+        max_total_gb: [{value: 64, src: hp-ds-2019-12-memory}, {value: 32, src: hp-msg-2019-09-memory}]
+        speed_mts:
+          max: [{value: 2666, src: hp-ds-2019-12-memory}]
+          # "PC4-19200 DDR4-2400 MHz-compliant": the modules HP qualified,
+          # not stated as a minimum. No HP document gives a minimum.
+          compliance: [{value: 2400, src: hp-msg-2019-09-memory}]
+        # Faster modules run at the speed the processor configures, and the
+        # slowest module sets the speed for all.
+        speed_set_by: [{value: processor, src: hp-ds-2019-12-notes}]
+        speed_rule: [{value: slowest-module, src: hp-msg-2019-09-memory}]
+        population:
+          - value: [one-channel-single-mode, equal-capacity-dual-channel, unequal-capacity-flex-mode, larger-in-channel-a]
+            src: hp-msg-2019-09-memory
+        constraints:
+          - value: [unbuffered, non-ecc, no-x4-sdram, 1.2-volt, 260-pin]
+            src: hp-msg-2019-09-memory
