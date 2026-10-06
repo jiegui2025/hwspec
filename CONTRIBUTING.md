@@ -75,7 +75,7 @@ Before merging, a PR's sidebar matches its tracking issue, so the merge closes t
 
 | Pitfall | Avoid it |
 |---|---|
-| An issue needs several PRs | split it into [sub-issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/adding-sub-issues) (`gh issue create --parent N`), one per PR: each PR says `Fixes #<sub-issue>` and `Refs #<parent>`; the last one also fixes the parent |
+| An issue needs several PRs | split it into [sub-issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/adding-sub-issues) (`gh issue create --parent N`), one per PR: each PR says `Fixes #<sub-issue>` and `Refs #<parent>`. Close the parent **by hand** when its last sub-issue closes, with a comment listing the PRs: GitHub doesn't link a closing keyword to an issue with open sub-issues (seen on #26 and #92, [#93](https://github.com/jiegui2025/hwspec/issues/93)) |
 | A closing keyword in prose | GitHub links *fix*, *close* or *resolve* (any form) followed by `#N` anywhere in the body, tables included, and closes that issue on merge (#40, #47, #78). Write `Refs #N` or reword |
 
 ### Review comments
@@ -121,7 +121,7 @@ Once [#53](https://github.com/jiegui2025/hwspec/issues/53) lands, new issues and
 | **Priority and size** | a `priority:` label and a board size on every item; the reason in the issue when the problem doesn't make it evident |
 | **Open questions** | anything that couldn't be verified, stated as a question, never as a fact |
 
-An item one PR can't deliver is split into sub-issues of it (`gh issue create --parent N --body-file .github/backlog-issue.md`), one per PR, each with its own acceptance criteria ("Part 2 of 3 of #5"); sections the parent already covers say "see #parent".
+An item one PR can't deliver is split into sub-issues of it (`gh issue create --parent N --body-file .github/backlog-issue.md`), one per PR, each with its own acceptance criteria ("Part 2 of 3 of #5"); sections the parent already covers say "see #parent". The parent is closed by hand once all its parts are. Work a finished item *leads to* (follow-ups, not parts) is linked in the text ("Follow-up A of #26"), not as a sub-issue, so the item's own PR can still close it.
 
 | Field | Values |
 |---|---|

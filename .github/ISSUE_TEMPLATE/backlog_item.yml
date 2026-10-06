@@ -11,7 +11,7 @@ body:
     id: parent
     attributes:
       label: Parent issue
-      description: For one part of a larger item, delivered by one PR. Also set it under Relationships → Add parent (or file with `gh issue create --parent N`). Its PR closes this part; the last part's PR also closes the parent.
+      description: For one part of a larger item, delivered by one PR. Also set it under Relationships → Add parent (or file with `gh issue create --parent N`). Its PR closes this part; the parent is closed by hand when its last part closes (a PR can't close an issue with open sub-issues). For a follow-up rather than a part, link the issue in the text instead.
       placeholder: "#5 (part 2 of 3)"
   - type: textarea
     id: problem

@@ -1,7 +1,9 @@
 <!-- Backlog item body for `gh issue create --body-file .github/backlog-issue.md` (CONTRIBUTING.md › Backlog).
      Title: type(scope): summary. Labels: type:, area:, priority:. Milestone. Board 6: status, priority, size.
      Sub-issue of a larger item: file it with `gh issue create --parent N` (or Relationships → Add parent),
-     start with "Part N of M of #parent" and write "see #parent" in sections it already covers. -->
+     start with "Part N of M of #parent" and write "see #parent" in sections it already covers.
+     The parent is closed by hand when its last part closes: a PR can't close an issue with open sub-issues.
+     A follow-up of a finished item (not a part of it) links it in the text instead: "Follow-up A of #26". -->
 
 ## Problem
 
