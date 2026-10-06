@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // root is prefixed to every path (and passed to ghw), so tests can point
@@ -27,9 +28,15 @@ var unreadable map[string]error
 // snapshot tool uses it to record a machine as a test fixture.
 var traceRead func(path string)
 
+// traceMu serialises traceRead: the sensors collector runs alongside the
+// others, and recorders keep the paths in a plain map.
+var traceMu sync.Mutex
+
 func p(path string) string {
 	if traceRead != nil {
+		traceMu.Lock()
 		traceRead(path)
+		traceMu.Unlock()
 	}
 	return filepath.Join(root, path)
 }

@@ -65,7 +65,15 @@ func collectNow(version string) *report.Report {
 	}
 
 	idsLoaded := resolve.Prefetch() // loads while the collectors wait on the kernel
-	c.dmi()                         // before osInfo, which uses DMI to recognise VMs
+	// Sensor chips can be slow (an NVMe drive answers each reading in about
+	// 7.5 ms, one at a time), and only this collector touches r.Sensors and
+	// it never warns, so it runs while the others do.
+	sensorsDone := make(chan struct{})
+	go func() {
+		c.sensors()
+		close(sensorsDone)
+	}()
+	c.dmi() // before osInfo, which uses DMI to recognise VMs
 	c.osInfo()
 	c.cpu()
 	c.memory()
@@ -80,9 +88,9 @@ func collectNow(version string) *report.Report {
 	c.bluetooth()
 	c.audio()
 	c.batteries()
-	c.sensors()
 	c.usb()
 
+	<-sensorsDone
 	idsLoaded()
 	resolve.Names(r)
 	r.Sanitize() // strings from hardware and firmware are untrusted
