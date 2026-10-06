@@ -58,6 +58,10 @@ func (s *Structure) u64(off int) (uint64, bool) {
 var placeholders = []string{
 	"not specified", "unknown", "to be filled by o.e.m.", "default string",
 	"none", "no dimm", "not available", "undefined",
+	// ASUS and AMI firmware defaults: the kernel logs "Hardware name:
+	// System manufacturer System Product Name/<board>" on such machines.
+	"system manufacturer", "system product name", "system version",
+	"system serial number", "sku",
 }
 
 func Clean(s string) string {

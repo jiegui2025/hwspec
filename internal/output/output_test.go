@@ -233,6 +233,36 @@ func TestProductDoesNotRepeatTheVendor(t *testing.T) {
 	}
 }
 
+// An ASUS desktop whose DMI system strings were firmware defaults (cleaned
+// to nothing at capture): the Machine line says unknown, or just the vendor
+// when newer firmware sets one, and the Board line names the board.
+func TestTextMachineWithoutSystemStrings(t *testing.T) {
+	for _, c := range []struct {
+		system  *report.Identity
+		machine string
+	}{
+		{nil, "unknown"},
+		{&report.Identity{Vendor: "ASUS"}, "ASUS"},
+	} {
+		r := sample()
+		r.System.Identity = c.system
+		r.Board.Identity = &report.Identity{Vendor: "ASUSTeK COMPUTER INC.", Model: "ROG STRIX X570-E GAMING WIFI II"}
+		var buf bytes.Buffer
+		if err := Write(&buf, r, "text"); err != nil {
+			t.Fatal(err)
+		}
+		lines := map[string]string{}
+		for _, l := range strings.Split(buf.String(), "\n") {
+			if f := strings.Fields(l); len(f) > 1 { // "  Machine    ASUS"
+				lines[f[0]] = strings.Join(f[1:], " ")
+			}
+		}
+		if lines["Machine"] != c.machine || lines["Board"] != "ASUSTeK COMPUTER INC. ROG STRIX X570-E GAMING WIFI II" {
+			t.Errorf("system %+v: Machine %q, Board %q, want %q and the board:\n%s", c.system, lines["Machine"], lines["Board"], c.machine, buf.String())
+		}
+	}
+}
+
 // A two-socket workstation in a VM, with everything the text output can
 // show: each feature's line, in the words a reader expects.
 func TestTextDescribesAFullyFeaturedMachine(t *testing.T) {
