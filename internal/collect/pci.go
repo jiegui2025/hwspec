@@ -35,6 +35,17 @@ func (c *collector) pci() {
 			Link:        pcieLink(d),
 			Driver:      c.driverAt(pciDir + addr),
 		}
+		// The kernel exports a firmware label with "index" when it came
+		// from SMBIOS type 41 (an onboard device), with "acpi_index" when
+		// it came from an ACPI _DSM name (drivers/pci/pci-label.c).
+		if dev.Label = readStr(d + "label"); dev.Label != "" {
+			switch {
+			case exists(d + "index"):
+				dev.LabelSource = "smbios"
+			case exists(d + "acpi_index"):
+				dev.LabelSource = "acpi"
+			}
+		}
 		if parent, ok := pciParent(addr); ok {
 			dev.Parent = parent
 		} else {

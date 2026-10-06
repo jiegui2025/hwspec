@@ -248,7 +248,14 @@
           "part_number": "J642GU44J2320NL",
           "serial": "12345678"
         },
-        "manufacturer_raw": "85F7"
+        "manufacturer_raw": "85F7",
+        "mounting": {
+          "kind": "slot",
+          "confidence": "high",
+          "evidence": [
+            "the module's SPD gives form factor SODIMM"
+          ]
+        }
       }
     ]
   },
@@ -683,6 +690,15 @@
       "subsystem_device_id": "8595",
       "class_code": "030000",
       "class": "VGA compatible controller",
+      "label": "Onboard IGD",
+      "label_source": "smbios",
+      "mounting": {
+        "kind": "onboard",
+        "confidence": "high",
+        "evidence": [
+          "the kernel's label \"Onboard IGD\" comes from SMBIOS type 41"
+        ]
+      },
       "identity": {
         "vendor": "Intel Corporation",
         "model": "CoffeeLake-S GT2 [UHD Graphics 630]",
@@ -799,6 +815,10 @@
       "subsystem_device_id": "8595",
       "class_code": "010601",
       "class": "SATA controller",
+      "mounting": {
+        "kind": "unknown",
+        "reason": "the firmware's slot table needs root (run with --full)"
+      },
       "identity": {
         "vendor": "Intel Corporation",
         "model": "300/C240 Series Chipset Family SATA Controller (AHCI)",
@@ -880,6 +900,10 @@
       "subsystem_device_id": "8595",
       "class_code": "040300",
       "class": "Audio device",
+      "mounting": {
+        "kind": "unknown",
+        "reason": "the firmware's slot table needs root (run with --full)"
+      },
       "identity": {
         "vendor": "Intel Corporation",
         "model": "300/C240 Series Chipset Family HD Audio",
@@ -946,6 +970,15 @@
       "subsystem_device_id": "8595",
       "class_code": "020000",
       "class": "Ethernet controller",
+      "label": "Onboard Lan",
+      "label_source": "smbios",
+      "mounting": {
+        "kind": "onboard",
+        "confidence": "high",
+        "evidence": [
+          "the kernel's label \"Onboard Lan\" comes from SMBIOS type 41"
+        ]
+      },
       "identity": {
         "vendor": "Intel Corporation",
         "model": "Ethernet Connection (7) I219-LM",
@@ -976,6 +1009,10 @@
         "max_speed": "8.0 GT/s PCIe",
         "max_width": 4
       },
+      "mounting": {
+        "kind": "unknown",
+        "reason": "the firmware's slot table needs root (run with --full)"
+      },
       "identity": {
         "vendor": "Samsung Electronics Co Ltd",
         "model": "NVMe SSD Controller SM981/PM981/PM983",
@@ -1005,6 +1042,10 @@
         "width": 1,
         "max_speed": "5.0 GT/s PCIe",
         "max_width": 1
+      },
+      "mounting": {
+        "kind": "unknown",
+        "reason": "the firmware's slot table needs root (run with --full)"
       },
       "identity": {
         "vendor": "Intel Corporation",

@@ -208,7 +208,8 @@ type Board struct {
 type CPUPackage struct {
 	Designation string `json:"designation"`       // the socket's label, e.g. U3E1
 	Package     string `json:"package,omitempty"` // e.g. "Socket LGA1151", "Socket BGA1528"
-	// Mounting is "socket" or "soldered" when the package says so.
+	// Mounting is "socket", "slot" (a cartridge) or "onboard" (soldered)
+	// when the package's name says so.
 	Mounting  string `json:"mounting,omitempty"`
 	Populated bool   `json:"populated"`
 }
@@ -322,9 +323,10 @@ type MemoryModule struct {
 	ManufacturerRaw string    `json:"manufacturer_raw,omitempty"`
 	// The memory chips' maker, which can differ from the module's (from
 	// SPD): the JEDEC code and, filled in by resolve, its name.
-	DRAMVendorID string  `json:"dram_vendor_id,omitempty"`
-	DRAMVendor   string  `json:"dram_vendor,omitempty"`
-	Health       *Health `json:"health,omitempty"`
+	DRAMVendorID string    `json:"dram_vendor_id,omitempty"`
+	DRAMVendor   string    `json:"dram_vendor,omitempty"`
+	Health       *Health   `json:"health,omitempty"`
+	Mounting     *Mounting `json:"mounting,omitempty"`
 }
 
 type Disk struct {
@@ -342,6 +344,7 @@ type Disk struct {
 	Firmware           *Firmware   `json:"firmware,omitempty"`
 	Driver             *Driver     `json:"driver,omitempty"`
 	Health             *Health     `json:"health,omitempty"`
+	Mounting           *Mounting   `json:"mounting,omitempty"` // eMMC and SD cards
 }
 
 type Partition struct {
@@ -478,8 +481,35 @@ type PCIDevice struct {
 	Subsystem   string    `json:"subsystem,omitempty"`
 	IOMMUGroup  string    `json:"iommu_group,omitempty"`
 	Link        *PCIeLink `json:"pcie_link,omitempty"`
-	Identity    *Identity `json:"identity,omitempty"` // vendor, model = device name, revision
-	Driver      *Driver   `json:"driver,omitempty"`
+	// Label is the firmware's name for the device (sysfs label), and
+	// LabelSource where the kernel got it: "smbios" (type 41, an onboard
+	// device) or "acpi" (a _DSM name, which says nothing about mounting).
+	Label       string `json:"label,omitempty"`
+	LabelSource string `json:"label_source,omitempty"`
+	// Mounting says whether the device is soldered on or sits in a slot,
+	// for storage, network, display, multimedia and wireless devices.
+	Mounting *Mounting `json:"mounting,omitempty"`
+	Identity *Identity `json:"identity,omitempty"` // vendor, model = device name, revision
+	Driver   *Driver   `json:"driver,omitempty"`
+}
+
+// Mounting is whether a part is soldered on or removable, with what
+// showed it.
+type Mounting struct {
+	// Kind is onboard (soldered), socket, slot, or unknown.
+	Kind string `json:"kind"`
+	// Slot names the slot as the firmware does ("Slot2 / M2 WLAN/BT");
+	// SlotType is its type ("PCI Express Gen 3 x1"). When several slots
+	// could hold the part, SlotType is set and Slot isn't.
+	Slot     string `json:"slot,omitempty"`
+	SlotType string `json:"slot_type,omitempty"`
+	// Confidence is high (the evidence names this part), medium (it
+	// fits only one way, but the firmware's own link is broken or the
+	// type is ambiguous), or absent for unknown.
+	Confidence string   `json:"confidence,omitempty"`
+	Evidence   []string `json:"evidence,omitempty"`
+	// Reason says why it's unknown, or what lowered the confidence.
+	Reason string `json:"reason,omitempty"`
 }
 
 // GPUClocks is the graphics core's hardware clock range, and its measured

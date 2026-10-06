@@ -761,6 +761,38 @@
                     }
                   }
                 }
+              },
+              "mounting": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "kind": {
+                    "type": "string"
+                  },
+                  "slot": {
+                    "type": "string"
+                  },
+                  "slot_type": {
+                    "type": "string"
+                  },
+                  "confidence": {
+                    "type": "string"
+                  },
+                  "evidence": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -989,6 +1021,38 @@
                 "additionalProperties": {
                   "type": "number"
                 }
+              }
+            }
+          },
+          "mounting": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "slot": {
+                "type": "string"
+              },
+              "slot_type": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
               }
             }
           }
@@ -1899,6 +1963,44 @@
               },
               "max_width": {
                 "type": "integer"
+              }
+            }
+          },
+          "label": {
+            "type": "string"
+          },
+          "label_source": {
+            "type": "string"
+          },
+          "mounting": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "slot": {
+                "type": "string"
+              },
+              "slot_type": {
+                "type": "string"
+              },
+              "confidence": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
               }
             }
           },

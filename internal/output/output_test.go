@@ -400,3 +400,47 @@ func TestTextMemorySlots(t *testing.T) {
 		t.Errorf("root without a table:\n%s", got)
 	}
 }
+
+// Each part's mounting is one line: where it sits, and why when it's
+// uncertain or unknown.
+func TestTextMountings(t *testing.T) {
+	r := sample()
+	r.CPU.Packages = []report.CPUPackage{{Designation: "U3E1", Package: "Socket LGA1151", Mounting: "socket", Populated: true},
+		{Designation: "CPU1", Package: "Socket LGA1151", Mounting: "socket"}, {Designation: "CPU2", Package: "Socket AM4", Populated: true}}
+	r.Memory.Modules = []report.MemoryModule{{Locator: "DIMM1", Mounting: &report.Mounting{Kind: "slot", Slot: "DIMM1", Confidence: "high"}}}
+	r.PCI = []report.PCIDevice{
+		{Address: "0000:00:02.0", Identity: &report.Identity{Model: "UHD 630"}, Mounting: &report.Mounting{Kind: "onboard", Confidence: "high"}},
+		{Address: "0000:01:00.0", Class: "Non-Volatile memory controller", Mounting: &report.Mounting{Kind: "slot", SlotType: "PCI Express Gen 3 x4", Confidence: "medium", Reason: "which slot is unknown"}},
+		{Address: "0000:02:00.0", Identity: &report.Identity{Model: "AX200"}, Mounting: &report.Mounting{Kind: "slot", Slot: "Slot2", Confidence: "high"}},
+		{Address: "0000:03:00.0", Identity: &report.Identity{Model: "CPU card"}, Mounting: &report.Mounting{Kind: "socket", Confidence: "high"}},
+		{Address: "0000:04:00.0", Identity: &report.Identity{Model: "Odd"}, Mounting: &report.Mounting{Kind: "slot", Confidence: "high"}},
+		{Address: "0000:05:00.0", Identity: &report.Identity{Model: "Wi-Fi"}, Mounting: &report.Mounting{Kind: "unknown", Reason: "needs --full"}},
+		{Address: "0000:06:00.0", Identity: &report.Identity{Model: "Bridge"}},
+	}
+	r.Storage = append(r.Storage, report.Disk{Name: "mmcblk0", Mounting: &report.Mounting{Kind: "onboard", Confidence: "medium", Reason: "eMMC or a removable MMC card"}})
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Soldered or removable",
+		"U3E1       CPU: in a socket (Socket LGA1151)\n",
+		"DIMM1      memory module: in slot \"DIMM1\"\n",
+		"00:02.0    UHD 630: soldered on\n",
+		"01:00.0    Non-Volatile memory controller: in a PCI Express Gen 3 x4 slot (medium confidence; which slot is unknown)\n",
+		"02:00.0    AX200: in slot \"Slot2\"\n",
+		"03:00.0    CPU card: in a socket\n",
+		"04:00.0    Odd: in a slot\n",
+		"05:00.0    Wi-Fi: unknown: needs --full\n",
+		"mmcblk0    soldered on (medium confidence; eMMC or a removable MMC card)\n",
+	} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("text lacks %q:\n%s", want, buf.String())
+		}
+	}
+	for _, absent := range []string{"06:00.0", "CPU1", "CPU2"} {
+		if strings.Contains(buf.String(), absent) {
+			t.Errorf("%s got a line (no mounting, or an empty socket)", absent)
+		}
+	}
+}
