@@ -255,6 +255,8 @@ jobs:
         run: docker run --rm -v "$PWD:/repo" -w /repo docker.io/rhysd/actionlint:1.7.12@sha256:9d36088643581e728c969f35141f88139fec77280b2be23c1f66f8e40e1025e7
       - name: Which CI jobs each kind of change selects
         run: scripts/changed-areas_test.sh
+      - name: The commit message rules catch what they promise
+        run: scripts/check-commits_test.sh
 
   # A PR that changes verify.yml or its scripts must still catch tampering,
   # on local copies of the live edge release's assets. PRs only: on main it
