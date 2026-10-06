@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -246,9 +247,7 @@ func load(k Kind) *db {
 	// not as a layer of every database.
 	ov, _ := loadOverrides(overridesPath)
 	if len(ov[k]) > 0 {
-		for key, name := range ov[k] {
-			d.names[key] = name
-		}
+		maps.Copy(d.names, ov[k])
 		d.layers = append(d.layers, Layer{Source: overridesPath, Entries: len(ov[k])})
 	}
 	return d

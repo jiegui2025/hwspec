@@ -59,7 +59,7 @@ func cpu(intelPath, amdPath, curatedPath string, warn io.Writer) ([]byte, error)
 	}
 	uarchOf := map[string]string{} // base name -> core name, for defines without a comment
 	n := 0
-	for _, line := range strings.Split(string(intel), "\n") {
+	for line := range strings.SplitSeq(string(intel), "\n") {
 		m := intelDefine.FindStringSubmatch(line)
 		if m == nil || strings.HasSuffix(m[1], "_START") || strings.HasSuffix(m[1], "_LAST") || m[1] == "ANY" {
 			continue
@@ -195,7 +195,7 @@ func cpu(intelPath, amdPath, curatedPath string, warn io.Writer) ([]byte, error)
 		if len(parts) > 4 {
 			return nil, fmt.Errorf("%s:%d: %d tab-separated fields, want 4 (separate sources with spaces)", curatedPath, ln, len(parts))
 		}
-		for _, src := range strings.Fields(parts[3]) {
+		for src := range strings.FieldsSeq(parts[3]) {
 			if err := checkSource(src); err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", curatedPath, ln, err)
 			}
@@ -267,11 +267,11 @@ func tidy(s string) string {
 }
 
 func splitSuffix(macro string) (base, suffix string) {
-	i := strings.Index(macro, "_")
-	if i < 0 {
+	before, after, ok := strings.Cut(macro, "_")
+	if !ok {
 		return macro, ""
 	}
-	return macro[:i], macro[i+1:]
+	return before, after
 }
 
 // pretty turns kernel macro words into marketing spelling:
@@ -279,7 +279,7 @@ func splitSuffix(macro string) (base, suffix string) {
 func pretty(s string) string {
 	exceptions := map[string]string{"SKYLAKE": "Skylake", "LAKEFIELD": "Lakefield", "CORE2": "Core 2", "P4": "Pentium 4", "PENTIUM": "Pentium"}
 	var words []string
-	for _, w := range strings.Fields(s) {
+	for w := range strings.FieldsSeq(s) {
 		if e, ok := exceptions[w]; ok {
 			words = append(words, e)
 			continue

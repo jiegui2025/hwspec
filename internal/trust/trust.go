@@ -42,7 +42,7 @@ func checkTree(path string, trusted func(uid uint32) bool) error {
 		return fmt.Errorf("%s is on a FUSE filesystem, which can misreport its owner", real)
 	}
 	for p := real; ; p = filepath.Dir(p) {
-		st, err := os.Lstat(p) //nolint:gosec // G703: checking the path and its own parent directories is the point
+		st, err := os.Lstat(p)
 		if err != nil {
 			return err
 		}

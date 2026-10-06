@@ -98,7 +98,7 @@ func TestMemoryDevicesWithoutArrays(t *testing.T) {
 
 func TestParseTruncated(t *testing.T) {
 	table := testTable()
-	for n := 0; n < len(table); n++ {
+	for n := range table {
 		Parse(table[:n]) // must not panic
 		MemoryDevices(Parse(table[:n]))
 	}

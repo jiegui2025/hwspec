@@ -252,7 +252,7 @@ func TestTextMachineWithoutSystemStrings(t *testing.T) {
 			t.Fatal(err)
 		}
 		lines := map[string]string{}
-		for _, l := range strings.Split(buf.String(), "\n") {
+		for l := range strings.SplitSeq(buf.String(), "\n") {
 			if f := strings.Fields(l); len(f) > 1 { // "  Machine    ASUS"
 				lines[f[0]] = strings.Join(f[1:], " ")
 			}

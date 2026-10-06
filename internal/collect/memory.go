@@ -16,7 +16,7 @@ import (
 func (c *collector) memory() {
 	m := &c.r.Memory
 	m.Modules = []report.MemoryModule{}
-	for _, line := range strings.Split(readStr("/proc/meminfo"), "\n") {
+	for line := range strings.SplitSeq(readStr("/proc/meminfo"), "\n") {
 		k, v, ok := strings.Cut(line, ":")
 		if !ok {
 			continue

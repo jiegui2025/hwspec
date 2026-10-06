@@ -30,6 +30,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -518,8 +519,7 @@ func redactNames(root string) error {
 	}); err != nil {
 		return err
 	}
-	for i := len(paths) - 1; i >= 0; i-- { // children before their parents
-		path := paths[i]
+	for _, path := range slices.Backward(paths) { // children before their parents
 		if target, err := os.Readlink(path); err == nil && macs.text(target) != target {
 			if err := os.Remove(path); err != nil {
 				return err
@@ -549,7 +549,7 @@ func scrubMounts(data []byte) []byte {
 			continue
 		}
 		var opts []string
-		for _, o := range strings.Split(f[3], ",") {
+		for o := range strings.SplitSeq(f[3], ",") {
 			if !strings.HasPrefix(o, "subvol=") && !strings.HasPrefix(o, "subvolid=") {
 				opts = append(opts, o)
 			}

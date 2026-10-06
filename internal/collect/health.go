@@ -160,7 +160,7 @@ func parseNVMeSMART(b []byte) *report.Health {
 	}
 	used := float64(b[5])
 	h.LifeUsedPercent = &used
-	h.LifeRemainingPercent = ptr(max(0, 100-used))
+	h.LifeRemainingPercent = new(max(0, 100-used))
 	if used >= 100 && h.Status == report.StatusOK {
 		h.Status = report.StatusWarning
 		h.Reasons = append(h.Reasons, "rated write endurance reached: plan a replacement")
@@ -307,7 +307,7 @@ func smartctlHealth(dev string) (*report.Health, error) {
 	}
 	if used >= 0 {
 		h.LifeUsedPercent = &used
-		h.LifeRemainingPercent = ptr(max(0, 100-used))
+		h.LifeRemainingPercent = new(max(0, 100-used))
 	}
 	return h, nil
 }
