@@ -48,6 +48,15 @@ func writeText(w io.Writer, r *report.Report) error {
 	if fw := r.System.Firmware; fw != nil {
 		line("Firmware", "%s", join(fw.Vendor, fw.Version, fw.Date))
 	}
+	if fw := r.System.MEFirmware; fw != nil {
+		line("ME", "%s", join(fw.Vendor, "Management Engine firmware", fw.Version))
+	}
+	if fw := r.System.ECFirmware; fw != nil {
+		line("EC", "embedded controller firmware %s", fw.Version)
+	}
+	if r.TPM != nil {
+		line("TPM", "TPM %d (TCG spec major version)", r.TPM.SpecVersionMajor)
+	}
 	sb := ""
 	if r.OS.SecureBoot != nil {
 		sb = map[bool]string{true: ", Secure Boot on", false: ", Secure Boot off"}[*r.OS.SecureBoot]

@@ -38,6 +38,15 @@
       "date": "07/28/2026",
       "release": "27.0",
       "source": "dmi"
+    },
+    "me_firmware": {
+      "vendor": "Intel",
+      "version": "12.0.45.1509",
+      "source": "mei"
+    },
+    "ec_firmware": {
+      "version": "8.9",
+      "source": "dmi"
     }
   },
   "board": {
@@ -506,6 +515,9 @@
     }
   ],
   "batteries": [],
+  "tpm": {
+    "spec_version_major": 2
+  },
   "sensors": [
     {
       "chip": "acpitz",

@@ -20,7 +20,10 @@ func sample() *report.Report {
 		Hostname:      "box",
 		OS:            report.OS{PrettyName: "Test OS", SecureBoot: &on, Virtualization: "none"},
 		// Strings that look like other YAML types must survive a round trip.
-		System: report.System{Firmware: &report.Firmware{Version: "R21", Release: "27.0", Source: "dmi"}},
+		System: report.System{Firmware: &report.Firmware{Version: "R21", Release: "27.0", Source: "dmi"},
+			MEFirmware: &report.Firmware{Vendor: "Intel", Version: "12.0.45.1509", Source: "mei"},
+			ECFirmware: &report.Firmware{Version: "8.9", Source: "dmi"}},
+		TPM:    &report.TPM{SpecVersionMajor: 2},
 		Board:  report.Board{Identity: &report.Identity{Model: "8595", Revision: "true"}},
 		Memory: report.Memory{TotalBytes: 32 << 30, Modules: []report.MemoryModule{}},
 		Storage: []report.Disk{{Name: "sda", Identity: &report.Identity{Model: "SSD", Serial: "S1"},
@@ -52,7 +55,8 @@ func TestText(t *testing.T) {
 	if err := Write(&buf, sample(), "text"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Test OS", "32 GiB usable", "x: needs root"} {
+	for _, want := range []string{"Test OS", "32 GiB usable", "x: needs root",
+		"Intel Management Engine firmware 12.0.45.1509", "embedded controller firmware 8.9", "TPM 2 (TCG spec major version)"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("text output lacks %q:\n%s", want, buf.String())
 		}
