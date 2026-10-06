@@ -2,9 +2,10 @@ name: Verify release
 
 # Checks what was actually published, as a user would get it: checksums,
 # provenance attestations (signed by this repository's release or edge
-# workflow, on GitHub-hosted runners), and the binaries themselves on the
-# target distros, amd64 and arm64. Runs after every publish; run it by hand
-# for any tag from the Actions tab.
+# workflow, on GitHub-hosted runners), and the binaries themselves: in the
+# target distros' containers (amd64 and arm64) and in VMs with systemd,
+# OpenRC and sysvinit (amd64; vms.yml). Runs after every publish; run it by
+# hand for any tag from the Actions tab.
 
 on:
   workflow_call:
@@ -28,6 +29,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       commit: ${{ steps.check.outputs.commit }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - name: Download, check checksums and attestations
         id: check
@@ -47,6 +49,8 @@ jobs:
           commit=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha)
           echo "Verifying $TAG at $commit"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          version=$TAG; [ "$TAG" = edge ] && version="edge-${commit:0:7}"
+          echo "version=$version" >> "$GITHUB_OUTPUT" # what `hwspec version` must say
           gh release download "$TAG" --repo "$REPO" --dir dist
           (cd dist && sha256sum -c SHA256SUMS)
           for f in dist/hwspec-*.tar.gz; do
@@ -87,15 +91,14 @@ jobs:
       - name: Run the published binary in ${{ matrix.image }}
         env:
           IMAGE: ${{ matrix.image }}
-          TAG: ${{ inputs.tag }}
-          COMMIT: ${{ needs.integrity.outputs.commit }}
+          VERSION: ${{ needs.integrity.outputs.version }}
         run: |
           arch=amd64; [ "$(uname -m)" = aarch64 ] && arch=arm64
           bin="$PWD/$arch/hwspec"; chmod +x "$bin"
           run() { docker run --rm --network=none -v "$bin:/hwspec:ro" "$IMAGE" /hwspec "$@"; }
           version=$(run version)
           echo "$version"
-          want="hwspec $TAG"; [ "$TAG" = edge ] && want="hwspec edge-${COMMIT:0:7}"
+          want="hwspec $VERSION"
           [ "$version" = "$want" ] || { echo "::error::version '$version' isn't '$want'"; exit 1; }
           run capture -f json > out.json
           jq '{schema: (.schema_version == 1), container: (.os.virtualization == "container"),
@@ -107,3 +110,11 @@ jobs:
             read -ra lookup <<<"$q"
             run ids lookup "${lookup[@]}"
           done
+
+  vms:
+    needs: integrity
+    uses: ./.github/workflows/vms.yml
+    with:
+      artifact: verified-binaries
+      binary: amd64/hwspec
+      version: ${{ needs.integrity.outputs.version }}
