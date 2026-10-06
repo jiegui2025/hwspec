@@ -49,7 +49,7 @@ flowchart LR
 |---|---|---|
 | Models, part numbers, SKU | the point of a hardware report | identify the machine *type*, not the machine |
 | Firmware and driver versions, microcode | needed for update advice | change with updates |
-| Manufacture month and week, counters (power-on hours, data written, battery cycles) | needed for maintenance and wear advice | together they can **link** redacted captures of one machine to each other, or to an unredacted one |
+| Manufacture month (days and weeks are shortened to it), counters (power-on hours, data written, battery cycles) | needed for maintenance and wear advice | together they can **link** redacted captures of one machine to each other, or to an unredacted one |
 
 Redaction removes direct identifiers; it doesn't make captures of the same machine unlinkable. Don't share redacted captures where linking them matters.
 

@@ -1,6 +1,10 @@
 package report
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+	"time"
+)
 
 func TestRedactRemovesPersonalPathsAndMACDerivedNames(t *testing.T) {
 	r := &Report{
@@ -52,12 +56,54 @@ func TestRedactKeepsManufactureDatesToTheMonth(t *testing.T) {
 	r := &Report{
 		Batteries: []Battery{{Identity: &Identity{Model: "5B10W13930", ManufactureDate: "2021-03-17"}}},
 		Displays:  []Display{{Identity: &Identity{ManufactureDate: "2020-W38"}}},
+		Memory:    Memory{Modules: []MemoryModule{{Identity: &Identity{ManufactureDate: "2020-W05"}}}},
 	}
 	r.Redact()
 	if got := r.Batteries[0].Identity.ManufactureDate; got != "2021-03" {
 		t.Errorf("battery date = %q", got)
 	}
-	if got := r.Displays[0].Identity.ManufactureDate; got != "2020-W38" {
-		t.Errorf("display date = %q", got)
+	// Week 38 of 2020 is Mon 14 to Sun 20 September.
+	if got := r.Displays[0].Identity.ManufactureDate; got != "2020-09" {
+		t.Errorf("display date = %q, want 2020-09", got)
+	}
+	// Week 5 of 2020 is Mon 27 January to Sun 2 February: its Thursday is in January.
+	if got := r.Memory.Modules[0].Identity.ManufactureDate; got != "2020-01" {
+		t.Errorf("memory module date = %q, want 2020-01", got)
+	}
+}
+
+func TestMonthOf(t *testing.T) {
+	for d, want := range map[string]string{
+		"2021-03-17": "2021-03",
+		"2020-W38":   "2020-09",
+		"2020-W01":   "2020-01", // begins Mon 30 December 2019
+		"2019-W01":   "2019-01", // begins Mon 31 December 2018
+		"2020-W05":   "2020-01", // Thursday 30 January, ends in February
+		"2020-W06":   "2020-02",
+		"2026-W53":   "2026-12", // 2026 has 53 weeks; Thursday 31 December
+		"2025-W53":   "2025-12", // 2025 has 52: not the next year's January
+		// Already a month or coarser, or malformed: unchanged.
+		"2021-03": "2021-03", "2020": "2020", "": "",
+		"2020-W00": "2020-W00", "2020-W54": "2020-W54", "2020-W1": "2020-W1",
+		"2020-Wxx": "2020-Wxx", "20a0-W10": "20a0-W10", "2020/W10": "2020/W10",
+	} {
+		if got := monthOf(d); got != want {
+			t.Errorf("monthOf(%q) = %q, want %q", d, got, want)
+		}
+	}
+}
+
+// Against Go's own ISO week numbering: every week maps to the month of its
+// Thursday.
+func TestMonthOfAgreesWithISOWeek(t *testing.T) {
+	for day := time.Date(1990, 1, 4, 0, 0, 0, 0, time.UTC); day.Year() < 2040; day = day.AddDate(0, 0, 7) {
+		if day.Weekday() != time.Thursday {
+			day = day.AddDate(0, 0, (int(time.Thursday)-int(day.Weekday())+7)%7)
+		}
+		year, week := day.ISOWeek()
+		d := fmt.Sprintf("%04d-W%02d", year, week)
+		if got := monthOf(d); got != day.Format("2006-01") {
+			t.Fatalf("monthOf(%q) = %q, want %q (its Thursday is %s)", d, got, day.Format("2006-01"), day.Format("2006-01-02"))
+		}
 	}
 }
