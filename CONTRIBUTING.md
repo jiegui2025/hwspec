@@ -198,6 +198,7 @@ flowchart LR
 | Public key | `internal/ids/key.go` (`SigningPublicKey`), trusted through `trustedKeys` in `internal/ids/manifest.go` |
 | Key rotation | add the new public key to `trustedKeys`, release, then replace the environment secret; remove the old key in a later release |
 | Expected shrink of a database | rerun the workflow with `HWSPEC_ALLOW_SHRINK=1` after checking the upstream change |
+| The advisor knowledge base | the bundle also carries every committed `internal/kb/data/advisor-v*.json.gz`, as committed (CI checks it against `kb/`), dated by its `version` (the UTC time its content last changed) and counted by its rules. Before signing, the publish job checks it is the committed file byte for byte. A week where neither it nor upstream changed publishes nothing. `hwspec ids update` installs the format this build reads, with the same signature checks, if its version and rule count are the manifest's; `hwspec advise` uses the newer of it and the built-in copy and falls back to the built-in one, with a warning, if the synced copy doesn't parse or doesn't match the manifest. A rule count more than 5% below the previous bundle's needs `HWSPEC_ALLOW_SHRINK=1`, as for a database |
 
 ## Releases
 

@@ -111,8 +111,10 @@ jobs:
             echo "::error::Can't check the previous bundle: $out"; exit 1
           fi
 
+      # Also: the bundle's knowledge base is the committed one, byte for
+      # byte, so the build job can't slip in rules of its own (#185).
       - name: Re-verify the bundle before signing
-        run: go run ./tools/genids verify "$BUNDLE" build/prev-manifest.json
+        run: go run ./tools/genids verify "$BUNDLE" build/prev-manifest.json internal/kb/data
 
       - name: Sign
         env:
@@ -122,8 +124,8 @@ jobs:
       - name: Publish
         run: |
           date=$(date -u +%Y.%m.%d)
-          notes="Hardware ID databases built from upstream on $date. Installed by \`hwspec ids update\`; see manifest.json for per-database dates and counts."
-          files=("$BUNDLE"/*.ids.gz)
+          notes="Hardware ID databases built from upstream on $date, and the advisor knowledge base as committed. Installed by \`hwspec ids update\`; see manifest.json for per-file dates and counts."
+          files=("$BUNDLE"/*.ids.gz "$BUNDLE"/advisor-v*.json.gz)
 
           # Dated copy, kept for history and rollback.
           gh release view "ids-$date" >/dev/null 2>&1 \

@@ -128,6 +128,14 @@ func (c cli) idsStatus() error {
 		}
 		fmt.Fprintf(w, "%s\t%d\t%s\n", k, ids.Entries(k), strings.Join(parts, "  →  "))
 	}
+	// The advisor's knowledge base travels in the same bundle (#81).
+	if k, source, warns, err := knowledgeBase(); err == nil {
+		s := source + " " + k.Version
+		if len(warns) > 0 {
+			s += " (" + strings.Join(warns, "; ") + ")"
+		}
+		fmt.Fprintf(w, "advisor\t%d\t%s\n", len(k.Rules), s)
+	}
 	w.Flush()
 
 	switch t, err := ids.SyncedAt(); {

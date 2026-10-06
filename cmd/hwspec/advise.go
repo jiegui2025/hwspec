@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jiegui2025/hwspec/internal/advisor"
+	"github.com/jiegui2025/hwspec/internal/ids"
 	"github.com/jiegui2025/hwspec/internal/kb"
 	"github.com/jiegui2025/hwspec/internal/output"
 	"github.com/jiegui2025/hwspec/internal/report"
@@ -52,13 +53,12 @@ func (c cli) advise(args []string) error {
 	if format, err = pickFormat(format, outPath, "text"); err != nil {
 		return err
 	}
-	k, err := kb.Embedded()
+	k, _, warnings, err := knowledgeBase()
 	if err != nil {
 		return err
 	}
 
 	in := advisor.Input{KB: k, Now: now()}
-	var warnings []string
 	switch {
 	case file != "":
 		data, err := c.readInput(file)
@@ -313,4 +313,40 @@ func readStateFile(path string, uid int) ([]byte, error) {
 		return nil, fmt.Errorf("is larger than %d bytes", maxStateSize)
 	}
 	return data, nil
+}
+
+// syncedAdvisor is the knowledge base `hwspec ids update` installed;
+// tests replace it.
+var syncedAdvisor = ids.SyncedAdvisor
+
+// knowledgeBase is the newer of the built-in knowledge base and the one
+// `hwspec ids update` installed, by version (the UTC time their content
+// last changed, unique per content); the built-in one wins a tie, which
+// is then the same content. A synced copy that can't be read or parsed falls back to
+// the built-in one, with a warning. source names the copy used.
+func knowledgeBase() (k *kb.KB, source string, warnings []string, err error) {
+	k, err = kb.Embedded()
+	if err != nil {
+		return nil, "", nil, err
+	}
+	b, signed, err := syncedAdvisor()
+	switch {
+	case err != nil:
+		return k, "embedded", []string{"knowledge base: the synced copy isn't used (" + err.Error() + "); the built-in one is"}, nil
+	case b == nil:
+		return k, "embedded", nil, nil
+	}
+	synced, err := kb.Parse(b)
+	if err != nil {
+		return k, "embedded", []string{"knowledge base: the synced copy can't be read (" + err.Error() + "); the built-in one is used"}, nil
+	}
+	// The version decides which copy is newer, so it must be the one the
+	// signed manifest gives, not only the file's own word.
+	if synced.Version != signed {
+		return k, "embedded", []string{fmt.Sprintf("knowledge base: the synced copy's version %s isn't the signed manifest's %s; the built-in one is used", synced.Version, signed)}, nil
+	}
+	if synced.Version > k.Version {
+		return synced, filepath.Join(ids.SyncedDir(), ids.AdvisorFile), nil, nil
+	}
+	return k, "embedded", nil, nil
 }

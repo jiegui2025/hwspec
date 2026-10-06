@@ -80,7 +80,7 @@ func TestRulesFromEveryFileAreSortedAndDated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if k.Version != "2026-10-06" || len(k.Rules) != 2 || k.Rules[0].ID != "a.first" || k.Rules[1].ID != "z.last" {
+	if k.Version != "2026-10-06T12:00:00Z" || len(k.Rules) != 2 || k.Rules[0].ID != "a.first" || k.Rules[1].ID != "z.last" {
 		t.Errorf("version %q, rules %+v", k.Version, k.Rules)
 	}
 	// Sources are keyed by ID in YAML, sorted by ID in the compiled file.
@@ -91,11 +91,11 @@ func TestRulesFromEveryFileAreSortedAndDated(t *testing.T) {
 	if got := k.Sources[0].Retrieved; got != "2026-10-06" {
 		t.Errorf("retrieved = %q", got)
 	}
-	if code, _, stderr := genkb(t, "-version", "2030-01-02", "-o", out, dir); code != 0 {
+	if code, _, stderr := genkb(t, "-version", "2030-01-02T00:00:00Z", "-o", out, dir); code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
 	data, _ = os.ReadFile(out)
-	if k, _ := kb.Parse(data); k.Version != "2030-01-02" {
+	if k, _ := kb.Parse(data); k.Version != "2030-01-02T00:00:00Z" {
 		t.Errorf("-version ignored: %q", k.Version)
 	}
 }
@@ -126,7 +126,7 @@ func TestValuesSurviveAsWritten(t *testing.T) {
 }
 
 // Rebuilding unchanged sources changes no bytes, whatever the date; a
-// change takes today's date. check compares content, not gzip bytes.
+// change takes the time it was built. check compares content, not gzip bytes.
 func TestRebuildsKeepTheVersionUntilSomethingChanges(t *testing.T) {
 	dir := writeFiles(t, map[string]string{"r.yaml": ruleFile("a.rule")})
 	out := filepath.Join(t.TempDir(), "out.gz")
@@ -144,7 +144,7 @@ func TestRebuildsKeepTheVersionUntilSomethingChanges(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "s.yaml"), []byte(ruleFile("b.rule")), 0o644)
 	run([]string{"-o", out, dir}, noon.AddDate(0, 0, 9), &other, &other)
 	data, _ := os.ReadFile(out)
-	if k, _ := kb.Parse(data); k.Version != "2026-10-15" {
+	if k, _ := kb.Parse(data); k.Version != "2026-10-15T12:00:00Z" {
 		t.Errorf("changed rules kept version %q", k.Version)
 	}
 	// The same content, compressed differently (as another Go release
@@ -215,7 +215,7 @@ func TestCheckNoticesAStaleFile(t *testing.T) {
 	if code, _, stderr := genkb(t, "-o", out, dir); code != 0 {
 		t.Fatal(stderr)
 	}
-	if code, stdout, _ := genkb(t, "check", out, dir); code != 0 || !strings.Contains(stdout, "1 rules, version 2026-10-06, up to date") {
+	if code, stdout, _ := genkb(t, "check", out, dir); code != 0 || !strings.Contains(stdout, "1 rules, version 2026-10-06T12:00:00Z, up to date") {
 		t.Errorf("fresh file: exit %d, %q", code, stdout)
 	}
 	os.WriteFile(filepath.Join(dir, "more.yaml"), []byte(ruleFile("b.rule")), 0o644)
@@ -353,5 +353,50 @@ func TestSectionEntriesAreSortedAcrossFiles(t *testing.T) {
 	k, err := kb.Parse(data)
 	if err != nil || len(k.Models) != 2 || k.Models[0].ID != "a.model" || k.Models[1].ID != "z.model" {
 		t.Errorf("%v: %+v", err, k.Models)
+	}
+}
+
+// later: a compiled knowledge base whose content changed since the base
+// copy must carry a later version; unchanged content, or no base copy, is
+// fine; an earlier or equal version with new content isn't.
+func TestLaterVersionsForChangedContent(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"r.yaml": ruleFile("a.rule")})
+	tmp := t.TempDir()
+	base, file := filepath.Join(tmp, "base.gz"), filepath.Join(tmp, "file.gz")
+	build := func(out, version string) {
+		t.Helper()
+		if code, _, stderr := genkb(t, "-version", version, "-o", out, dir); code != 0 {
+			t.Fatal(stderr)
+		}
+	}
+	build(base, "2026-10-06T10:00:00Z")
+	build(file, "2026-10-06T10:00:00Z")
+	if code, stdout, stderr := genkb(t, "later", base, file); code != 0 || !strings.Contains(stdout, "content unchanged") {
+		t.Errorf("unchanged: exit %d %s%s", code, stdout, stderr)
+	}
+	if code, stdout, _ := genkb(t, "later", filepath.Join(tmp, "none.gz"), file); code != 0 || !strings.Contains(stdout, "no base copy") {
+		t.Errorf("no base: exit %d %s", code, stdout)
+	}
+	os.WriteFile(filepath.Join(dir, "s.yaml"), []byte(ruleFile("b.rule")), 0o644)
+	for version, ok := range map[string]bool{"2026-10-06T10:00:00Z": false, "2026-10-06T09:59:59Z": false, "2026-10-06T10:00:01Z": true} {
+		build(file, version)
+		code, stdout, stderr := genkb(t, "later", base, file)
+		if (code == 0) != ok || ok && !strings.Contains(stdout, "version later") || !ok && !strings.Contains(stderr, "isn't later than 2026-10-06T10:00:00Z") {
+			t.Errorf("%s: exit %d %s%s", version, code, stdout, stderr)
+		}
+	}
+	write := func(path, content string) { os.WriteFile(path, []byte(content), 0o644) }
+	write(filepath.Join(tmp, "broken.gz"), "x")
+	if code, stdout, _ := genkb(t, "later", filepath.Join(tmp, "broken.gz"), file); code != 0 || !strings.Contains(stdout, "the base copy isn't readable by this build") {
+		t.Errorf("a base of an older format: exit %d %s", code, stdout)
+	}
+	if code, _, stderr := genkb(t, "later", base, filepath.Join(tmp, "broken.gz")); code != 1 || !strings.Contains(stderr, "broken.gz") {
+		t.Errorf("unreadable file: exit %d %s", code, stderr)
+	}
+	if code, _, _ := genkb(t, "later", base, filepath.Join(tmp, "missing.gz")); code != 1 {
+		t.Error("a missing file passed")
+	}
+	if code, _, _ := genkb(t, "later", dir, file); code != 1 {
+		t.Error("a directory as base passed")
 	}
 }

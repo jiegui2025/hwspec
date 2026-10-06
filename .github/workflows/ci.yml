@@ -140,6 +140,23 @@ jobs:
             git archive "$BASE" schema | tar -x -C "$RUNNER_TEMP/base"
           fi
           go run ./tools/genschema check "$RUNNER_TEMP/base/schema" schema
+      # ADR 0009 (amended for #185): a binary keeps the copy of the knowledge
+      # base with the later version, so changed content needs a later one.
+      - name: A changed knowledge base has a later version
+        if: matrix.go == 'stable' && github.event_name != 'push'
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          : "${BASE:?no base commit for this event}"
+          for f in internal/kb/data/advisor-v*.json.gz; do
+            base="$RUNNER_TEMP/base-kb/$(basename "$f")"
+            mkdir -p "$(dirname "$base")"
+            if git cat-file -e "$BASE:$f" 2>/dev/null; then
+              git show "$BASE:$f" > "$base"
+            fi
+            go run ./tools/genkb later "$base" "$f"
+          done
 
   vulncheck:
     needs: changes

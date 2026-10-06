@@ -31,6 +31,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ func main() {
 // no command, or a command without any arguments.
 func run(argv []string, stdout, stderr io.Writer) int {
 	if len(argv) < 2 {
-		fmt.Fprintln(stderr, "usage: genids jedec|oui|gzip SRC OUT.gz | manifest DIR [PREV] | sign MANIFEST | keygen KEYFILE")
+		fmt.Fprintln(stderr, "usage: genids jedec|oui|gzip SRC OUT.gz | manifest DIR [PREV] | verify DIR [PREV [COMMITTED-KB-DIR]] | sign MANIFEST | keygen KEYFILE")
 		return 2
 	}
 	var err error
@@ -75,11 +76,17 @@ func run(argv []string, stdout, stderr io.Writer) int {
 		}
 		err = manifest(stdout, args[0], prev)
 	case "verify":
-		prev := ""
+		prev, committed := "", ""
 		if len(args) > 1 {
 			prev = args[1]
 		}
+		if len(args) > 2 {
+			committed = args[2]
+		}
 		err = verify(stdout, args[0], prev)
+		if err == nil && committed != "" {
+			err = sameAsCommitted(args[0], committed)
+		}
 	case "sign":
 		err = sign(args[0])
 	case "keygen":
@@ -191,6 +198,8 @@ func oui(src []byte) ([]byte, error) {
 // manifest validates every *.ids.gz in dir and writes dir/manifest.json.
 // A file without a header date keeps the date recorded for the same
 // content in the previous manifest, or gets today's date if it changed.
+// Every advisor-v*.json.gz knowledge base in dir goes in too (#81), dated
+// by its version and counted by its rules.
 func manifest(stdout io.Writer, dir, prevPath string) error {
 	prev, err := readPrevManifest(prevPath)
 	if err != nil {
@@ -230,7 +239,7 @@ func manifest(stdout io.Writer, dir, prevPath string) error {
 		// A large drop in entries means a truncated or replaced upstream
 		// file. Publishing it would remove names for every user, so it
 		// needs a person to look (HWSPEC_ALLOW_SHRINK=1 to accept).
-		if p, ok := prevFile(prev, name); ok && p.Entries > 0 && entries < p.Entries*95/100 && os.Getenv("HWSPEC_ALLOW_SHRINK") != "1" {
+		if p, ok := prevFile(prev, name); ok && shrank(entries, p.Entries) {
 			return fmt.Errorf("%s: %d entries, down from %d in the previous bundle (more than 5%%); set HWSPEC_ALLOW_SHRINK=1 if this is expected", name, entries, p.Entries)
 		}
 		sum := sha256.Sum256(gz)
@@ -247,6 +256,24 @@ func manifest(stdout io.Writer, dir, prevPath string) error {
 	}
 	if len(m.Files) != len(ids.Kinds) {
 		return fmt.Errorf("found %d database files in %s, want %d", len(m.Files), dir, len(ids.Kinds))
+	}
+	kbs, _ := filepath.Glob(filepath.Join(dir, "advisor-v*.json.gz"))
+	for _, path := range kbs {
+		name := filepath.Base(path)
+		gz, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		version, rules, err := ids.CheckAdvisor(name, gz)
+		if err != nil {
+			return err
+		}
+		if err := advisorShrank(prev, name, rules); err != nil {
+			return err
+		}
+		sum := sha256.Sum256(gz)
+		m.Files[name] = ids.ManifestFile{SHA256: hex.EncodeToString(sum[:]), Size: int64(len(gz)), Date: version, Entries: rules}
+		fmt.Fprintf(stdout, "%-16s %6d rules    %s\n", name, rules, version)
 	}
 	out, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
@@ -295,6 +322,24 @@ func readPrevManifest(path string) (*ids.Manifest, error) {
 	return m, nil
 }
 
+// shrank says whether n entries are more than 5% fewer than the previous
+// bundle's, unless HWSPEC_ALLOW_SHRINK=1 accepts it. Multiplying, not
+// dividing: 95/100 of a small count rounds down, so 2 → 1 would pass.
+func shrank(n, was int) bool {
+	return was > 0 && n*100 < was*95 && os.Getenv("HWSPEC_ALLOW_SHRINK") != "1"
+}
+
+// advisorShrank refuses a knowledge base with more than 5% fewer rules
+// than the previous bundle's, as for the databases: a broken build would
+// otherwise remove advice for every user (HWSPEC_ALLOW_SHRINK=1 to accept
+// a deliberate cleanup).
+func advisorShrank(prev *ids.Manifest, name string, rules int) error {
+	if p, ok := prevFile(prev, name); ok && shrank(rules, p.Entries) {
+		return fmt.Errorf("%s: %d rules, down from %d in the previous bundle (more than 5%%); set HWSPEC_ALLOW_SHRINK=1 if this is expected", name, rules, p.Entries)
+	}
+	return nil
+}
+
 func prevFile(m *ids.Manifest, name string) (ids.ManifestFile, bool) {
 	if m == nil {
 		return ids.ManifestFile{}, false
@@ -327,10 +372,17 @@ func verify(stdout io.Writer, dir, prevPath string) error {
 	}
 	tomorrow := now.AddDate(0, 0, 1).Format("2006-01-02")
 	paths, _ := filepath.Glob(filepath.Join(dir, "*.ids.gz"))
-	if len(paths) != len(m.Files) {
-		return fmt.Errorf("%d database files but %d in the manifest", len(paths), len(m.Files))
+	kbs, _ := filepath.Glob(filepath.Join(dir, "advisor-v*.json.gz"))
+	if len(paths)+len(kbs) != len(m.Files) {
+		return fmt.Errorf("%d database and knowledge-base files but %d in the manifest", len(paths)+len(kbs), len(m.Files))
 	}
 	for name, f := range m.Files {
+		if ids.IsAdvisorFile(name) {
+			if err := verifyAdvisor(dir, name, f, prev, tomorrow); err != nil {
+				return err
+			}
+			continue
+		}
 		kind, ok := ids.KindForFile(name)
 		if !ok {
 			return fmt.Errorf("%s: not a known database file", name)
@@ -364,12 +416,73 @@ func verify(stdout io.Writer, dir, prevPath string) error {
 		if bytes.ContainsFunc(content, func(r rune) bool { return r != '\n' && r != '\t' && r != '\r' && unicode.IsControl(r) }) {
 			return fmt.Errorf("%s: contains control characters", name)
 		}
-		if p, ok := prevFile(prev, name); ok && p.Entries > 0 && n < p.Entries*95/100 && os.Getenv("HWSPEC_ALLOW_SHRINK") != "1" {
+		if p, ok := prevFile(prev, name); ok && shrank(n, p.Entries) {
 			return fmt.Errorf("%s: %d entries, down from %d in the previous bundle", name, n, p.Entries)
 		}
 	}
-	fmt.Fprintf(stdout, "verified %d databases\n", len(m.Files))
+	fmt.Fprintf(stdout, "verified %d databases and knowledge bases\n", len(m.Files))
 	return nil
+}
+
+// sameAsCommitted requires the bundle's knowledge bases to be exactly the
+// ones committed in the checkout (internal/kb/data), byte for byte: the
+// publish job signs what the build job made, and the build job, which
+// processes upstream data without secrets, must not be able to slip its
+// own rules, with their suggested commands, into a signed bundle.
+func sameAsCommitted(bundle, committed string) error {
+	have, _ := filepath.Glob(filepath.Join(bundle, "advisor-v*.json.gz"))
+	want, _ := filepath.Glob(filepath.Join(committed, "advisor-v*.json.gz"))
+	names := func(paths []string) []string {
+		out := make([]string, len(paths))
+		for i, p := range paths {
+			out[i] = filepath.Base(p)
+		}
+		return out
+	}
+	if !slices.Equal(names(have), names(want)) {
+		return fmt.Errorf("the bundle's knowledge bases %v aren't the committed %v", names(have), names(want))
+	}
+	for i := range have {
+		a, err := os.ReadFile(have[i])
+		if err != nil {
+			return err
+		}
+		b, err := os.ReadFile(want[i])
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(a, b) {
+			return fmt.Errorf("%s differs from the committed %s", filepath.Base(have[i]), want[i])
+		}
+	}
+	return nil
+}
+
+// verifyAdvisor re-checks a knowledge base listed in the manifest: its
+// size and hash, its structure, its rule count and version against the
+// manifest, its date, and that it didn't shrink.
+func verifyAdvisor(dir, name string, f ids.ManifestFile, prev *ids.Manifest, tomorrow string) error {
+	gz, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(gz)
+	if int64(len(gz)) != f.Size || hex.EncodeToString(sum[:]) != f.SHA256 {
+		return fmt.Errorf("%s: size or SHA-256 differs from the manifest", name)
+	}
+	version, rules, err := ids.CheckAdvisor(name, gz)
+	if err != nil {
+		return err
+	}
+	switch {
+	case rules != f.Entries:
+		return fmt.Errorf("%s: %d rules, but the manifest says %d", name, rules, f.Entries)
+	case version != f.Date:
+		return fmt.Errorf("%s: version %s, but the manifest says %s", name, version, f.Date)
+	case f.Date > tomorrow:
+		return fmt.Errorf("%s: date %s is in the future", name, f.Date)
+	}
+	return advisorShrank(prev, name, rules)
 }
 
 func sign(manifestPath string) error {

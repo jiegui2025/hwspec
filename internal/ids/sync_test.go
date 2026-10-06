@@ -56,6 +56,23 @@ func newBundle(t *testing.T) *bundle {
 	return b
 }
 
+// publishWith is publish with the manifest edited before it is signed.
+func (b *bundle) publishWith(at time.Time, edit func(*Manifest)) {
+	b.publish(at, b.key)
+	raw, err := os.ReadFile(filepath.Join(b.dir, "manifest.json"))
+	if err != nil {
+		b.t.Fatal(err)
+	}
+	m, err := ParseManifest(raw)
+	if err != nil {
+		b.t.Fatal(err)
+	}
+	edit(m)
+	js, _ := json.Marshal(m)
+	write(b.t, filepath.Join(b.dir, "manifest.json"), string(js))
+	write(b.t, filepath.Join(b.dir, "manifest.json.sig"), base64.StdEncoding.EncodeToString(ed25519.Sign(b.key, js)))
+}
+
 // publish writes manifest.json for the files in the bundle directory and
 // signs it with key.
 func (b *bundle) publish(at time.Time, key ed25519.PrivateKey) {
@@ -67,6 +84,18 @@ func (b *bundle) publish(at time.Time, key ed25519.PrivateKey) {
 			b.t.Fatal(err)
 		}
 		m.Files[name] = ManifestFile{SHA256: sha(data), Size: int64(len(data)), Date: "2026-10-05", Entries: 1}
+	}
+	kbs, _ := filepath.Glob(filepath.Join(b.dir, "advisor-v*.json.gz"))
+	for _, path := range kbs {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			b.t.Fatal(err)
+		}
+		// The signed manifest gives the knowledge base's own version and
+		// rule count, as genids does; a file that can't be read gets a
+		// placeholder, which Update then refuses on the file itself.
+		version, rules, _ := CheckAdvisor(filepath.Base(path), data)
+		m.Files[filepath.Base(path)] = ManifestFile{SHA256: sha(data), Size: int64(len(data)), Date: version, Entries: rules}
 	}
 	js, _ := json.Marshal(m)
 	write(b.t, filepath.Join(b.dir, "manifest.json"), string(js))
