@@ -41,14 +41,13 @@ func (c *collector) memory() {
 // (root only).
 func (c *collector) smbiosModules() {
 	m := &c.r.Memory
-	table, err := readFile("/sys/firmware/dmi/tables/DMI")
+	structs, err := c.smbiosStructures()
 	if err != nil {
 		if !os.IsNotExist(err) {
-			c.warnRead("memory modules (SMBIOS)", err)
+			c.warnRead("SMBIOS table (memory modules and slots, CPU sockets, expansion slots, onboard devices)", err)
 		}
 		return
 	}
-	structs := smbios.Parse(table)
 	for _, a := range smbios.MemoryArrays(structs) {
 		m.MaxCapacityBytes += a.MaxCapacityBytes
 		m.Slots += a.Slots

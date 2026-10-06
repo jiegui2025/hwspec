@@ -189,6 +189,64 @@
         },
         "asset_tag": {
           "type": "string"
+        },
+        "slots": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "designation": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "width": {
+                "type": "string"
+              },
+              "usage": {
+                "type": "string"
+              },
+              "length": {
+                "type": "string"
+              },
+              "id": {
+                "type": "integer"
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "onboard_devices": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "designation": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "instance": {
+                "type": "integer"
+              },
+              "address": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
@@ -241,6 +299,29 @@
         },
         "sockets": {
           "type": "integer"
+        },
+        "packages": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "designation": {
+                "type": "string"
+              },
+              "package": {
+                "type": "string"
+              },
+              "mounting": {
+                "type": "string"
+              },
+              "populated": {
+                "type": "boolean"
+              }
+            }
+          }
         },
         "cores": {
           "type": "integer"

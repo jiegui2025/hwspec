@@ -1157,8 +1157,8 @@
     }
   ],
   "warnings": [
+    "SMBIOS table (memory modules and slots, CPU sockets, expansion slots, onboard devices): needs root (run with --full)",
     "dmi product_serial, product_uuid, chassis_serial, board_serial: needs root (run with --full)",
-    "drive health (SMART): needs root (run with --full)",
-    "memory modules (SMBIOS): needs root (run with --full)"
+    "drive health (SMART): needs root (run with --full)"
   ]
 }

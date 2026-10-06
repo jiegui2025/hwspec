@@ -21,6 +21,7 @@ type collector struct {
 	// only when the kernel exposes its module-signing parameter.
 	moduleSigning bool
 	cpuinfo       map[string]string // lazily read by cpuinfoField
+	smbios        *smbiosTable      // lazily read by smbiosStructures
 }
 
 func moduleSigningSupported() bool {
@@ -67,6 +68,7 @@ func collectNow(version string) *report.Report {
 	c.osInfo()
 	c.cpu()
 	c.memory()
+	c.firmwareTables()
 	c.storage()
 	c.pci()
 	c.gpus() // after pci
