@@ -101,7 +101,10 @@ func (c *collector) audio() {
 		card := report.SoundCard{Index: idx, ID: m[2], Name: m[4]}
 		card.Bus, card.BusAddress = busOf("/sys/class/sound/card" + m[1] + "/device")
 		card.Driver = c.driverAt("/sys/class/sound/card" + m[1] + "/device")
-		card.Codecs = codecs("/proc/asound/card" + m[1])
+		card.Codecs = codecsSysfs(m[1])
+		if card.Codecs == nil {
+			card.Codecs = codecs("/proc/asound/card" + m[1])
+		}
 		c.r.Audio = append(c.r.Audio, card)
 	}
 	if err := sc.Err(); err != nil {
@@ -109,8 +112,40 @@ func (c *collector) audio() {
 	}
 }
 
+// codecsSysfs reads each HD Audio codec's identity from its hwdep node
+// (/sys/class/sound/hwC<card>D<address>): values the kernel cached when it
+// probed the codec. It returns nil when there are none (kernels built
+// without CONFIG_SND_HDA_HWDEP, non-HDA cards), and the caller falls back
+// to codecs.
+func codecsSysfs(card string) []report.AudioCodec {
+	var out []report.AudioCodec
+	for _, n := range list("/sys/class/sound") {
+		if !strings.HasPrefix(n, "hwC"+card+"D") {
+			continue
+		}
+		d := "/sys/class/sound/" + n + "/"
+		vendor := readStr(d + "vendor_id")
+		if vendor == "" {
+			continue
+		}
+		codec := report.AudioCodec{VendorID: hex4(vendor), SubsystemID: hex4(readStr(d + "subsystem_id"))}
+		id := &report.Identity{Revision: hex4(readStr(d + "revision_id"))}
+		// /proc's "Codec:" line is the same two names joined.
+		if v, chip := readStr(d+"vendor_name"), readStr(d+"chip_name"); v != "" && chip != "" {
+			id.Model = v + " " + chip
+		}
+		if !id.Empty() {
+			codec.Identity = id
+		}
+		out = append(out, codec)
+	}
+	return out
+}
+
 // codecs reads the HD Audio codec files the kernel writes for each card
-// (/proc/asound/cardN/codec#M); the kernel already names the chip.
+// (/proc/asound/cardN/codec#M); the kernel already names the chip. Reading
+// one queries every widget of the codec (about 50 ms for a laptop codec,
+// and it may wake a powered-down codec), so codecsSysfs comes first.
 func codecs(cardDir string) []report.AudioCodec {
 	var out []report.AudioCodec
 	for _, f := range list(cardDir) {
