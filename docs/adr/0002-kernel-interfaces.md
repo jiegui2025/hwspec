@@ -1,6 +1,6 @@
 # 2. Read kernel interfaces directly, not other tools
 
-**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged · amended 2026-10-06 by [ADR 0010](0010-peripheral-batteries.md): read-only queries to UPower on the system bus for peripheral and UPS batteries
 
 ## Context
 
