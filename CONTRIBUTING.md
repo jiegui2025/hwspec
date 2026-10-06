@@ -205,13 +205,14 @@ The VMs boot under UEFI (q35, OVMF). `scripts/vm-run.sh` passes the binary to th
 | Alpine 3.24 | OpenRC under busybox init (`init`) | `/bin/busybox`, no `/run/systemd/system` | cloud-init `runcmd` |
 | Debian 13, switched to `sysvinit-core` | sysvinit (`init`) | `…/sbin/init`, no `/run/systemd/system`, `INIT: version` on the console | boot 1 (with network): cloud-init swaps the init system and installs an init script; boot 2: that script runs the check |
 
-Only boot 1 of the sysvinit image reaches the outside world (for apt). Every other boot has an isolated NIC (QEMU `restrict=on`): DHCP works, nothing leaves the VM.
+hwspec always runs with no way out, and each VM asserts it: the check fails if the guest has a default route. Boots that install packages reach the outside world for apt: boot 1 of the sysvinit image, and `debian-13`, which installs pkexec and then takes its links down before the check. Every other boot has an isolated NIC (QEMU `restrict=on,ipv6=off`): DHCP works, there is no route out, and nothing leaves the VM. Without `ipv6=off`, QEMU's router advertisement still gives the guest an IPv6 default route.
 
 | Check | As |
 |---|---|
 | `hwspec version` is the expected version: the release (or `edge-<commit>`) in `verify.yml`, `ci-<commit>` in CI | user (`tester`, created in the guest) |
 | `capture -f json`: schema 1, `virtualization` `vm`, `boot_mode` `uefi`, the image's `os.init`, memory, every PCI device named, not privileged | user |
 | `capture --full`: exits 0, `privileged` | root |
+| `capture --full` through pkexec, no login session (a test polkit rule grants `tester` where polkit runs): the outcome each image expects in `scripts/vm-run.sh`. Debian 13 installs `pkexec` first and must get a privileged capture; the others have no pkexec (the cloud images ship none, and sysvinit-core removes polkitd, which needs a logind) and must stop with hwspec's own explanation. A hang, a crash or a different outcome fails | user |
 
 - **Run one locally:** `scripts/vm-run.sh debian-13-sysvinit ./hwspec [VERSION]`.
   - Needs `/dev/kvm`, QEMU, OVMF and genisoimage.
