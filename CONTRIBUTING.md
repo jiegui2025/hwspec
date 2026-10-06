@@ -60,6 +60,8 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 
 Pushes to `main` run everything.
 
+Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. A `canary-26-04` job runs the tests on the next image (`ubuntu-26.04`) to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
+
 ## Backlog
 
 Work is tracked as issues on the [project board](https://github.com/users/jiegui2025/projects/6); the [roadmap](README.md#roadmap) shows the milestones. Every issue is **backed by evidence and carries its full solution**, so anyone can pick it up without re-researching it.

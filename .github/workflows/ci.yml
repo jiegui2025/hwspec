@@ -21,7 +21,7 @@ jobs:
   # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
   # to main and merge-queue runs always run everything.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       go: ${{ steps.areas.outputs.go }}
       nix: ${{ steps.areas.outputs.nix }}
@@ -47,7 +47,7 @@ jobs:
   lint:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -62,7 +62,7 @@ jobs:
   test:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -86,10 +86,26 @@ jobs:
         if: matrix.go == 'stable'
         run: scripts/coverage.sh coverage.out "$COVERAGE_MIN" >> "$GITHUB_STEP_SUMMARY"
 
+  # The next runner image, before we move to it (#39): informs, never
+  # blocks. It's not in ci-ok's needs, and a failure here fails no PR.
+  canary-26-04:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30 # a hang on the new image mustn't hold runners for 6 h
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Tests, host tests included
+        run: go test -race -count=1 ./...
+
   vulncheck:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -100,7 +116,7 @@ jobs:
   build:
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -123,7 +139,7 @@ jobs:
   distros:
     needs: [changes, build]
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -158,7 +174,7 @@ jobs:
   nix:
     needs: changes
     if: needs.changes.outputs.nix == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
@@ -167,7 +183,7 @@ jobs:
 
   pr-title:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       pull-requests: read
     steps:
@@ -178,7 +194,7 @@ jobs:
   # PRs are rebase-merged, so every commit lands on main as written.
   commits:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -193,7 +209,7 @@ jobs:
   actionlint:
     needs: changes
     if: needs.changes.outputs.workflows == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: actionlint (bundled shellcheck, pinned by digest)
@@ -203,7 +219,7 @@ jobs:
   mermaid:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Render all diagrams
@@ -217,7 +233,7 @@ jobs:
   ci-ok:
     if: always()
     needs: [changes, lint, test, vulncheck, build, distros, nix, actionlint, mermaid, pr-title, commits]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: All needed checks passed
         env:

@@ -225,7 +225,6 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | # | Item | Priority | Size |
 |---|---|---|---|
 | [#53](https://github.com/jiegui2025/hwspec/issues/53) | chore(board): add PRs to the board and move linked issues automatically | P1 | XS |
-| [#39](https://github.com/jiegui2025/hwspec/issues/39) | ci: pin the runner image before ubuntu-latest moves to Ubuntu 26.04 | P1 | XS |
 | [#38](https://github.com/jiegui2025/hwspec/issues/38) | chore: back up the ID-signing key offline | P1 | XS |
 | [#22](https://github.com/jiegui2025/hwspec/issues/22) | ci: gated deployment to edge and release, verified on real distros afterwards | P1 | L |
 | [#46](https://github.com/jiegui2025/hwspec/issues/46) | fix(smbios): treat ASUS and AMI default DMI strings as unknown | P2 | XS |
@@ -272,6 +271,7 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#30](https://github.com/jiegui2025/hwspec/issues/30) | ci: automate the independent Claude Code review on every PR *(deferred)* | P3 | M |
 | [#52](https://github.com/jiegui2025/hwspec/issues/52) | ci: keep CI running when GitHub-hosted runners are unavailable *(deferred)* | P3 | L |
 | [#28](https://github.com/jiegui2025/hwspec/issues/28) | feat: Windows and macOS support *(deferred)* | P3 | XL |
+| [#57](https://github.com/jiegui2025/hwspec/issues/57) | ci: move the pinned runner image to ubuntu-26.04 | P3 | XS |
 
 ## Building
 

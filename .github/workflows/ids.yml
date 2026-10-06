@@ -24,7 +24,7 @@ concurrency: ids
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     env:
@@ -79,7 +79,7 @@ jobs:
   publish:
     needs: build
     if: needs.build.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: ids-signing
     permissions:
       contents: write # create and update the ids-* releases
