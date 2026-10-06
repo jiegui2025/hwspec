@@ -1,0 +1,46 @@
+name: Accessibility barrier
+description: Something in hwspec or its docs is hard or impossible to use with a screen reader, braille display, magnifier, keyboard or other assistive technology
+title: "fix: "
+labels: ["accessibility", "type: defect", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. You don't need to share anything about a disability; what you were doing and what happened is enough. How reports are handled: [ACCESSIBILITY.md](https://github.com/jiegui2025/hwspec/blob/main/ACCESSIBILITY.md#reporting-a-barrier).
+  - type: textarea
+    id: what
+    attributes:
+      label: What were you trying to do, and what happened?
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Command you ran, or the docs page
+      placeholder: hwspec capture -f text, or README.md › Usage
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: hwspec version (`hwspec version`), if it's about the program
+  - type: input
+    id: setup
+    attributes:
+      label: Assistive technology, terminal or browser, and distribution, with versions where you know them
+      placeholder: Orca 48 in GNOME Terminal on Fedora 44; BRLTTY 6.7 on the console
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How much does it affect you?
+      options:
+        - Critical — I can't do the task at all
+        - Serious — much harder, but I found a workaround
+        - Moderate — annoying or inconsistent
+        - Minor — small effect
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else (a workaround you found, what would work better)

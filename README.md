@@ -330,6 +330,8 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [CONTRIBUTING.md](CONTRIBUTING.md) | development, tests, the PR and review flow |
 | [ARCHITECTURE.md](ARCHITECTURE.md), [docs/adr/](docs/adr/) | how the code is organised and why |
 | [SECURITY.md](SECURITY.md) | reporting a vulnerability |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | how we treat each other, and reporting a problem privately |
+| [ACCESSIBILITY.md](ACCESSIBILITY.md) | using hwspec with assistive technology, known limitations, reporting a barrier |
 | [Roadmap](#roadmap), [project board](https://github.com/users/jiegui2025/projects/6) | what's next, defects and maintenance |
 
 ## Licence
