@@ -3,6 +3,7 @@ version: "2"
 linters:
   enable:
     - bodyclose
+    - depguard
     - errorlint
     - gocritic
     - gosec
@@ -11,6 +12,64 @@ linters:
     - unconvert
     - unparam
   settings:
+    # Package boundaries from ARCHITECTURE.md's "Packages" table and "Rules".
+    # Test files may import test helpers and read testdata.
+    depguard:
+      rules:
+        stdlib-only:
+          list-mode: strict
+          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/schema/*.go", "!$test"]
+          allow: [$gostd]
+        # Only internal/ids/sync.go (hwspec ids update) reaches the network,
+        # and only collect's health.go (smartctl) and the CLI (pkexec) run
+        # programs: anywhere else, these imports fail.
+        no-network:
+          files: [$all, "!**/internal/ids/sync.go", "!$test"]
+          deny:
+            - pkg: net
+              desc: "captures never touch the network: only internal/ids/sync.go downloads (ARCHITECTURE.md Rules)"
+        no-subprocesses:
+          files: [$all, "!**/internal/collect/health.go", "!**/cmd/hwspec/main.go", "!$test"]
+          deny:
+            - pkg: os/exec
+              desc: "no external tools in the capture path except smartctl, run from internal/collect/health.go (ARCHITECTURE.md Rules)"
+        collect:
+          list-mode: strict
+          files: ["**/internal/collect/*.go", "!$test"]
+          allow:
+            - $gostd
+            - github.com/jiegui2025/hwspec/internal/report
+            - github.com/jiegui2025/hwspec/internal/resolve
+            - github.com/jiegui2025/hwspec/internal/smbios
+            - github.com/jiegui2025/hwspec/internal/edid
+            - github.com/jiegui2025/hwspec/internal/spd
+            - github.com/jiegui2025/hwspec/internal/trust
+            - github.com/jiegui2025/hwspec/schema
+            - github.com/jaypipes/ghw
+            - golang.org/x/sys/unix
+        parsers-are-pure:
+          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "!$test"]
+          deny:
+            - pkg: os
+              desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
+            - pkg: net
+              desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
+            - pkg: syscall
+              desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
+            - pkg: unsafe
+              desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
+        output:
+          list-mode: strict
+          files: ["**/internal/output/*.go", "!$test"]
+          allow: [$gostd, github.com/jiegui2025/hwspec/internal/report, gopkg.in/yaml.v3]
+        resolve:
+          list-mode: strict
+          files: ["**/internal/resolve/*.go", "!$test"]
+          allow: [$gostd, github.com/jiegui2025/hwspec/internal/ids, github.com/jiegui2025/hwspec/internal/report]
+        trust:
+          list-mode: strict
+          files: ["**/internal/trust/*.go", "!$test"]
+          allow: [$gostd, golang.org/x/sys/unix]
     gosec:
       excludes:
         - G104 # unhandled errors: errcheck covers this, with its own exclusions
