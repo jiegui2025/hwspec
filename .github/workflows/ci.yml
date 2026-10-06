@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
   merge_group:
+  # Nightly, everything runs, VMs included: the backstop for checks a PR
+  # skips because its paths can't affect them, and for drift no commit
+  # causes (Go stable, :latest distro images, the runner image, new
+  # advisories). A failure blocks nothing and is reported to the owner (#189).
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,13 +25,12 @@ env:
   COVERAGE_MIN: "95"
 
 jobs:
-  # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
-  # to main and merge-queue runs run everything except the VMs and the
-  # tamper test: a merged tree's VMs booted in its PR's run, edge.yml ->
-  # verify.yml runs the tamper test on the published build, and releases
-  # boot the VMs again there (#175).
-  # A push whose tree is exactly a merged PR's head, whose CI passed,
-  # runs nothing more: that tree was just tested (#152).
+  # Which parts of CI this change needs (scripts/changed-areas.sh). A push
+  # whose tree is exactly a merged PR's head, whose CI passed, runs nothing
+  # more: that tree was just tested (#152). Any other push runs everything
+  # except the VMs and the tamper test (the nightly run boots the VMs;
+  # edge.yml -> verify.yml runs the tamper test; releases boot the VMs
+  # again, #175). The nightly and manual runs run everything (#189).
   changes:
     runs-on: ubuntu-24.04
     permissions:
@@ -36,6 +42,7 @@ jobs:
       go: ${{ steps.areas.outputs.go }}
       nix: ${{ steps.areas.outputs.nix }}
       workflows: ${{ steps.areas.outputs.workflows }}
+      actionlint: ${{ steps.areas.outputs.actionlint }}
       docs: ${{ steps.areas.outputs.docs }}
       vm: ${{ steps.areas.outputs.vm }}
       verify: ${{ steps.areas.outputs.verify }}
@@ -73,12 +80,14 @@ jobs:
           }
           if [ "$EVENT" = pull_request ]; then
             scripts/changed-areas.sh "$BASE" "$HEAD" | tee -a "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = schedule ] || [ "$EVENT" = workflow_dispatch ]; then
+            printf 'go=true\nnix=true\nworkflows=true\nactionlint=true\ndocs=true\nvm=true\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           elif [ "$EVENT" = push ] && tested_pr; then
-            printf 'go=false\nnix=false\nworkflows=false\ndocs=false\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
+            printf 'go=false\nnix=false\nworkflows=false\nactionlint=false\ndocs=false\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           else
-            # Not the VMs: the merged tree's VMs booted in its PR's run, and
-            # releases boot them again (verify.yml -> vms.yml; #175).
-            printf 'go=true\nnix=true\nworkflows=true\ndocs=true\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
+            # Not the VMs: the nightly run boots them, and releases boot them
+            # again (verify.yml -> vms.yml; #175).
+            printf 'go=true\nnix=true\nworkflows=true\nactionlint=true\ndocs=true\nvm=false\nverify=false\n' | tee -a "$GITHUB_OUTPUT"
           fi
 
   lint:
@@ -127,7 +136,7 @@ jobs:
       # ADR 0003: a capture field may be added; renaming, removing or retyping
       # one needs a new schema_version (and with it a new capture-vN.json).
       - name: The capture format stays compatible
-        if: matrix.go == 'stable' && github.event_name != 'push'
+        if: matrix.go == 'stable' && github.event_name == 'pull_request'
         shell: bash # -o pipefail: a failed git archive must fail the step
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
@@ -143,7 +152,7 @@ jobs:
       # ADR 0009 (amended for #185): a binary keeps the copy of the knowledge
       # base with the later version, so changed content needs a later one.
       - name: A changed knowledge base has a later version
-        if: matrix.go == 'stable' && github.event_name != 'push'
+        if: matrix.go == 'stable' && github.event_name == 'pull_request'
         shell: bash
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
@@ -320,7 +329,7 @@ jobs:
   # Workflow syntax, expressions and embedded shell (shellcheck).
   actionlint:
     needs: changes
-    if: needs.changes.outputs.workflows == 'true'
+    if: needs.changes.outputs.actionlint == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -397,6 +406,6 @@ jobs:
           # `changes` must have succeeded AND produced every output; without
           # them each gated job would be skipped and this gate pass vacuously.
           echo "$NEEDS" | jq -e '.changes.result == "success"
-            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("docs") and has("vm") and has("verify"))
+            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("actionlint") and has("docs") and has("vm") and has("verify"))
             and (.changes.outputs | to_entries | all(.value == "true" or .value == "false"))
             and (to_entries | all(.value.result == "success" or .value.result == "skipped"))'
