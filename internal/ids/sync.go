@@ -208,6 +208,10 @@ func Update(ctx context.Context, opt UpdateOptions) (*UpdateResult, error) {
 	if err := install("manifest.json", manifestBytes); err != nil {
 		return nil, err
 	}
+	// The renames themselves are on disk once the directory is synced.
+	if err := syncDir(syncedDir); err != nil {
+		return nil, &InstallError{Written: written, Err: err}
+	}
 	Reset()
 	return &UpdateResult{Files: results, BundleAt: remote.GeneratedAt}, nil
 }
@@ -244,6 +248,18 @@ func sha(b []byte) string {
 	return hex.EncodeToString(s[:])
 }
 
+func syncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	err = d.Sync()
+	if cerr := d.Close(); err == nil {
+		err = cerr
+	}
+	return err
+}
+
 func writeAtomic(path string, data []byte) error {
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
 	if err != nil {
@@ -255,6 +271,12 @@ func writeAtomic(path string, data []byte) error {
 		return err
 	}
 	if err := tmp.Chmod(0o644); err != nil {
+		tmp.Close()
+		return err
+	}
+	// On disk before the rename: after a power loss the manifest is the
+	// old one or the new one, never empty.
+	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		return err
 	}

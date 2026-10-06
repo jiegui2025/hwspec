@@ -321,3 +321,13 @@ func TestUpdateReportsAPartialInstall(t *testing.T) {
 		t.Errorf("read-only directory: %v", err)
 	}
 }
+
+// syncDir reports a directory it can't open.
+func TestSyncDir(t *testing.T) {
+	if err := syncDir(t.TempDir()); err != nil {
+		t.Errorf("sync: %v", err)
+	}
+	if err := syncDir(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Error("a missing directory synced")
+	}
+}
