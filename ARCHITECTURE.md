@@ -110,7 +110,7 @@ flowchart TD
 
 | Artifact | How it's built | How it's verified |
 |---|---|---|
-| Static binaries (amd64, arm64) | `CGO_ENABLED=0`, tag-triggered release workflow | `SHA256SUMS`, build provenance attestation (`gh attestation verify`) |
+| Static binaries (amd64, arm64) | `CGO_ENABLED=0`, reproducible tarballs; `v*` tags publish after the owner approves the `production` environment, and each merge to `main` that passes CI replaces the `edge` pre-release | `SHA256SUMS` and build provenance attestations (`gh attestation verify`); after each publish, `verify.yml` re-checks them, proves tampered copies fail, and runs the published binaries in distro containers (amd64, arm64) and in systemd, OpenRC and sysvinit VMs (amd64) ([Edge builds and verification](CONTRIBUTING.md#edge-builds-and-verification)) |
 | Nix flake | `buildGoModule`, pinned nixpkgs | CI builds and runs it on every PR |
 | ID databases | embedded in the binary; weekly signed bundle (`ids-latest`) | ed25519 signature checked against a key built into hwspec |
 
@@ -121,5 +121,4 @@ The ranked plan is the [roadmap](README.md#roadmap); these items change the arch
 | Area | Tracking |
 |---|---|
 | Advisor: a knowledge base and rules that turn a capture into advice (drivers, firmware, upgrades, maintenance) | [#5](https://github.com/jiegui2025/hwspec/issues/5) will record the design in ADR 0009; [#7](https://github.com/jiegui2025/hwspec/issues/7)–[#11](https://github.com/jiegui2025/hwspec/issues/11), [#25](https://github.com/jiegui2025/hwspec/issues/25) build it |
-| Gated deployment, verified on real distros after publishing | [#22](https://github.com/jiegui2025/hwspec/issues/22) |
 | Desktop app | [ADR 0007](docs/adr/0007-desktop-ui.md), [#13](https://github.com/jiegui2025/hwspec/issues/13), [#14](https://github.com/jiegui2025/hwspec/issues/14) |
