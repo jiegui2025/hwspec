@@ -144,6 +144,9 @@ func record(ctx context.Context, dest string, stderr io.Writer) error {
 			return fmt.Errorf("%s: %w", path, err)
 		}
 	}
+	if err := trimModuleIndex(build); err != nil {
+		return err
+	}
 	if err := scrub(build); err != nil {
 		return err
 	}

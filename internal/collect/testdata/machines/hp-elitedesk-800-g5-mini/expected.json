@@ -15,7 +15,7 @@
     "id": "cachyos",
     "id_like": "arch",
     "pretty_name": "CachyOS",
-    "kernel": "7.2.8-1-cachyos",
+    "kernel": "7.2.9-1-cachyos",
     "arch": "x86_64",
     "init": "systemd",
     "virtualization": "none",
@@ -235,7 +235,7 @@
     }
   },
   "memory": {
-    "total_bytes": 33412382720,
+    "total_bytes": 33412419584,
     "swap_bytes": 33411821568,
     "modules": [
       {
@@ -341,7 +341,7 @@
       "driver": {
         "name": "i915",
         "module": "i915",
-        "srcversion": "4B8798499B75A10CE8C087F",
+        "srcversion": "B9D71D501A7B929EC852302",
         "in_tree": true,
         "proprietary": false,
         "unsigned": false
@@ -401,12 +401,12 @@
         "status": "ok",
         "source": "statistics",
         "metrics": {
-          "rx_dropped": 1,
+          "rx_dropped": 268,
           "rx_errors": 0,
-          "rx_packets": 99227707,
-          "tx_dropped": 57,
+          "rx_packets": 39283927,
+          "tx_dropped": 0,
           "tx_errors": 0,
-          "tx_packets": 15090079
+          "tx_packets": 5217944
         }
       }
     },
@@ -440,10 +440,10 @@
         "metrics": {
           "rx_dropped": 0,
           "rx_errors": 0,
-          "rx_packets": 2525,
-          "tx_dropped": 3,
+          "rx_packets": 24,
+          "tx_dropped": 0,
           "tx_errors": 0,
-          "tx_packets": 1931
+          "tx_packets": 35
         }
       }
     }
@@ -575,7 +575,7 @@
         {
           "label": "Sensor 2",
           "kind": "temperature",
-          "value": 51.85,
+          "value": 49.85,
           "unit": "C",
           "max": 65261.85
         }
@@ -588,7 +588,7 @@
         {
           "label": "temp1",
           "kind": "temperature",
-          "value": 55,
+          "value": 52,
           "unit": "C"
         }
       ]
@@ -618,7 +618,7 @@
         {
           "label": "Package id 0",
           "kind": "temperature",
-          "value": 79,
+          "value": 67,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -626,7 +626,7 @@
         {
           "label": "Core 0",
           "kind": "temperature",
-          "value": 75,
+          "value": 68,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -634,7 +634,7 @@
         {
           "label": "Core 1",
           "kind": "temperature",
-          "value": 74,
+          "value": 67,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -642,7 +642,7 @@
         {
           "label": "Core 2",
           "kind": "temperature",
-          "value": 75,
+          "value": 71,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -650,7 +650,7 @@
         {
           "label": "Core 3",
           "kind": "temperature",
-          "value": 74,
+          "value": 67,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -658,7 +658,7 @@
         {
           "label": "Core 4",
           "kind": "temperature",
-          "value": 79,
+          "value": 68,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -666,7 +666,7 @@
         {
           "label": "Core 5",
           "kind": "temperature",
-          "value": 74,
+          "value": 66,
           "unit": "C",
           "max": 94,
           "crit": 100
@@ -722,7 +722,7 @@
       "driver": {
         "name": "i915",
         "module": "i915",
-        "srcversion": "4B8798499B75A10CE8C087F",
+        "srcversion": "B9D71D501A7B929EC852302",
         "in_tree": true,
         "proprietary": false,
         "unsigned": false
@@ -780,7 +780,8 @@
         "vendor": "Intel Corporation",
         "model": "300/C240 Series Chipset Family Shared SRAM",
         "revision": "10"
-      }
+      },
+      "module_candidates": []
     },
     {
       "address": "0000:00:16.0",
@@ -905,7 +906,8 @@
         "vendor": "Intel Corporation",
         "model": "Q370 Chipset LPC/eSPI Controller",
         "revision": "10"
-      }
+      },
+      "module_candidates": []
     },
     {
       "address": "0000:00:1f.3",
@@ -1077,6 +1079,13 @@
       }
     }
   ],
+  "kernel": {
+    "module_index": {
+      "release": "7.2.9-1-cachyos",
+      "status": "found",
+      "dir": "/lib/modules/7.2.9-1-cachyos"
+    }
+  },
   "usb": [
     {
       "bus": 1,
@@ -1110,7 +1119,7 @@
     },
     {
       "bus": 1,
-      "device": 10,
+      "device": 2,
       "path": "1-2",
       "vendor_id": "17ef",
       "product_id": "4831",
@@ -1149,7 +1158,7 @@
     },
     {
       "bus": 1,
-      "device": 7,
+      "device": 3,
       "path": "1-4",
       "vendor_id": "413c",
       "product_id": "1010",
@@ -1174,7 +1183,7 @@
     },
     {
       "bus": 1,
-      "device": 9,
+      "device": 5,
       "path": "1-4.4",
       "vendor_id": "413c",
       "product_id": "2110",
@@ -1199,7 +1208,7 @@
     },
     {
       "bus": 1,
-      "device": 8,
+      "device": 4,
       "path": "1-5",
       "vendor_id": "0b05",
       "product_id": "1a9b",
