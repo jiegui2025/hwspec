@@ -25,7 +25,7 @@ func (c *collector) network() {
 			Type:   "ethernet",
 			MAC:    readStr(d + "address"),
 			State:  readStr(d + "operstate"),
-			Driver: driverAt(d + "device"),
+			Driver: c.driverAt(d + "device"),
 		}
 		// The driver reports the adapter's firmware (no root needed).
 		if fw, err := ethtoolDrvinfo(name); err == nil {
@@ -100,7 +100,7 @@ func (c *collector) audio() {
 		idx, _ := strconv.Atoi(m[1])
 		card := report.SoundCard{Index: idx, ID: m[2], Name: m[4]}
 		card.Bus, card.BusAddress = busOf("/sys/class/sound/card" + m[1] + "/device")
-		card.Driver = driverAt("/sys/class/sound/card" + m[1] + "/device")
+		card.Driver = c.driverAt("/sys/class/sound/card" + m[1] + "/device")
 		card.Codecs = codecs("/proc/asound/card" + m[1])
 		c.r.Audio = append(c.r.Audio, card)
 	}
@@ -361,7 +361,7 @@ func (c *collector) usb() {
 			if class == "00" || class == "" {
 				class = readStr(d + iface + "/bInterfaceClass")
 			}
-			if drv := driverAt(d + iface); drv != nil && !seenDrv[drv.Name] {
+			if drv := c.driverAt(d + iface); drv != nil && !seenDrv[drv.Name] {
 				seenDrv[drv.Name] = true
 				dev.Drivers = append(dev.Drivers, *drv)
 			}

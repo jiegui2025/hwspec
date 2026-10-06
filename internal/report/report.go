@@ -86,7 +86,9 @@ type Driver struct {
 	Version    string `json:"version,omitempty"`
 	SrcVersion string `json:"srcversion,omitempty"`
 	Builtin    bool   `json:"builtin,omitempty"`
-	// From the module's taint flags (O, P, E).
+	// From the module's taint flags (O, P, E). Unsigned is set only when the
+	// kernel exposes module.sig_enforce; unpatched kernels before 5.13 can
+	// expose it without module signing.
 	InTree      *bool `json:"in_tree,omitempty"`
 	Proprietary *bool `json:"proprietary,omitempty"`
 	Unsigned    *bool `json:"unsigned,omitempty"`

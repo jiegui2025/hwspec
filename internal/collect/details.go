@@ -13,7 +13,7 @@ import (
 
 // driverAt describes the kernel driver bound to the device directory dev
 // (e.g. /sys/bus/pci/devices/0000:00:1f.6), or nil if none is bound.
-func driverAt(dev string) *report.Driver {
+func (c *collector) driverAt(dev string) *report.Driver {
 	name := linkBase(dev + "/driver")
 	if name == "" {
 		return nil
@@ -38,8 +38,11 @@ func driverAt(dev string) *report.Driver {
 	if taint, err := readStrErr(mod + "taint"); err == nil {
 		inTree := !strings.Contains(taint, "O")
 		proprietary := strings.Contains(taint, "P")
-		unsigned := strings.Contains(taint, "E")
-		d.InTree, d.Proprietary, d.Unsigned = &inTree, &proprietary, &unsigned
+		d.InTree, d.Proprietary = &inTree, &proprietary
+		if c.moduleSigning {
+			unsigned := strings.Contains(taint, "E")
+			d.Unsigned = &unsigned
+		}
 	}
 	return d
 }
@@ -49,14 +52,14 @@ func driverAt(dev string) *report.Driver {
 // above it in sysfs with a driver on a hardware bus. For a SATA disk that
 // is ahci (not the generic sd), for an NVMe namespace nvme, for a USB disk
 // usb-storage or uas.
-func controllerDriver(classDevice string) *report.Driver {
+func (c *collector) controllerDriver(classDevice string) *report.Driver {
 	for dir := unroot(realPath(classDevice)); strings.HasPrefix(dir, "/sys/devices/"); dir = filepath.Dir(dir) {
 		if linkBase(dir+"/driver") == "" {
 			continue
 		}
 		switch filepath.Base(realPath(dir + "/subsystem")) {
 		case "pci", "usb", "platform", "virtio", "mmc", "sdio":
-			return driverAt(dir)
+			return c.driverAt(dir)
 		}
 	}
 	return nil
