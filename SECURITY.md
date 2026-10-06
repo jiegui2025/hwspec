@@ -17,6 +17,7 @@ flowchart LR
     dev["device strings<br/>(USB, EDID, SMBIOS)"]
     cap["shared captures<br/>(hwspec show)"]
     up["upstream ID sources"]
+    kbsrc["kb/ (reviewed PRs)"]
     net["network (ids update)"]
   end
   subgraph hwspec
@@ -27,6 +28,7 @@ flowchart LR
   dev --> san
   cap --> san
   up -->|"CI: HTTPS only, validate, refuse shrink/future dates,<br/>sign in protected environment"| sig
+  kbsrc -->|"CI: genkb validates sources and rules"| sig
   net --> sig
   root --> kernel[(kernel interfaces as root)]
 ```
@@ -39,6 +41,7 @@ flowchart LR
 | Running as root via `sudo` | `smartctl` only from root-owned system directories, with a timeout; output files written atomically and handed to the invoking user; devices written into, never replaced | `internal/collect`, `cmd/hwspec` |
 | `hwspec ids update` | signature over the exact manifest bytes, rollback refused (vs installed and built-in data), size + SHA-256 + parse of every file, file names whitelisted, size limits; each file replaced atomically, manifest last | `internal/ids` |
 | ID bundle publishing | HTTPS-only fetches; >5% shrink and future dates refused; build job without secrets; signing only in the `ids-signing` environment (main branch), after independent re-verification | `.github/workflows/ids.yml`, `tools/genids` |
+| Advisor knowledge base (with #80, #81) | compiled by `tools/genkb` in reviewed PRs (CI checks it against `kb/`) and published weekly as committed, in the same signed bundle, so it reaches released binaries between releases; parsed with size limits, and a rule a binary can't fully understand is skipped, never applied in part; a copy that doesn't parse falls back to the built-in one; its text, including suggested `commands`, is sanitised when rendered and only shown, never run | `tools/genkb`, `internal/kb`, `internal/ids`, `internal/advisor`, `cmd/hwspec` |
 | Untrusted text | control and Unicode format characters removed from every string and map key, in every output format; the text output's "Needs attention" list is labelled as the capture's own record, since `show` may display someone else's file | `internal/report`, `internal/ids`, `internal/output` |
 | Parsing | bounds-checked SMBIOS, EDID, SPD, NVMe log page and Bluetooth reply parsers (SPD fuzzed); YAML alias and depth limits (yaml.v3) | `internal/smbios`, `internal/edid`, `internal/spd`, `internal/collect`, `internal/output` |
 | Privacy | `--redact` (on `capture` and `show`) removes every serial number (all identity blocks), UUIDs, MAC addresses (also inside interface names), hostname, personal mount points and labels, and keeps manufacture dates to the month; captures are `0600` unless redacted | `internal/report` |
