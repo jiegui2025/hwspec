@@ -51,6 +51,8 @@ scripts/check-commits.sh|false false false true false false false
 scripts/check-commits_test.sh|false false false true false false false
 scripts/check-adr-index.sh|false false false true true false false
 scripts/check-mermaid.sh|false false false true true false false
+scripts/changed-diagrams.sh|false false false true true false false
+scripts/changed-diagrams_test.sh|false false false true true false false
 scripts/verify-release.sh|false false false true false false true
 scripts/verify-release_test.sh|false false false true false false true
 .github/workflows/verify.yml|false false false true false false true

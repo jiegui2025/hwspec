@@ -339,6 +339,8 @@ jobs:
         run: scripts/changed-areas_test.sh
       - name: The commit message rules catch what they promise
         run: scripts/check-commits_test.sh
+      - name: Only diagrams a change touches are rendered, and all of those
+        run: scripts/changed-diagrams_test.sh
 
   # A PR that changes verify.yml or its scripts must still catch tampering,
   # on local copies of the live edge release's assets. PRs only: on main it
@@ -371,9 +373,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # the PR's base, to list the Markdown it changed
-      # A PR renders the Markdown it changed (each diagram takes a container
-      # start: all 25 took 90 s, #152); a change to CI itself, and main,
-      # render every file.
+      # A PR renders only the Markdown whose diagrams it touched (a prose
+      # edit renders nothing, #189); a change to the renderer (the script or
+      # the image below), and the nightly run, render every file.
       - name: Render the diagrams
         shell: bash # -o pipefail: a failed git diff must fail the step
         env:
@@ -381,10 +383,13 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-          CI_CHANGED: ${{ needs.changes.outputs.workflows }}
         run: |
-          if [ "$EVENT" = pull_request ] && [ "$CI_CHANGED" = false ]; then
-            git diff -z --no-renames --name-only --diff-filter=d "$BASE...$HEAD" -- '*.md' | xargs -0 -r scripts/check-mermaid.sh
+          renderer_changed() {
+            git diff --name-only "$BASE...$HEAD" -- scripts/check-mermaid.sh | grep -q . ||
+              git diff "$BASE...$HEAD" -- .github/workflows/ci.yml | grep -q '^[-+].*MERMAID_IMAGE:'
+          }
+          if [ "$EVENT" = pull_request ] && ! renderer_changed; then
+            scripts/changed-diagrams.sh "$BASE" "$HEAD" | xargs -0 -r scripts/check-mermaid.sh
           else
             git ls-files -z '*.md' | xargs -0 -r scripts/check-mermaid.sh
           fi

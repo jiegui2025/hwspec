@@ -23,7 +23,15 @@ for md in "$@"; do
   printf '%s\t%s\n' "$n" "$md" >> "$work/index"
 done
 mmds=("$work"/*.mmd)
-if [ ! -e "${mmds[0]}" ]; then
+[ -e "${mmds[0]}" ] || mmds=()
+# A broken extraction must not pass as "0 diagrams render": the number of
+# blocks found must be the number of opening fences in the files.
+fences=$(cat "$@" | tr -d '\r' | grep -cE '^[[:space:]]*(```|~~~)[[:space:]]*mermaid[[:space:]]*$' || true)
+if [ "$fences" != "${#mmds[@]}" ]; then
+  echo "::error::found $fences Mermaid fences but extracted ${#mmds[@]} diagrams"
+  exit 1
+fi
+if [ "${#mmds[@]}" = 0 ]; then
   echo "0 diagrams render"
   exit 0
 fi
