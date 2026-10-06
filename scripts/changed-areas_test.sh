@@ -23,6 +23,7 @@ vendor/example.com/x/x.go|true true false false true false
 .golangci.yml|true true false false true false
 Makefile|true true false false true false
 scripts/coverage.sh|true true false false true false
+schema/capture-v1.json|true true false false true false
 flake.lock|false true false false false false
 flake.nix|false true false false false false
 .github/workflows/ci.yml|true true true true true false

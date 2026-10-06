@@ -1,0 +1,1940 @@
+{
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "type": "integer"
+    },
+    "tool": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "id_databases": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "captured_at": {
+      "type": "string"
+    },
+    "hostname": {
+      "type": "string"
+    },
+    "privileged": {
+      "type": "boolean"
+    },
+    "redacted": {
+      "type": "boolean"
+    },
+    "os": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "id_like": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "pretty_name": {
+          "type": "string"
+        },
+        "kernel": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        },
+        "init": {
+          "type": "string"
+        },
+        "virtualization": {
+          "type": "string"
+        },
+        "boot_mode": {
+          "type": "string"
+        },
+        "secure_boot": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        }
+      }
+    },
+    "system": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "part_number": {
+              "type": "string"
+            },
+            "serial": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "string"
+            },
+            "manufacture_date": {
+              "type": "string"
+            },
+            "manufacture_date_source": {
+              "type": "string"
+            }
+          }
+        },
+        "family": {
+          "type": "string"
+        },
+        "uuid": {
+          "type": "string"
+        },
+        "chassis_type": {
+          "type": "string"
+        },
+        "chassis_vendor": {
+          "type": "string"
+        },
+        "chassis_serial": {
+          "type": "string"
+        },
+        "firmware": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "board": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "part_number": {
+              "type": "string"
+            },
+            "serial": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "string"
+            },
+            "manufacture_date": {
+              "type": "string"
+            },
+            "manufacture_date_source": {
+              "type": "string"
+            }
+          }
+        },
+        "asset_tag": {
+          "type": "string"
+        }
+      }
+    },
+    "cpu": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "part_number": {
+              "type": "string"
+            },
+            "serial": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "string"
+            },
+            "manufacture_date": {
+              "type": "string"
+            },
+            "manufacture_date_source": {
+              "type": "string"
+            }
+          }
+        },
+        "family": {
+          "type": "integer"
+        },
+        "model_id": {
+          "type": "integer"
+        },
+        "stepping": {
+          "type": "integer"
+        },
+        "codename": {
+          "type": "string"
+        },
+        "microarchitecture": {
+          "type": "string"
+        },
+        "sockets": {
+          "type": "integer"
+        },
+        "cores": {
+          "type": "integer"
+        },
+        "threads": {
+          "type": "integer"
+        },
+        "core_types": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "threads": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "min_freq_mhz": {
+          "type": "integer"
+        },
+        "max_freq_mhz": {
+          "type": "integer"
+        },
+        "governor": {
+          "type": "string"
+        },
+        "caches": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "type": "integer"
+              },
+              "type": {
+                "type": "string"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "instances": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "virtualization": {
+          "type": "string"
+        },
+        "flags": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "firmware": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        },
+        "driver": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "module": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "srcversion": {
+              "type": "string"
+            },
+            "builtin": {
+              "type": "boolean"
+            },
+            "in_tree": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "proprietary": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            },
+            "unsigned": {
+              "type": [
+                "null",
+                "boolean"
+              ]
+            }
+          }
+        },
+        "health": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "status": {
+              "type": "string"
+            },
+            "reasons": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "source": {
+              "type": "string"
+            },
+            "life_used_percent": {
+              "type": [
+                "null",
+                "number"
+              ]
+            },
+            "life_remaining_percent": {
+              "type": [
+                "null",
+                "number"
+              ]
+            },
+            "estimate": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "properties": {
+                "what": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string"
+                }
+              }
+            },
+            "metrics": {
+              "type": [
+                "null",
+                "object"
+              ],
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "properties": {
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "swap_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "installed_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_capacity_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "slots": {
+          "type": "integer"
+        },
+        "ecc": {
+          "type": "string"
+        },
+        "modules": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "locator": {
+                "type": "string"
+              },
+              "bank_locator": {
+                "type": "string"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "type": {
+                "type": "string"
+              },
+              "form_factor": {
+                "type": "string"
+              },
+              "speed_mts": {
+                "type": "integer"
+              },
+              "configured_speed_mts": {
+                "type": "integer"
+              },
+              "data_width_bits": {
+                "type": "integer"
+              },
+              "total_width_bits": {
+                "type": "integer"
+              },
+              "rank": {
+                "type": "integer"
+              },
+              "configured_voltage_mv": {
+                "type": "integer"
+              },
+              "identity": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "vendor": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "part_number": {
+                    "type": "string"
+                  },
+                  "serial": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "string"
+                  },
+                  "manufacture_date": {
+                    "type": "string"
+                  },
+                  "manufacture_date_source": {
+                    "type": "string"
+                  }
+                }
+              },
+              "manufacturer_raw": {
+                "type": "string"
+              },
+              "dram_vendor_id": {
+                "type": "string"
+              },
+              "dram_vendor": {
+                "type": "string"
+              },
+              "health": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "reasons": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "life_used_percent": {
+                    "type": [
+                      "null",
+                      "number"
+                    ]
+                  },
+                  "life_remaining_percent": {
+                    "type": [
+                      "null",
+                      "number"
+                    ]
+                  },
+                  "estimate": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "properties": {
+                      "what": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "method": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "metrics": {
+                    "type": [
+                      "null",
+                      "object"
+                    ],
+                    "additionalProperties": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "wwn": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "type": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string"
+          },
+          "rotational": {
+            "type": "boolean"
+          },
+          "removable": {
+            "type": "boolean"
+          },
+          "logical_block_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "physical_block_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "partitions": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "filesystem": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "uuid": {
+                  "type": "string"
+                },
+                "mount_point": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "firmware": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "release": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "driver": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "srcversion": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "in_tree": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "proprietary": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "unsigned": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              }
+            }
+          },
+          "health": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "reasons": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "string"
+              },
+              "life_used_percent": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              },
+              "life_remaining_percent": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              },
+              "estimate": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "what": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  }
+                }
+              },
+              "metrics": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "gpus": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "pci_address": {
+            "type": "string"
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "chip": {
+            "type": "string"
+          },
+          "subsystem": {
+            "type": "string"
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "boot_vga": {
+            "type": "boolean"
+          },
+          "drm_card": {
+            "type": "string"
+          },
+          "pcie_link": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "speed": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer"
+              },
+              "max_speed": {
+                "type": "string"
+              },
+              "max_width": {
+                "type": "integer"
+              }
+            }
+          },
+          "outputs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "firmware": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "release": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "driver": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "srcversion": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "in_tree": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "proprietary": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "unsigned": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "displays": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "connector": {
+            "type": "string"
+          },
+          "manufacturer_id": {
+            "type": "string"
+          },
+          "width_mm": {
+            "type": "integer"
+          },
+          "height_mm": {
+            "type": "integer"
+          },
+          "diagonal_in": {
+            "type": "number"
+          },
+          "native_width": {
+            "type": "integer"
+          },
+          "native_height": {
+            "type": "integer"
+          },
+          "native_refresh_hz": {
+            "type": "number"
+          },
+          "edid_version": {
+            "type": "string"
+          },
+          "model_year": {
+            "type": "integer"
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "network": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "mac": {
+            "type": "string"
+          },
+          "mac_vendor": {
+            "type": "string"
+          },
+          "bus": {
+            "type": "string"
+          },
+          "bus_address": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "speed_mbps": {
+            "type": "integer"
+          },
+          "duplex": {
+            "type": "string"
+          },
+          "mtu": {
+            "type": "integer"
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "firmware": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "release": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "driver": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "srcversion": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "in_tree": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "proprietary": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "unsigned": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              }
+            }
+          },
+          "health": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "reasons": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "string"
+              },
+              "life_used_percent": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              },
+              "life_remaining_percent": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              },
+              "estimate": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "what": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  }
+                }
+              },
+              "metrics": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "bluetooth": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "address_vendor": {
+            "type": "string"
+          },
+          "manufacturer_id": {
+            "type": "integer"
+          },
+          "manufacturer": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "local_name": {
+            "type": "string"
+          },
+          "powered": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "bus": {
+            "type": "string"
+          },
+          "bus_address": {
+            "type": "string"
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "driver": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "srcversion": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "in_tree": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "proprietary": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "unsigned": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "audio": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "bus": {
+            "type": "string"
+          },
+          "bus_address": {
+            "type": "string"
+          },
+          "codecs": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "vendor_id": {
+                  "type": "string"
+                },
+                "subsystem_id": {
+                  "type": "string"
+                },
+                "identity": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "vendor": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    },
+                    "part_number": {
+                      "type": "string"
+                    },
+                    "serial": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string"
+                    },
+                    "manufacture_date": {
+                      "type": "string"
+                    },
+                    "manufacture_date_source": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "driver": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "srcversion": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "in_tree": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "proprietary": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "unsigned": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "batteries": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "technology": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "capacity_percent": {
+            "type": "integer"
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "health": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "reasons": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source": {
+                "type": "string"
+              },
+              "life_used_percent": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              },
+              "life_remaining_percent": {
+                "type": [
+                  "null",
+                  "number"
+                ]
+              },
+              "estimate": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "what": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  }
+                }
+              },
+              "metrics": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "sensors": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "chip": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string"
+          },
+          "readings": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "number"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "max": {
+                  "type": "number"
+                },
+                "crit": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pci": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "subsystem_vendor_id": {
+            "type": "string"
+          },
+          "subsystem_device_id": {
+            "type": "string"
+          },
+          "class_code": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "subsystem": {
+            "type": "string"
+          },
+          "iommu_group": {
+            "type": "string"
+          },
+          "pcie_link": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "speed": {
+                "type": "string"
+              },
+              "width": {
+                "type": "integer"
+              },
+              "max_speed": {
+                "type": "string"
+              },
+              "max_width": {
+                "type": "integer"
+              }
+            }
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "driver": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "srcversion": {
+                "type": "string"
+              },
+              "builtin": {
+                "type": "boolean"
+              },
+              "in_tree": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "proprietary": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "unsigned": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "usb": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "bus": {
+            "type": "integer"
+          },
+          "device": {
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "class_code": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "speed_mbps": {
+            "type": "number"
+          },
+          "usb_version": {
+            "type": "string"
+          },
+          "identity": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "part_number": {
+                "type": "string"
+              },
+              "serial": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              },
+              "manufacture_date": {
+                "type": "string"
+              },
+              "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "firmware": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "release": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          },
+          "drivers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "module": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "srcversion": {
+                  "type": "string"
+                },
+                "builtin": {
+                  "type": "boolean"
+                },
+                "in_tree": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "proprietary": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                },
+                "unsigned": {
+                  "type": [
+                    "null",
+                    "boolean"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/jiegui2025/hwspec/main/schema/capture-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "hwspec capture, schema_version 1",
+  "description": "Generated from internal/report by tools/genschema: don't edit by hand.",
+  "required": [
+    "schema_version",
+    "tool"
+  ]
+}

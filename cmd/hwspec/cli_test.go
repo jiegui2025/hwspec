@@ -22,6 +22,7 @@ import (
 	"github.com/jiegui2025/hwspec/internal/ids"
 	"github.com/jiegui2025/hwspec/internal/output"
 	"github.com/jiegui2025/hwspec/internal/report"
+	"github.com/jiegui2025/hwspec/schema"
 )
 
 // The command-line features, run in-process against a recorded machine:
@@ -112,6 +113,22 @@ func TestCaptureWritesTheMachineAsJSONByDefault(t *testing.T) {
 	}
 }
 
+// `hwspec schema` prints the embedded JSON Schema, which captures name.
+func TestSchemaPrintsTheCaptureFormat(t *testing.T) {
+	setup(t)
+	stdout, _ := mustRun(t, "", "schema")
+	if stdout != string(schema.JSON) {
+		t.Error("schema output differs from the embedded schema")
+	}
+	capture, _ := mustRun(t, "", "capture")
+	var r struct {
+		Schema string `json:"$schema"`
+	}
+	if err := json.Unmarshal([]byte(capture), &r); err != nil || r.Schema != schema.URL {
+		t.Errorf("capture's $schema = %q (%v), want %q", r.Schema, err, schema.URL)
+	}
+}
+
 func TestCaptureFormatComesFromTheFlagOrTheFileExtension(t *testing.T) {
 	setup(t)
 	dir := t.TempDir()
@@ -124,7 +141,9 @@ func TestCaptureFormatComesFromTheFlagOrTheFileExtension(t *testing.T) {
 		t.Errorf("text output lacks the machine:\n%s", stdout)
 	}
 	for file, check := range map[string]func([]byte) bool{
-		"spec.yml":  func(b []byte) bool { return bytes.HasPrefix(b, []byte("schema_version:")) },
+		"spec.yml": func(b []byte) bool {
+			return bytes.HasPrefix(b, []byte("$schema: ")) && bytes.Contains(b, []byte("\nschema_version: 1\n"))
+		},
 		"spec.txt":  func(b []byte) bool { return bytes.Contains(b, []byte("Machine")) },
 		"spec.JSON": json.Valid,
 	} {

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/jiegui2025/hwspec/main/schema/capture-v1.json",
   "schema_version": 1,
   "tool": {
     "name": "hwspec",

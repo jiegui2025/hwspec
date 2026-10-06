@@ -22,6 +22,7 @@ import (
 	"github.com/jiegui2025/hwspec/internal/report"
 	"github.com/jiegui2025/hwspec/internal/resolve"
 	"github.com/jiegui2025/hwspec/internal/trust"
+	"github.com/jiegui2025/hwspec/schema"
 )
 
 // version is set at build time with -ldflags "-X main.version=v1.2.3".
@@ -33,6 +34,7 @@ Usage:
   hwspec capture [-o FILE] [-f json|yaml|text] [--full] [--redact]
   hwspec show FILE [-o FILE] [-f text|json|yaml] [--redact]
   hwspec ids [update [--check] | lookup KIND ID | template]
+  hwspec schema
   hwspec version
 
 capture:
@@ -56,6 +58,10 @@ ids:
   "lookup" resolves one ID, e.g. "hwspec ids lookup pci 8086:3e92" or
   "hwspec ids lookup jedec F785". "template" prints a commented overrides
   file to start from.
+
+schema:
+  Prints the JSON Schema (draft 2020-12) of the capture format, which every
+  capture names in its "$schema" key.
 
 Examples:
   hwspec capture -o myspec.json
@@ -107,6 +113,8 @@ func run(args []string, c cli) int {
 		err = c.show(args[1:])
 	case "ids":
 		err = c.idsCmd(args[1:])
+	case "schema":
+		_, err = c.stdout.Write(schema.JSON)
 	case "version", "--version", "-v":
 		fmt.Fprintln(c.stdout, "hwspec", fullVersion())
 	case "help", "--help", "-h":

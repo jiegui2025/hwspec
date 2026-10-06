@@ -39,12 +39,14 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust
-  collect[internal/collect] --> report & resolve & smbios & edid & spd & trust & ghw[(ghw)]
+  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust & schema
+  collect[internal/collect] --> report & resolve & smbios & edid & spd & trust & schema & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(yaml.v3)]
   genids[tools/genids] --> ids & yaml
   snapshot[tools/snapshot] --> collect & ghw
+  genschema[tools/genschema] --> report & schema & jsonschema[(jsonschema-go)]
+  schema[schema]
   ids[internal/ids]
   report[internal/report]
   smbios[internal/smbios]
@@ -57,14 +59,16 @@ flowchart TD
 |---|---|---|
 | `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring | everything below |
 | `internal/trust` | "can only root change this file?" checks (for `--full` and `smartctl`) | `x/sys/unix` |
-| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `ghw` |
+| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `schema`, `ghw` |
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |
 | `internal/ids` | ID databases, overrides, sync, decoders (JEDEC, OUI, CPU) | standard library only |
 | `internal/report` | the file format, redaction, sanitising | standard library only |
+| `schema` | the file format's JSON Schema (`capture-vN.json`, embedded) and its URL | standard library only |
 | `internal/output` | serialisation | `report`, `yaml.v3` |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `yaml.v3` |
 | `tools/snapshot` | development: records a machine as a scrubbed test fixture (`internal/collect/testdata/machines`) | `collect`, `ghw` |
+| `tools/genschema` | build time: `report` structs → `schema/capture-vN.json`; CI: the compatibility check | `report`, `schema`, `jsonschema-go` (never linked into `hwspec`) |
 | `internal/smbios/smbiostest` | tests only: builds SMBIOS tables | standard library only |
 
 ## Choosing an ID database source
@@ -90,7 +94,7 @@ flowchart TD
 
 | Rule | In practice |
 |---|---|
-| **The file format is a public interface** | additive changes only, unless `schema_version` is bumped with an ADR; raw IDs always stored next to names |
+| **The file format is a public interface** | additive changes only, unless `schema_version` is bumped with an ADR (CI compares the JSON Schema with the base's); raw IDs always stored next to names |
 | **Never guess** | unreadable values are omitted, empty or "unknown", never a plausible default; the reason goes in `warnings` |
 | **Collectors degrade, they don't fail** | a missing file, permission error or absent subsystem leaves fields empty; only a broken invariant is an error |
 | **No external tools in the capture path** | kernel interfaces only, except optional `smartctl` (from root-owned system directories, with a timeout) for SATA health |
@@ -115,7 +119,6 @@ The ranked plan is the [roadmap](README.md#roadmap); these items change the arch
 | Area | Tracking |
 |---|---|
 | Advisor: a knowledge base and rules that turn a capture into advice (drivers, firmware, upgrades, maintenance) | [#5](https://github.com/jiegui2025/hwspec/issues/5) will record the design in ADR 0009; [#7](https://github.com/jiegui2025/hwspec/issues/7)–[#11](https://github.com/jiegui2025/hwspec/issues/11), [#25](https://github.com/jiegui2025/hwspec/issues/25) build it |
-| JSON Schema for the capture format, checked for compatibility in CI | [#37](https://github.com/jiegui2025/hwspec/issues/37) |
 | Package boundaries and "no network in the capture path", enforced in CI | [#29](https://github.com/jiegui2025/hwspec/issues/29) |
 | Gated deployment, verified on real distros after publishing | [#22](https://github.com/jiegui2025/hwspec/issues/22) |
 | Desktop app | [ADR 0007](docs/adr/0007-desktop-ui.md), [#13](https://github.com/jiegui2025/hwspec/issues/13), [#14](https://github.com/jiegui2025/hwspec/issues/14) |
