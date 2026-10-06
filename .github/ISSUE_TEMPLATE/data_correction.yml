@@ -1,5 +1,6 @@
 name: Wrong or missing name
 description: A device, CPU codename, memory maker or similar is named wrongly or not at all
+title: "data(ids): "
 labels: ["type: data", "status: triage"]
 body:
   - type: dropdown
