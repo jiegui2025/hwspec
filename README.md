@@ -243,6 +243,8 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 |---|---|---|---|
 | [#53](https://github.com/jiegui2025/hwspec/issues/53) | chore(board): add PRs to the board and move linked issues automatically | P1 | XS |
 | [#38](https://github.com/jiegui2025/hwspec/issues/38) | chore: back up the ID-signing key offline | P1 | XS |
+| [#142](https://github.com/jiegui2025/hwspec/issues/142) | fix(capture): partition filesystem, label and uuid altered by ghw | P1 | M |
+| [#144](https://github.com/jiegui2025/hwspec/issues/144) | fix(cli): under sudo, never replace a file the user doesn't own | P1 | S |
 | [#3](https://github.com/jiegui2025/hwspec/issues/3) | chore: release v0.1.0 | P1 | S |
 
 ### v0.2.0 — Advisor: turn a capture into advice
@@ -250,13 +252,13 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | # | Item | Priority | Size |
 |---|---|---|---|
 | [#81](https://github.com/jiegui2025/hwspec/issues/81) | feat(ids): ship the advisor knowledge base in the signed bundle | P1 | S |
+| [#146](https://github.com/jiegui2025/hwspec/issues/146) | feat(advisor): checks declare match keys, data and an example for genkb | P1 | M |
 | [#131](https://github.com/jiegui2025/hwspec/issues/131) | feat(capture): candidate kernel modules for driverless PCI devices | P1 | M |
 | [#7](https://github.com/jiegui2025/hwspec/issues/7) | feat(advisor): needs-attention list for devices without drivers or firmware | P1 | L |
 | [#128](https://github.com/jiegui2025/hwspec/issues/128) | feat(kb): models, devices, cpus and allowlists sections, and the processor-number match key | P1 | M |
 | [#129](https://github.com/jiegui2025/hwspec/issues/129) | data(kb): memory slots, population rules and speed range per model | P1 | S |
 | [#25](https://github.com/jiegui2025/hwspec/issues/25) | data(advisor): reference database of replacement and upgrade part numbers | P1 | L |
 | [#119](https://github.com/jiegui2025/hwspec/issues/119) | feat(capture): #103 part 2, each device's mounting from the evidence | P1 | M |
-| [#120](https://github.com/jiegui2025/hwspec/issues/120) | feat(capture): #103 part 3, memory slots populated and empty | P1 | S |
 | [#103](https://github.com/jiegui2025/hwspec/issues/103) | feat(capture): tell soldered from socketed for memory, Wi-Fi, SSD, GPU (and CPU) | P1 | L |
 | [#122](https://github.com/jiegui2025/hwspec/issues/122) | feat(capture): #114 part 2, TPM manufacturer and firmware version under --full | P1 | M |
 | [#123](https://github.com/jiegui2025/hwspec/issues/123) | feat(capture): #114 part 3, firmware never silently absent (ADR 0008) | P1 | M |
@@ -281,6 +283,7 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#9](https://github.com/jiegui2025/hwspec/issues/9) | feat(advisor): upgrade and replacement options for key components (tracking: #107–#110, #124) | P2 | M |
 | [#11](https://github.com/jiegui2025/hwspec/issues/11) | feat(advisor): maintenance reminders | P2 | L |
 | [#18](https://github.com/jiegui2025/hwspec/issues/18) | feat(capture): SATA and USB (SAT) drive health without smartctl | P2 | L |
+| [#137](https://github.com/jiegui2025/hwspec/issues/137) | feat(capture): report an integrated GPU as part of the CPU package, not soldered on | P2 | S |
 | [#12](https://github.com/jiegui2025/hwspec/issues/12) | feat(cli): hwspec diff to compare captures | P3 | M |
 | [#35](https://github.com/jiegui2025/hwspec/issues/35) | data(advisor): correct firmware-reported chassis types from model data | P3 | S |
 
@@ -301,6 +304,19 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#17](https://github.com/jiegui2025/hwspec/issues/17) | chore(ids): refresh the embedded ID databases automatically, and refuse stale ones at release | P2 | S |
 | [#20](https://github.com/jiegui2025/hwspec/issues/20) | feat(packaging): .deb, .rpm and AUR hwspec-bin from the release workflow | P2 | M |
 | [#132](https://github.com/jiegui2025/hwspec/issues/132) | research: architecture and performance review of the whole codebase | P2 | M |
+| [#139](https://github.com/jiegui2025/hwspec/issues/139) | perf(capture): read only the SPD bytes and codec IDs hwspec uses | P2 | S |
+| [#140](https://github.com/jiegui2025/hwspec/issues/140) | perf(ids): load ID databases faster and overlap loading with capture | P2 | S |
+| [#141](https://github.com/jiegui2025/hwspec/issues/141) | fix(ids): don't let a truncated distro database replace the embedded one | P2 | XS |
+| [#143](https://github.com/jiegui2025/hwspec/issues/143) | fix(capture): don't report unknown or invalid values as facts | P2 | S |
+| [#145](https://github.com/jiegui2025/hwspec/issues/145) | fix(cli): bound capture input size, explain captures from newer builds | P2 | S |
+| [#148](https://github.com/jiegui2025/hwspec/issues/148) | refactor(cli): interleaved flags, per-command formats, shared helpers | P2 | S |
+| [#149](https://github.com/jiegui2025/hwspec/issues/149) | test: guards so new fields can't skip redaction, sanitising or seams | P2 | S |
+| [#151](https://github.com/jiegui2025/hwspec/issues/151) | fix(capture): --full drive health: check disks concurrently, bound slow reads | P2 | S |
+| [#152](https://github.com/jiegui2025/hwspec/issues/152) | ci: cut PR and merge CI time | P2 | S |
+| [#153](https://github.com/jiegui2025/hwspec/issues/153) | chore(deps): move to go.yaml.in/yaml/v3, test the YAML limits | P2 | XS |
+| [#154](https://github.com/jiegui2025/hwspec/issues/154) | docs(schema): document every field, allow annotations, pin vocabularies | P2 | S |
+| [#155](https://github.com/jiegui2025/hwspec/issues/155) | fix(ids): known-answer checks before the weekly bundle is signed | P2 | S |
+| [#161](https://github.com/jiegui2025/hwspec/issues/161) | feat(cli): hwspec bug: a redacted report bundle and a pre-filled issue link | P2 | M |
 | [#96](https://github.com/jiegui2025/hwspec/issues/96) | feat(capture): peripheral and UPS batteries, from the kernel and read-only D-Bus | P3 | M |
 | [#91](https://github.com/jiegui2025/hwspec/issues/91) | feat(capture): PCI IRQs and resources, and an IOMMU group listing | P3 | S |
 | [#100](https://github.com/jiegui2025/hwspec/issues/100) | fix(capture): warn when a sysfs directory cannot be listed | P3 | S |
@@ -313,6 +329,14 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#52](https://github.com/jiegui2025/hwspec/issues/52) | ci: keep CI running when GitHub-hosted runners are unavailable *(deferred)* | P3 | L |
 | [#28](https://github.com/jiegui2025/hwspec/issues/28) | feat: Windows and macOS support *(deferred)* | P3 | XL |
 | [#57](https://github.com/jiegui2025/hwspec/issues/57) | ci: move the pinned runner image to ubuntu-26.04 | P3 | XS |
+| [#136](https://github.com/jiegui2025/hwspec/issues/136) | fix(capture): list memory modules whose size the firmware reports as unknown | P3 | S |
+| [#138](https://github.com/jiegui2025/hwspec/issues/138) | feat(capture): tell soldered UFS storage apart | P3 | S |
+| [#147](https://github.com/jiegui2025/hwspec/issues/147) | perf(kb): parse the knowledge base in one pass | P3 | S |
+| [#150](https://github.com/jiegui2025/hwspec/issues/150) | refactor(collect): name devices once, in the CLI | P3 | S |
+| [#156](https://github.com/jiegui2025/hwspec/issues/156) | refactor(ids): split ID formats, the lookup set and the signed bundle | P3 | M |
+| [#157](https://github.com/jiegui2025/hwspec/issues/157) | ci: keep flake.lock current | P3 | XS |
+| [#160](https://github.com/jiegui2025/hwspec/issues/160) | fix(capture): keep Thunderbolt/USB4 dock devices out of the slot matching | P3 | S |
+| [#162](https://github.com/jiegui2025/hwspec/issues/162) | feat(cli): hwspec share: contribute a research-redacted capture | P3 | M |
 
 ## Building
 
