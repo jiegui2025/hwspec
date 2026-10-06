@@ -46,9 +46,17 @@ pin() {
 		echo "unknown image '$1' (scripts/vm-run.sh --list)" >&2; exit 2 ;;
 	esac
 	init=systemd pid1='/systemd$' mode=direct
+	# --full as a user, through pkexec with no login session: "works", or
+	# "explains" (hwspec's own message) for the reason given. install: a
+	# package to add first (that boot then gets the outside network).
+	pkexec_want=explains pkexec_why="the cloud image has no pkexec" install=
 	case $1 in
 	alpine-3.24) init=init pid1='^/bin/busybox$' ;; # OpenRC under busybox init
-	debian-13-sysvinit) init=init pid1='/sbin/init$' mode=sysvinit ;;
+	debian-13)
+		pkexec_want=works pkexec_why="pkexec installed, a polkit rule grants the user" install=pkexec ;;
+	debian-13-sysvinit)
+		init=init pid1='/sbin/init$' mode=sysvinit
+		pkexec_why="sysvinit-core removes polkitd, which needs a logind" ;;
 	esac
 }
 
@@ -97,7 +105,7 @@ direct)
 		bootcmd:
 		  - [sh, -c, 'systemctl stop --no-block systemd-time-wait-sync.service 2>/dev/null || true']
 		runcmd:
-		  - [sh, -c, '$mount_seed; sh /run/hwspec-seed/vm-check.sh; poweroff']
+		  - [sh, -c, '${install:+apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q $install; for i in \$(ls /sys/class/net); do [ \$i = lo ] || ip link set \$i down; done; }$mount_seed; sh /run/hwspec-seed/vm-check.sh; poweroff']
 	EOF
 	;;
 sysvinit)
@@ -171,11 +179,13 @@ if [ "$mode" = sysvinit ]; then
 		fail "switching to sysvinit failed ($(grep -a '^==> ' "$out/switch.log" || echo 'no exit code')); console log above"
 	}
 	echo "Boot 2/2 ($image): running the check under sysvinit"
-	boot "$out/console.log" user,model=virtio-net-pci,restrict=on
+	boot "$out/console.log" user,model=virtio-net-pci,restrict=on,ipv6=off
 	grep -aq 'INIT: version' "$out/console.log" || fail "boot 2 didn't start sysvinit (no 'INIT: version' on the console)"
 else
 	echo "Booting $image"
-	boot "$out/console.log" user,model=virtio-net-pci,restrict=on
+	nic=user,model=virtio-net-pci,restrict=on,ipv6=off
+	if [ -n "$install" ]; then nic=user,model=virtio-net-pci; fi # apt needs the outside world
+	boot "$out/console.log" "$nic"
 fi
 echo "VM ran for $((SECONDS - start)) s"
 
@@ -193,9 +203,13 @@ grep -qx '==> end' "$out/payload.log" || {
 	fail "the check didn't finish (console log above)"
 }
 rc() { sed -n "s/^==> $1 rc=//p" "$out/payload.log"; }
-for s in pid version capture full; do
+for s in pid route version capture full; do
 	[ "$(rc $s)" = 0 ] || { cat "$out/$s.stderr" >&2; fail "'$s' exited $(rc $s)"; }
 done
+
+# hwspec ran with no way out: no default route (the NIC is restricted, or
+# its links were taken down after installing packages).
+[ ! -s "$out/route" ] || fail "the check ran with a default route: $(tr '\n' ' ' <"$out/route")"
 
 # PID 1 is the init system the image is meant to test, not just its name.
 exe=$(sed -n 's/^exe=//p' "$out/pid")
@@ -221,6 +235,26 @@ jq -e '[.schema, .vm, .uefi, .init, .memory, .pci_named, .unprivileged] | all' "
 	fail "capture checks failed (above)"
 jq -e '.privileged == true and .schema_version == 1' "$out/full" >/dev/null ||
 	fail "the root --full capture isn't privileged"
+# --full as a user, through pkexec without a login session: the outcome
+# the image expects (works, or hwspec's own explanation). A hang fails.
+case $(rc fulluser) in
+0)
+	jq -e '.privileged == true' "$out/fulluser" >/dev/null || fail "--full as a user exited 0 without a privileged capture"
+	got=works pkexec_result="pkexec worked" ;;
+124 | 137 | 143)
+	fail "--full as a user hung (stopped after 120 s); see $out/fulluser.stderr" ;;
+*)
+	grep -qE -- '--full needs pkexec \(polkit\); alternatively run hwspec with sudo|root access was not obtained' "$out/fulluser.stderr" || {
+		cat "$out/fulluser.stderr" >&2
+		fail "--full as a user failed ($(rc fulluser)) without hwspec's explanation"
+	}
+	got=explains pkexec_result="clear error: $(grep -v '^$' "$out/fulluser.stderr" | tail -n 1)" ;;
+esac
+echo "--full as a user (pkexec $(head -n 1 "$out/pkexec")): $pkexec_result" | tee "$out/pkexec-result.txt"
+[ "$got" = "$pkexec_want" ] || {
+	cat "$out/fulluser.stderr" >&2
+	fail "--full as a user: want '$pkexec_want' ($pkexec_why), got '$got'"
+}
 mv "$out/capture" "$out/capture.json"
 mv "$out/full" "$out/full.json"
 echo "PASS ($image): $version, PID 1 $exe ($(jq -r .os_init "$out/checks.json")), $(jq -r .os "$out/checks.json")"

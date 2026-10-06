@@ -26,6 +26,20 @@ step() {
 id tester >/dev/null 2>&1 || useradd -m tester 2>/dev/null || adduser -D tester
 user() { su -s /bin/sh tester -c "$*"; }
 
+# --full as that user goes through pkexec, here without a login session
+# (no logind). Where polkit runs, a test rule lets tester run programs as
+# root, so the outcome is pkexec's, not a missing password prompt.
+if [ -d /etc/polkit-1 ] || [ -d /usr/share/polkit-1 ]; then
+	mkdir -p /etc/polkit-1/rules.d
+	cat >/etc/polkit-1/rules.d/49-hwspec-test.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+	if (action.id == "org.freedesktop.policykit.exec" && subject.user == "tester") {
+		return polkit.Result.YES;
+	}
+});
+EOF
+fi
+
 # PID 1's executable, and whether systemd is running (sd_booted's test).
 pid1() {
 	echo "exe=$(readlink /proc/1/exe)"
@@ -35,8 +49,11 @@ pid1() {
 {
 	echo # firmware and GRUB write here too, without a final newline
 	step pid pid1
+	step route sh -c 'ip route show default; ip -6 route show default'
 	step version user /usr/local/bin/hwspec version
 	step capture user /usr/local/bin/hwspec capture -f json
 	step full /usr/local/bin/hwspec capture --full -f json # root: no pkexec
+	step pkexec sh -c 'command -v pkexec || echo none'
+	step fulluser user timeout 120 /usr/local/bin/hwspec capture --full -f json
 	printf '==> end\n'
 } >"$out"
