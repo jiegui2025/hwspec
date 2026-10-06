@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode"
@@ -367,4 +368,37 @@ func TestCleanNameShortcutMatchesTheFullCheck(t *testing.T) {
 			t.Errorf("cleanName(%q) = %q, want %q", s, got, want)
 		}
 	}
+}
+
+// Preloading loads databases without counting them as used: a report lists
+// only the databases a lookup needed.
+func TestPreloadDoesntCountAsUse(t *testing.T) {
+	isolate(t)
+	Preload(Kinds...)
+	if got := Loaded(); len(got) != 0 {
+		t.Fatalf("Loaded() after Preload = %v, want nothing", got)
+	}
+	if PCIVendor("8086") == "" {
+		t.Fatal("no name for Intel")
+	}
+	if got := Loaded(); len(got) != 1 || got[PCI] == "" {
+		t.Errorf("Loaded() after one PCI lookup = %v, want only pci", got)
+	}
+}
+
+// Lookups may run while other databases are still being preloaded (a
+// capture preloads while it reads the hardware); the race detector checks.
+func TestPreloadAndLookupsRunTogether(t *testing.T) {
+	isolate(t)
+	var wg sync.WaitGroup
+	wg.Go(func() { Preload(Kinds...) })
+	wg.Go(func() { Preload(PCI, USB) })
+	for range 4 {
+		wg.Go(func() {
+			if PCIVendor("8086") == "" || USBVendor("1d6b") == "" {
+				t.Error("missing a name during preload")
+			}
+		})
+	}
+	wg.Wait()
 }

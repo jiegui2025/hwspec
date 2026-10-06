@@ -12,7 +12,27 @@ import (
 	"github.com/jiegui2025/hwspec/internal/report"
 )
 
+// Prefetch starts loading every ID database in the background and returns
+// a function that waits until they're loaded. A capture calls it before
+// reading the hardware, so the databases load while the collectors wait on
+// the kernel, and waits before returning, so no load outlives the capture.
+// It changes nothing in a report: only lookups mark a database used.
+func Prefetch() (wait func()) {
+	done := make(chan struct{})
+	go func() {
+		ids.Preload(ids.Kinds...)
+		close(done)
+	}()
+	return func() { <-done }
+}
+
+// Names fills in names from the raw IDs in r.
 func Names(r *report.Report) {
+	// Load the databases in parallel rather than one by one as lookups
+	// reach them. Loading one the report doesn't need costs a little CPU
+	// but doesn't change the report: tool.id_databases lists only the
+	// databases a lookup used.
+	ids.Preload(ids.Kinds...)
 	for i := range r.PCI {
 		d := &r.PCI[i]
 		name(&d.Identity, ids.PCIVendor(d.VendorID), ids.PCIDevice(d.VendorID, d.DeviceID))

@@ -145,27 +145,56 @@ type db struct {
 	layers []Layer
 }
 
+// entry holds one database: loaded at most once, and marked used by the
+// first lookup. Each kind loads on its own, so several can load at once.
+type entry struct {
+	once sync.Once
+	d    *db
+	used bool // guarded by mu
+}
+
 var (
 	mu  sync.Mutex
-	dbs = map[Kind]*db{}
+	dbs = map[Kind]*entry{}
 )
 
-func get(k Kind) *db {
+func entryFor(k Kind) *entry {
 	mu.Lock()
 	defer mu.Unlock()
-	if d, ok := dbs[k]; ok {
-		return d
+	e := dbs[k]
+	if e == nil {
+		e = &entry{}
+		dbs[k] = e
 	}
-	d := load(k)
-	dbs[k] = d
-	return d
+	return e
+}
+
+func get(k Kind) *db {
+	e := entryFor(k)
+	e.once.Do(func() { e.d = load(k) })
+	mu.Lock()
+	e.used = true
+	mu.Unlock()
+	return e.d
+}
+
+// Preload loads the given databases in parallel and returns when all are
+// loaded. It doesn't mark them used: only a lookup does, so preloading a
+// database a report never needs doesn't add it to Loaded.
+func Preload(kinds ...Kind) {
+	var wg sync.WaitGroup
+	for _, k := range kinds {
+		e := entryFor(k)
+		wg.Go(func() { e.once.Do(func() { e.d = load(k) }) })
+	}
+	wg.Wait()
 }
 
 // Reset drops loaded databases so the next lookup reloads them (used by
 // tests, and after syncing new files).
 func Reset() {
 	mu.Lock()
-	dbs = map[Kind]*db{}
+	dbs = map[Kind]*entry{}
 	mu.Unlock()
 	ovMu.Lock()
 	ovCache = map[string]ovResult{}
@@ -583,7 +612,7 @@ func Layers(k Kind) []Layer { return get(k).layers }
 // Entries returns how many names a database holds.
 func Entries(k Kind) int { return len(get(k).names) }
 
-// Loaded describes the databases used so far, for recording in a report:
+// Loaded describes the databases looked up so far, for recording in a report:
 // the source each one's names came from, e.g. "synced (2026-10-05)" or
 // "/usr/share/hwdata/pci.ids (2026-09-03) + overrides". Sources that failed
 // are left out. The synced copy and the overrides file live in the user's
@@ -592,7 +621,11 @@ func Loaded() map[Kind]string {
 	mu.Lock()
 	defer mu.Unlock()
 	out := map[Kind]string{}
-	for k, d := range dbs {
+	for k, e := range dbs {
+		if !e.used {
+			continue // preloaded, never looked up
+		}
+		d := e.d
 		var parts []string
 		for _, l := range d.layers {
 			if l.Err != "" {
