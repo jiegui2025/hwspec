@@ -8,3 +8,5 @@ coverage.out
 
 # An interrupted tools/snapshot recording (unscrubbed; never commit it)
 .snapshot-*/
+# scripts/vm-run.sh logs and captures
+vm-out/

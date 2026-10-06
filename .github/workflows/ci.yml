@@ -19,7 +19,7 @@ env:
 
 jobs:
   # Which parts of CI this change needs (scripts/changed-areas.sh). Pushes
-  # to main and merge-queue runs always run everything.
+  # to main and merge-queue runs run everything except the VMs.
   changes:
     runs-on: ubuntu-24.04
     outputs:
@@ -27,6 +27,7 @@ jobs:
       nix: ${{ steps.areas.outputs.nix }}
       workflows: ${{ steps.areas.outputs.workflows }}
       docs: ${{ steps.areas.outputs.docs }}
+      vm: ${{ steps.areas.outputs.vm }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -41,7 +42,9 @@ jobs:
           if [ "$EVENT" = pull_request ]; then
             scripts/changed-areas.sh "$BASE" "$HEAD" | tee -a "$GITHUB_OUTPUT"
           else
-            printf 'go=true\nnix=true\nworkflows=true\ndocs=true\n' | tee -a "$GITHUB_OUTPUT"
+            # Not the VMs: every push to main boots them on the published
+            # edge build (edge.yml -> verify.yml -> vms.yml).
+            printf 'go=true\nnix=true\nworkflows=true\ndocs=true\nvm=false\n' | tee -a "$GITHUB_OUTPUT"
           fi
 
   lint:
@@ -115,7 +118,7 @@ jobs:
 
   build:
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.vm == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -125,7 +128,7 @@ jobs:
       - name: Build static amd64 and arm64
         run: |
           for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOARCH=$arch go build -trimpath -ldflags "-s -w" -o dist/hwspec-$arch ./cmd/hwspec
+            CGO_ENABLED=0 GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=ci-$GITHUB_SHA" -o dist/hwspec-$arch ./cmd/hwspec
             file dist/hwspec-$arch | tee /dev/stderr | grep -q 'statically linked'
           done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -170,6 +173,17 @@ jobs:
             read -ra lookup <<<"$q" # "KIND ID" as two arguments
             docker run --rm --network=none -v "$PWD/hwspec-amd64:/hwspec:ro" "${{ matrix.image }}" /hwspec ids lookup "${lookup[@]}"
           done
+
+  # Go changes and changes to the VM harness boot the VMs with the binary
+  # just built (published builds go through them in verify.yml).
+  vms:
+    needs: [changes, build]
+    if: needs.changes.outputs.vm == 'true'
+    uses: ./.github/workflows/vms.yml
+    with:
+      artifact: hwspec-binaries
+      binary: hwspec-amd64
+      version: ci-${{ github.sha }} # the build job's -X main.version
 
   nix:
     needs: changes
@@ -234,7 +248,7 @@ jobs:
   # a failure there would skip everything and pass vacuously.
   ci-ok:
     if: always()
-    needs: [changes, lint, test, vulncheck, build, distros, nix, actionlint, mermaid, pr-title, commits]
+    needs: [changes, lint, test, vulncheck, build, distros, vms, nix, actionlint, mermaid, pr-title, commits]
     runs-on: ubuntu-24.04
     steps:
       - name: All needed checks passed
@@ -244,6 +258,6 @@ jobs:
           # `changes` must have succeeded AND produced every output; without
           # them each gated job would be skipped and this gate pass vacuously.
           echo "$NEEDS" | jq -e '.changes.result == "success"
-            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("docs"))
+            and (.changes.outputs | has("go") and has("nix") and has("workflows") and has("docs") and has("vm"))
             and (.changes.outputs | to_entries | all(.value == "true" or .value == "false"))
             and (to_entries | all(.value.result == "success" or .value.result == "skipped"))'

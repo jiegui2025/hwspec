@@ -1,0 +1,74 @@
+name: VMs
+
+# Runs an amd64 hwspec binary in KVM virtual machines booted from pinned
+# cloud images, covering systemd, OpenRC and sysvinit (scripts/vm-run.sh).
+# verify.yml calls it with the published binary; CI calls it with the
+# binary it just built when a PR changes Go code, the VM harness or CI.
+
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        description: Artifact holding the binary
+        type: string
+        required: true
+      binary:
+        description: Path of the amd64 binary inside the artifact
+        type: string
+        required: true
+      version:
+        description: Expected version (`hwspec version` prints "hwspec VERSION"); empty skips the check
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  vm:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [ubuntu-24.04, ubuntu-26.04, debian-13, fedora-44, arch, alpine-3.24, debian-13-sysvinit]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25 # vm-run.sh gives each boot 10 minutes; sysvinit boots twice
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ inputs.artifact }}
+          path: payload
+      - name: Enable KVM, install QEMU and UEFI firmware
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils ovmf genisoimage
+      - name: Image pin
+        id: pin
+        shell: bash # -o pipefail: an unknown image must fail here, not behind tee
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: scripts/vm-run.sh --pin "$IMAGE" | tee -a "$GITHUB_OUTPUT"
+      # Keyed on the pinned checksum: a new pin downloads, nothing else does.
+      # vm-run.sh checks the checksum before every use, so a cache entry can
+      # save a download but never change what boots.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/hwspec-vm
+          key: vm-${{ matrix.image }}-${{ steps.pin.outputs.sum }}
+      - name: Boot ${{ matrix.image }} and check hwspec
+        env:
+          IMAGE: ${{ matrix.image }}
+          BINARY: payload/${{ inputs.binary }}
+          VERSION: ${{ inputs.version }}
+        run: scripts/vm-run.sh "$IMAGE" "$BINARY" "$VERSION"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: vm-${{ matrix.image }}
+          path: vm-out/
+          retention-days: 7
