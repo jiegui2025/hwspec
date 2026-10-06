@@ -21,12 +21,21 @@ const fuseSuperMagic = 0x65735546
 // sticky bit (like /nix/store or /tmp): others may add entries there but
 // can't rename or remove root's. Files on FUSE are refused.
 func RootOwned(path string) error {
+	return checkTree(path, func(uid uint32) bool { return uid == 0 })
+}
+
+// statfs reports a file's filesystem; tests replace it.
+var statfs = unix.Statfs
+
+// checkTree applies RootOwned's rules with trusted deciding which owners
+// are acceptable (tests trust their own user to build trees without root).
+func checkTree(path string, trusted func(uid uint32) bool) error {
 	real, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return err
 	}
 	var fs unix.Statfs_t
-	if err := unix.Statfs(real, &fs); err != nil {
+	if err := statfs(real, &fs); err != nil {
 		return err
 	}
 	if uint32(fs.Type) == fuseSuperMagic {
@@ -41,7 +50,7 @@ func RootOwned(path string) error {
 		if !ok {
 			return fmt.Errorf("can't check the owner of %s", p)
 		}
-		if sys.Uid != 0 {
+		if !trusted(sys.Uid) {
 			return fmt.Errorf("%s is owned by a non-root user", p)
 		}
 		writable := st.Mode().Perm()&0o022 != 0
