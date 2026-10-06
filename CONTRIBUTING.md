@@ -62,7 +62,7 @@ Most PRs merge on `ci-ok` and the review. A PR that is **critical** or **large**
 | Extra condition | How it's checked |
 |---|---|
 | CodeQL found nothing new on the PR head | the reviewer, before merging: the CodeQL checks on the head are green and code scanning shows no open alert for the PR |
-| Actions pinned by full SHA in the privileged workflows | automatically: [`scripts/check-pinned-actions.sh`](scripts/check-pinned-actions.sh) in the `actionlint` job, for every workflow that has a write permission, a secret or an environment |
+| Actions pinned by full SHA in the privileged workflows | automatically: [`scripts/check-pinned-actions.sh`](scripts/check-pinned-actions.sh) in the `actionlint` job, for every workflow that has a write permission, a secret or an environment, and for every reusable workflow and local action (they run with their caller's token) |
 
 ### Commits
 

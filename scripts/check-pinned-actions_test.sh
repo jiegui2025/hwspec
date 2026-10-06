@@ -55,5 +55,26 @@ expect pass unprivileged 'jobs:
       contents: read
     steps:
       - uses: some/action@v1'
+# A reusable workflow runs with its caller's token, whatever its own
+# permissions say.
+expect fail reusable 'on:
+  workflow_call:
+jobs:
+  x:
+    steps:
+      - uses: some/action@v1'
+expect pass reusable-pinned "on:
+  workflow_call:
+jobs:
+  x:
+    steps:
+      - uses: some/action@$sha"
+# A local composite action too: checked by its path.
+mkdir -p "$dir/.github/actions/setup"
+printf '%s\n' 'runs:' '  using: composite' '  steps:' '    - uses: some/action@v1' > "$dir/.github/actions/setup/action.yml"
+if "$script" "$dir/.github/actions/setup/action.yml" >/dev/null 2>&1; then
+  echo "FAIL local-action: an unpinned action in a local composite action passed"
+  fail=1
+fi
 [ "$fail" = 0 ] && echo "check-pinned-actions: all cases pass"
 exit "$fail"
