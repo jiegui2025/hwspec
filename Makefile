@@ -28,10 +28,10 @@ cover:
 	HWSPEC_SKIP_HOST_TESTS=1 CGO_ENABLED=1 go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./... # the race detector needs cgo
 	scripts/coverage.sh coverage.out $(COVERAGE_MIN)
 
-# Reproducible: the same commit, built with the same Go toolchain and gzip,
-# gives byte-identical tarballs (GNU tar format, sorted entries, fixed owner
-# and modes, the commit time as every file's mtime, gzip without a name or
-# timestamp).
+# Reproducible: built in a git checkout of the tag (Go's version stamp and
+# SOURCE_DATE_EPOCH come from git) with the same Go, GNU tar and gzip, the
+# tarballs are byte-identical. What a rebuild needs: CONTRIBUTING.md,
+# "Reproduce a release".
 SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || echo 0)
 
 release:
