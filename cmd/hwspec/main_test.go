@@ -12,6 +12,7 @@ func TestUnknownOutputExtensionIsAnError(t *testing.T) {
 	cases := []struct{ format, path, want string }{
 		{"", "spec.json", "json"}, {"", "spec.yml", "yaml"}, {"", "spec.txt", "text"},
 		{"", "", "json"}, {"yaml", "spec.xml", "yaml"}, {"", "-", "json"},
+		{"", "spec.yaml", "yaml"}, {"", "myspec", "json"},
 	}
 	for _, c := range cases {
 		if got, err := pickFormat(c.format, c.path, "json"); err != nil || got != c.want {
