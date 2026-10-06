@@ -139,4 +139,21 @@ flowchart LR
 
 ## Releases
 
-Maintainers: run `make update-ids`, merge, then tag `vX.Y.Z` on `main` and push the tag. The release workflow builds, attests and publishes.
+```mermaid
+flowchart LR
+  ids["make update-ids, merge"] --> rc["tag vX.Y.Z-rc.N on main, push"]
+  rc --> wait1{"production: owner approves"} --> pre["Pre-release (never Latest)"]
+  pre -->|"checked"| final["tag vX.Y.Z, push"]
+  final --> wait2{"production: owner approves"} --> rel["Release (Latest if newest)"]
+```
+
+| Step | Detail |
+|---|---|
+| Refresh the ID databases | `make update-ids`, then merge through a PR |
+| Release candidate first | tag `vX.Y.Z-rc.N` on `main`; tags with a `-` publish as **pre-releases**, never as Latest |
+| Approve | the release job runs in the `production` environment: it waits until the owner approves it in the run's page; only `v*` tags may deploy there |
+| Final release | tag `vX.Y.Z` on the same commit once the candidate checks out; GitHub marks it Latest when it's the newest version, so a patch to an older line doesn't take Latest |
+| What's published | `hwspec-vX.Y.Z-linux-{amd64,arm64}.tar.gz` (binary, LICENSE, README), `SHA256SUMS`, provenance attestations |
+| Reproducible | `make release` from the same commit, with the same Go toolchain and gzip, gives byte-identical tarballs (GNU tar, sorted entries, owner 0, the commit time as mtime, gzip without a timestamp); the release log prints `go version`, so a build can be reproduced and its `SHA256SUMS` compared |
+
+Tags can't be moved or deleted (ruleset *Protect release tags*), so a bad candidate is replaced by the next `-rc.N`.
