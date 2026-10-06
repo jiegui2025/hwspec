@@ -330,7 +330,8 @@ func sourceDate(open func() (io.ReadCloser, error)) string {
 			return date
 		}
 	}
-	return "" // a read error mid-header also means "undated"
+	_ = sc.Err() // deliberately unchecked: a read error mid-header also means "undated"
+	return ""
 }
 
 func scanner(r io.Reader) *bufio.Scanner {
