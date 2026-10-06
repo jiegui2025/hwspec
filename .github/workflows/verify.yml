@@ -3,9 +3,9 @@ name: Verify release
 # Checks what was actually published, as a user would get it: checksums,
 # provenance attestations (signed by this repository's release or edge
 # workflow, on GitHub-hosted runners), and the binaries themselves: in the
-# target distros' containers (amd64 and arm64) and in VMs with systemd,
-# OpenRC and sysvinit (amd64; vms.yml). Runs after every publish; run it by
-# hand for any tag from the Actions tab.
+# target distros' containers (amd64 and arm64) and, for releases, in VMs
+# with systemd, OpenRC and sysvinit (amd64; vms.yml). Runs after every
+# publish; run it by hand for any tag (VMs included) from the Actions tab.
 
 on:
   workflow_call:
@@ -131,8 +131,11 @@ jobs:
             run ids lookup "${lookup[@]}"
           done
 
+  # Releases only: an edge build's VMs already booted the same tree in the
+  # PR's CI (owner, 2026-10-06, #175). Run by hand, any tag boots them.
   vms:
     needs: integrity
+    if: inputs.tag != 'edge' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/vms.yml
     with:
       artifact: verified-binaries

@@ -98,7 +98,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 | Markdown | Mermaid rendering check (every diagram in the changed Markdown files must render; every file when CI itself changes), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
-Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs both on the published build. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
+Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs the tamper test on the published build, and the VMs boot for releases (an `edge` build's tree already booted them in its PR's CI). A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
 
 Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. The [Canary workflow](.github/workflows/canary.yml) runs the tests on the next image (`ubuntu-26.04`) daily, and by hand from the Actions tab, to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 
@@ -254,13 +254,13 @@ flowchart LR
   rel --> verify["verify.yml: SHA256SUMS, attestations"]
   verify --> tamper["tamper: tampered local copies must fail"]
   verify --> ctr["containers: 8 distros on amd64, 5 on arm64"]
-  verify --> vms["vms.yml: KVM VMs (amd64)<br/>systemd, OpenRC, sysvinit"]
+  verify -->|releases| vms["vms.yml: KVM VMs (amd64)<br/>systemd, OpenRC, sysvinit"]
 ```
 
 | Workflow | Does |
 |---|---|
 | `edge.yml` | after CI passes on `main`: builds that commit, attests it, and replaces the `edge` pre-release (never Latest) |
-| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner, checks that tampered local copies of those assets fail the same checks, then runs the published binary in the distro containers on amd64 and arm64 runners, and in the VMs. Run it by hand from the Actions tab for any tag. |
+| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner, checks that tampered local copies of those assets fail the same checks, then runs the published binary in the distro containers on amd64 and arm64 runners, and, for releases, in the VMs (an `edge` build's tree booted them in its PR's CI). Run it by hand from the Actions tab for any tag, VMs included. |
 | `vms.yml` | boots each pinned cloud image below under KVM and runs `scripts/vm-run.sh` on it. Also runs in CI, with the binary just built, when a PR changes Go code, the VM harness (`scripts/vm-*.sh`, `vms.yml`) or CI itself. |
 | `vm-images.yml` | weekly: every pinned image URL still exists, and `vms.yml`'s matrix matches `scripts/vm-run.sh --list` |
 
