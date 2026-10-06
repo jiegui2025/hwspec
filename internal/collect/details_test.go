@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -886,5 +887,43 @@ func TestCodecsComeFromSysfsBeforeProc(t *testing.T) {
 	want = []report.AudioCodec{{VendorID: "11112222", SubsystemID: "33334444", Identity: &report.Identity{Model: "Stale Name", Revision: "100001"}}}
 	if !reflect.DeepEqual(c.r.Audio[0].Codecs, want) {
 		t.Errorf("fallback codecs = %+v", c.r.Audio[0].Codecs)
+	}
+}
+
+// The sensors collector waits on slow chips (an NVMe drive answers each
+// reading in about 7.5 ms), so it runs alongside the other collectors: here
+// its only reading blocks until the USB collector, which runs after it in
+// program order, has started.
+func TestSensorsRunAlongsideTheOtherCollectors(t *testing.T) {
+	file, _ := fakeRoot(t)
+	file("/sys/class/hwmon/hwmon0/name", "slowchip\n")
+	pipe := filepath.Join(root, "sys/class/hwmon/hwmon0/temp1_input")
+	if err := syscall.Mkfifo(pipe, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	usbStarted := make(chan struct{})
+	var once sync.Once
+	traceRead = func(path string) {
+		if path == "/sys/bus/usb/devices/" {
+			once.Do(func() { close(usbStarted) })
+		}
+	}
+	done := make(chan *report.Report)
+	go func() { done <- Collect("test") }()
+
+	select {
+	case <-usbStarted:
+	case <-time.After(10 * time.Second):
+		// Unblock the reading so the capture can end, then fail.
+		_ = os.WriteFile(pipe, []byte("1\n"), 0o644)
+		<-done
+		t.Fatal("the USB collector didn't start while the sensors collector was waiting on its chip")
+	}
+	if err := os.WriteFile(pipe, []byte("42000\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := <-done
+	if len(r.Sensors) != 1 || len(r.Sensors[0].Readings) != 1 || r.Sensors[0].Readings[0].Value != 42 {
+		t.Errorf("sensors = %+v", r.Sensors)
 	}
 }
