@@ -110,8 +110,12 @@ flowchart TD
 
 ## Planned
 
+The ranked plan is the [roadmap](README.md#roadmap); these items change the architecture:
+
 | Area | Tracking |
 |---|---|
-| Advisor: upgrades, firmware, drivers, needs-attention list, maintenance reminders | [#5](https://github.com/jiegui2025/hwspec/issues/5) (design), #6–#11 |
-| Continuous deployment with post-deploy verification in VMs | [#22](https://github.com/jiegui2025/hwspec/issues/22) |
-| Desktop app | [ADR 0007](docs/adr/0007-desktop-ui.md), #13, #14 |
+| Advisor: a knowledge base and rules that turn a capture into advice (drivers, firmware, upgrades, maintenance) | [#5](https://github.com/jiegui2025/hwspec/issues/5) will record the design in ADR 0009; [#7](https://github.com/jiegui2025/hwspec/issues/7)–[#11](https://github.com/jiegui2025/hwspec/issues/11), [#25](https://github.com/jiegui2025/hwspec/issues/25) build it |
+| JSON Schema for the capture format, checked for compatibility in CI | [#37](https://github.com/jiegui2025/hwspec/issues/37) |
+| Package boundaries and "no network in the capture path", enforced in CI | [#29](https://github.com/jiegui2025/hwspec/issues/29) |
+| Gated deployment, verified on real distros after publishing | [#22](https://github.com/jiegui2025/hwspec/issues/22) |
+| Desktop app | [ADR 0007](docs/adr/0007-desktop-ui.md), [#13](https://github.com/jiegui2025/hwspec/issues/13), [#14](https://github.com/jiegui2025/hwspec/issues/14) |
