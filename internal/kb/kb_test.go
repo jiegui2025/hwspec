@@ -186,7 +186,7 @@ func TestValidateNamesEveryProblem(t *testing.T) {
 // field or value costs one rule (or source, and the rules citing it), with
 // the reason, never the whole knowledge base or a rule applied in part.
 func TestParseSkipsWhatItCantFullyUnderstand(t *testing.T) {
-	file := `{"format":1,"version":"2026-10-06","models":{"hp":{}},
+	file := `{"format":1,"version":"2026-10-06","firmware":{"hp":{}},
 	"sources":[
 	 {"id":"kernel","url":"https://docs.kernel.org/x.html","retrieved":"2026-10-06","licence":"GPL-2.0-only","confidence":"upstream-doc","quote":"words","archived_url":"https://web.archive.org/x"},
 	 {"id":"rumour","url":"https://x.example","retrieved":"2026-10-06","licence":"x","confidence":"hearsay","quote":"q"},
@@ -220,7 +220,7 @@ func TestParseSkipsWhatItCantFullyUnderstand(t *testing.T) {
 		`rule "f.new-field" skipped: json: unknown field "risk_level"`,
 		`rule "a.ok" skipped: duplicate id`,
 		`rule 8 skipped`,
-		`section "models" skipped: this build of hwspec doesn't use it`,
+		`section "firmware" skipped: this build of hwspec doesn't use it`,
 	} {
 		if !strings.Contains(skipped, want) {
 			t.Errorf("missing %q in\n%s", want, skipped)

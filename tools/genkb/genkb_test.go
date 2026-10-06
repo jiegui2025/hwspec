@@ -246,3 +246,112 @@ func TestUsageAndUnwritableOutput(t *testing.T) {
 		t.Error("missing source directory reported success")
 	}
 }
+
+// model is a file with the reference model's entry (#25) and its source;
+// %s is the entry's ID.
+const model = `sources:
+  hp-ds-%s:
+    url: https://h20195.www2.hp.com/v2/GetDocument.aspx?docname=4AA7-5436EEAP
+    doc: 4AA7-5436EEAP
+    published: "2019-12"
+    retrieved: 2026-10-06
+    licence: "HP: no reuse licence"
+    confidence: oem-doc
+    link_only: true
+    locator: Memory
+models:
+  %s:
+    match: {sys_vendor: HP, product_name: "HP EliteDesk 800 G5 Desktop Mini", board_name: "8595"}
+    data:
+      memory:
+        max_total_gb: [{value: 64, src: hp-ds-%s}]
+      chipset: [{value: Q370, src: hp-ds-%s}]
+devices:
+  %s.gpu:
+    match: {bus: pci, id: "8086:3e92"}
+    data:
+      display_outputs: [{value: [{type: dp, max_width: 4096}], src: hp-ds-%s}]
+cpus:
+  %s.cpu:
+    match: {vendor: intel, processor: i5-9500T}
+    data:
+      memory_max_gb: [{value: 128, src: hp-ds-%s}]
+allowlists:
+  %s.policy:
+    match: {sys_vendor: HP, family: "103C_53307F HP EliteDesk", bios_version: {from: "R21 Ver. 02.00.00"}}
+    data:
+      restricted: [{value: false, src: hp-ds-%s}]
+`
+
+func modelFile(id string) string { return strings.ReplaceAll(model, "%s", id) }
+
+// The data sections compile from YAML, keyed by ID like sources, and read
+// back; genkb refuses what #25 says it must.
+func TestSectionsCompile(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"rules.yaml": ruleFile("a.rule"), "models/hp.yaml": modelFile("hp.mini")})
+	out := filepath.Join(t.TempDir(), "out.gz")
+	if code, _, stderr := genkb(t, "-o", out, dir); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, err := kb.Parse(data)
+	if err != nil || len(k.Skipped) != 0 {
+		t.Fatalf("%v, skipped %q", err, k.Skipped)
+	}
+	if len(k.Models) != 1 || k.Models[0].ID != "hp.mini" || k.Models[0].Match.BoardName != "8595" ||
+		len(k.Devices) != 1 || k.Devices[0].ID != "hp.mini.gpu" || len(k.CPUs) != 1 || len(k.Allowlists) != 1 ||
+		!k.Confirmed(k.Allowlists[0].Data) {
+		t.Errorf("sections: %+v %+v %+v %+v", k.Models, k.Devices, k.CPUs, k.Allowlists)
+	}
+	m := modelFile("hp.mini")
+	for name, c := range map[string]struct {
+		files map[string]string
+		want  string
+	}{
+		"no src": {map[string]string{"m.yaml": strings.Replace(m, "chipset: [{value: Q370, src: hp-ds-hp.mini}]", "chipset: Q370", 1)},
+			"chipset: a value without a source"},
+		"unknown src": {map[string]string{"m.yaml": strings.Replace(m, "max_total_gb: [{value: 64, src: hp-ds-hp.mini}]", "max_total_gb: [{value: 64, src: forum}]", 1)},
+			`src "forum" isn't in sources`},
+		"empty claim list": {map[string]string{"m.yaml": strings.Replace(m, "chipset: [{value: Q370, src: hp-ds-hp.mini}]", "chipset: []", 1)},
+			"chipset: empty claim list"},
+		"the same DMI key twice": {map[string]string{"m.yaml": m, "n.yaml": strings.Replace(strings.Replace(modelFile("hp.other"), "8086:3e92", "8086:3e91", 1), "i5-9500T", "i5-9500", 1)},
+			`models entry "hp.other": matches what "hp.mini" matches`},
+		"an unparseable BIOS range": {map[string]string{"m.yaml": strings.Replace(m, `from: "R21 Ver. 02.00.00"`, `from: "2.0"`, 1)},
+			`"2.0" isn't an HP BIOS version`},
+		"an unknown field": {map[string]string{"m.yaml": strings.Replace(m, "    match: {bus: pci", "    colour: red\n    match: {bus: pci", 1)},
+			`unknown field "colour"`},
+		"an unknown group": {map[string]string{"m.yaml": strings.Replace(m, "      chipset:", "      colour: [{value: red, src: hp-ds-hp.mini}]\n      chipset:", 1)},
+			`unknown group "colour"`},
+		"an id field": {map[string]string{"m.yaml": strings.Replace(m, "  hp.mini:\n", "  hp.mini:\n    id: hp.mini\n", 1)},
+			`models entry "hp.mini": its id is its key; drop the id field`},
+		"defined twice": {map[string]string{"m.yaml": m, "n.yaml": strings.Replace(m, "hp-ds-hp.mini:", "hp-ds-other:", 1)},
+			`models entry "hp.mini" is defined twice`},
+	} {
+		dir := writeFiles(t, c.files)
+		code, _, stderr := genkb(t, "-o", filepath.Join(t.TempDir(), "out.gz"), dir)
+		if code != 1 || !strings.Contains(stderr, c.want) {
+			t.Errorf("%s: exit %d, %q; want %q", name, code, stderr, c.want)
+		}
+	}
+}
+
+// Entries from several files come out sorted by ID, whichever file each
+// is in.
+func TestSectionEntriesAreSortedAcrossFiles(t *testing.T) {
+	// Each file keeps its source and model; the other sections would repeat.
+	first, _, _ := strings.Cut(strings.Replace(modelFile("z.model"), `board_name: "8595"`, `board_name: "9999"`, 1), "devices:")
+	second, _, _ := strings.Cut(modelFile("a.model"), "devices:")
+	dir := writeFiles(t, map[string]string{"r.yaml": ruleFile("a.rule"), "a.yaml": first, "b.yaml": second})
+	out := filepath.Join(t.TempDir(), "out.gz")
+	if code, _, stderr := genkb(t, "-o", out, dir); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	data, _ := os.ReadFile(out)
+	k, err := kb.Parse(data)
+	if err != nil || len(k.Models) != 2 || k.Models[0].ID != "a.model" || k.Models[1].ID != "z.model" {
+		t.Errorf("%v: %+v", err, k.Models)
+	}
+}

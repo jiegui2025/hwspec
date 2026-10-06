@@ -1,6 +1,6 @@
 # 9. Advisor: a separate command over captures, a sourced knowledge base, no network
 
-**Status:** Accepted (2026-10-06) · Issue [#5](https://github.com/jiegui2025/hwspec/issues/5) · amends [ADR 0004](0004-offline-id-databases.md) (the bundle also carries the knowledge base) · clarified 2026-10-06: what a check declares (#146)
+**Status:** Accepted (2026-10-06) · Issue [#5](https://github.com/jiegui2025/hwspec/issues/5) · amends [ADR 0004](0004-offline-id-databases.md) (the bundle also carries the knowledge base) · clarified 2026-10-06: what a check declares (#146) · amended 2026-10-06: the data sections and the processor-number match key ([#128](https://github.com/jiegui2025/hwspec/issues/128))
 
 ## Context
 
@@ -100,6 +100,7 @@ Rules match raw IDs that captures hold (ADR 0003), never display names:
 | PCI | `vendor:device[:subvendor:subdevice]`, a list of them (in `data`, cited), class code prefix | ✅ |
 | USB | `vid:pid` | ✅ |
 | CPU | `vendor:family:model[:stepping]` as `cpu.ids` keys it: `intel:6:9e:10` (family and model hex, stepping decimal) | ✅ |
+| CPU model | the processor number parsed from the CPUID brand string, e.g. `i5-9500T` from `Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz` (amended 2026-10-06, owner, #128): several SKUs share a CPUID family and model. The parser reads only the forms there is evidence for (Intel Core `iN-NNNN[N]` with up to two suffix letters, so far); any other brand string matches nothing | ✅ (`cpu.identity.model`) |
 | Driver | module name | ✅ |
 | Modalias | glob | after #7, for devices without a driver |
 | Kernel | version range, e.g. below 6.19 | ✅ (`os.kernel`) |
@@ -218,3 +219,26 @@ rules:
 | The knowledge base updates weekly, offline after that, and older binaries skip what they can't apply | rules for new checks help only after a release; the shrink guard can block a legitimate cleanup (override: `HWSPEC_ALLOW_SHRINK=1`, CONTRIBUTING) |
 | No firmware metadata is redistributed | firmware update paths (#10) need a decision that amends ADR 0002 first |
 | Maintenance state works without root and without revealing `machine-id` | it doesn't follow a reinstall |
+
+## Amendment (2026-10-06): the data sections and the processor-number key
+
+The data #25 needs (what fits a model, a device's maxima, a CPU's limits, vendor allow-lists) goes into four top-level sections of the same file, beside `sources` and `rules` (#128). Older binaries skip them with a warning, as the *Older binaries* row already provides, so the format isn't bumped.
+
+| Section | One entry per | `match` | Groups (#25; the data parts fill their leaves) |
+|---|---|---|---|
+| `models` | system model | `sys_vendor` + `product_name`, optionally `board_name` and `sku` (DMI, as the kernel gives them) | `allowlist`, `chipset`, `cpu_support`, `display_ports`, `form_factor`, `gpu_slot`, `launch`, `memory`, `overclocking`, `parts`, `power`, `rtc_battery`, `storage_slots`, `wlan_slot` |
+| `devices` | PCI or USB device | `bus` + `vendor:device[:subvendor:subdevice]` (lower-case hex) | `display_outputs`, `rated`, `wifi` |
+| `cpus` | CPU model | `vendor` + `processor` (the processor number above) | `launch`, `memory_channels`, `memory_max_gb`, `memory_max_mts`, `memory_types`, `package`, `socket`, `tdp_w`, `unlocked` |
+| `allowlists` | vendor firmware policy | `sys_vendor` + any of `product_name` (a list), `family`, `board_name` (a list), optionally `bios_version: {from, to}` (from included, to excluded) | `approved`, `behaviour`, `checks`, `error_text`, `restricted`, `restricts`, `soft` |
+
+| Rule | Detail |
+|---|---|
+| Claims | every leaf of `data` is a claim list `[{value, src}]`, validated like a rule's data, and read the same way by older binaries: a claim's keys beyond `value` and `src` are descriptive only (*Older binaries* above). A qualifier of a value is a new leaf key, which the data part's strict decoder refuses, so the entry is skipped rather than applied with the qualifier ignored |
+| Uniqueness | `genkb` refuses two entries of a section with the same ID or the same `match` (an allow-list's lists in any order, its range ends as the comparator reads them), and two model entries that could both match one machine with neither more specific than the other (one names the board, the other the SKU). A lookup that still finds such a tie returns no model |
+| Leniency | `Parse` leaves out an entry it can't fully read (an unknown field or group, a bad claim), names it in the warnings, and keeps the others |
+| Lookups | `internal/advisor` looks entries up by the capture's raw IDs: the most specific model entry, a device's subsystem entry over its chip's, the CPU by processor number, and every allow-list that applies, plus those whose range can't be judged |
+| BIOS ranges | compared by a per-vendor comparator. There is one for HP's `R21 Ver. 02.27.00` form: three parts, within one firmware family. `genkb` refuses a range for a vendor without one, or with ends the comparator can't read. A capture whose version the comparator can't read or compare matches no range, and the lookup returns that policy apart, as undetermined, so a check says "can't tell", never "no policy" |
+| Conflicts | all claims for a leaf are kept and shown newest document first (the source's `published`; a coarser date follows the dates within it, undated last), never merged |
+| Match values | printable, without surrounding whitespace, no empty list items: a value the capture can never hold would leave the entry silently unused |
+| Confirmed | an allow-list is *confirmed* only when every claim cites an `oem-doc` source, and a community report otherwise: derived from the sources, never written by hand |
+
