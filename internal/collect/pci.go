@@ -35,6 +35,11 @@ func (c *collector) pci() {
 			Link:        pcieLink(d),
 			Driver:      c.driverAt(pciDir + addr),
 		}
+		if parent, ok := pciParent(addr); ok {
+			dev.Parent = parent
+		} else {
+			c.warn("pci %s: parent unknown: its sysfs path isn't under a PCI bus", addr)
+		}
 		// Names are filled in by resolve; the revision is the device's own.
 		if rev := hex4(readStr(d + "revision")); rev != "" {
 			dev.Identity = &report.Identity{Revision: rev}
@@ -44,6 +49,36 @@ func (c *collector) pci() {
 	if len(c.r.PCI) == 0 {
 		c.warn("pci: no devices under %s", pciDir)
 	}
+}
+
+// pciAddress is a PCI device's sysfs name, domain:bus:device.function,
+// and pciBus a root bus's, pci<domain>:<bus>. Domains have 4 hex digits,
+// or more behind Intel VMD (10000:e0:06.0).
+var (
+	pciAddress = regexp.MustCompile(`^[0-9a-f]{4,}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]$`)
+	pciBus     = regexp.MustCompile(`^pci[0-9a-f]{4,}:[0-9a-f]{2}$`)
+)
+
+// pciParent is the PCI device a device sits behind, from its sysfs path:
+// the bridge or root port above it; for a device on a root bus that a
+// PCI device hosts (Intel VMD), that device; "" on a platform root bus.
+// ok is false when the path doesn't resolve to a PCI bus at all.
+func pciParent(addr string) (parent string, ok bool) {
+	path := realPath(pciDir + addr)
+	if path == "" {
+		return "", false
+	}
+	up := filepath.Dir(path)
+	switch base := filepath.Base(up); {
+	case pciAddress.MatchString(base):
+		return base, true
+	case pciBus.MatchString(base):
+		if host := filepath.Base(filepath.Dir(up)); pciAddress.MatchString(host) {
+			return host, true
+		}
+		return "", true
+	}
+	return "", false
 }
 
 func pcieLink(dir string) *report.PCIeLink {

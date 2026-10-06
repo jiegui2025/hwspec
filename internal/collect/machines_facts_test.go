@@ -42,6 +42,18 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		} else {
 			want["gpu found"] = false
 		}
+		// PCI topology: the NVMe and the Wi-Fi card sit behind root ports
+		// 00:1b.0 and 00:1c.0 (readlink -f on the machine, 2026-10-06);
+		// the iGPU is on the root bus.
+		parent := func(addr string) string {
+			if d := find(r.PCI, func(d report.PCIDevice) bool { return d.Address == addr }); d != nil {
+				return d.Parent
+			}
+			return "missing"
+		}
+		want["nvme behind 00:1b.0"] = parent("0000:01:00.0") == "0000:00:1b.0"
+		want["wi-fi behind 00:1c.0"] = parent("0000:02:00.0") == "0000:00:1c.0"
+		want["igpu on the root bus"] = parent("0000:00:02.0") == ""
 		// Disk: model, firmware and the controller's driver.
 		if d := find(r.Storage, func(d report.Disk) bool { return d.Name == "nvme0n1" }); d != nil {
 			want["nvme model"] = d.Identity != nil && d.Identity.Model == "SAMSUNG MZVLB256HAHQ-000L7"

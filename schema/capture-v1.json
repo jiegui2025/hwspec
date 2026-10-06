@@ -1691,6 +1691,9 @@
           "address": {
             "type": "string"
           },
+          "parent": {
+            "type": "string"
+          },
           "vendor_id": {
             "type": "string"
           },
