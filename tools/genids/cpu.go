@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,9 +31,26 @@ var (
 // keeping ("Ice Lake-X"); others (L, G, P, H, ...) are dropped.
 var keepSuffix = map[string]bool{"X": true, "D": true, "EP": true, "EX": true}
 
+// sourcePrefixes are the kinds of source a curated line may cite (its 4th
+// field): every name must be checkable by a reviewer. The vendor and url
+// kinds are links, so they must be https URLs.
+var sourcePrefixes = []string{"kernel:", "instlat:", "amd:", "intel:", "url:"}
+
+func checkSource(src string) error {
+	kind, rest, _ := strings.Cut(src, ":")
+	if !slices.Contains(sourcePrefixes, kind+":") || rest == "" {
+		return fmt.Errorf("source %q has none of the prefixes %v", src, sourcePrefixes)
+	}
+	if (kind == "amd" || kind == "intel" || kind == "url") && !strings.HasPrefix(rest, "https://") {
+		return fmt.Errorf("source %q: %s: must be followed by an https:// URL", src, kind)
+	}
+	return nil
+}
+
 // cpu builds cpu.ids from the kernel's intel-family.h and amd.c plus the
-// curated file, which wins.
-func cpu(intelPath, amdPath, curatedPath string) ([]byte, error) {
+// curated file, which wins. Curated lines that change nothing are reported
+// to warn: kernel updates make lines redundant, which mustn't fail a build.
+func cpu(intelPath, amdPath, curatedPath string, warn io.Writer) ([]byte, error) {
 	out := map[string]cpuEntry{}
 
 	intel, err := os.ReadFile(intelPath)
@@ -170,6 +189,17 @@ func cpu(intelPath, amdPath, curatedPath string) ([]byte, error) {
 		if len(parts) < 2 || len(f) < 3 {
 			return nil, fmt.Errorf("%s:%d: malformed", curatedPath, ln)
 		}
+		if len(parts) < 4 || strings.TrimSpace(parts[3]) == "" {
+			return nil, fmt.Errorf("%s:%d: no source (4th field)", curatedPath, ln)
+		}
+		if len(parts) > 4 {
+			return nil, fmt.Errorf("%s:%d: %d tab-separated fields, want 4 (separate sources with spaces)", curatedPath, ln, len(parts))
+		}
+		for _, src := range strings.Fields(parts[3]) {
+			if err := checkSource(src); err != nil {
+				return nil, fmt.Errorf("%s:%d: %w", curatedPath, ln, err)
+			}
+		}
 		var keys []string
 		base := fmt.Sprintf("%s:%s:%s", f[0], strings.ToLower(f[1]), strings.ToLower(f[2]))
 		if len(f) == 4 {
@@ -188,18 +218,25 @@ func cpu(intelPath, amdPath, curatedPath string) ([]byte, error) {
 		} else {
 			keys = []string{base}
 		}
+		changed := false
 		for _, k := range keys {
 			e := out[k]
 			if e == (cpuEntry{}) {
 				e = out[base] // a stepping entry starts from the model's
 			}
+			before := e // what a lookup finds without this line
 			if c := strings.TrimSpace(parts[1]); c != "" {
 				e.codename = c
 			}
-			if len(parts) > 2 && strings.TrimSpace(parts[2]) != "" {
+			if strings.TrimSpace(parts[2]) != "" {
 				e.uarch = strings.TrimSpace(parts[2])
 			}
 			out[k] = e
+			changed = changed || e != before
+		}
+		if !changed {
+			// A GitHub Actions annotation when the weekly workflow runs it.
+			fmt.Fprintf(warn, "::warning file=%[1]s,line=%[2]d::%[1]s:%[2]d: the kernel or an earlier line already says this; remove it\n", curatedPath, ln)
 		}
 	}
 
