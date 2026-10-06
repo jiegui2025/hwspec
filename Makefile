@@ -28,11 +28,20 @@ cover:
 	HWSPEC_SKIP_HOST_TESTS=1 CGO_ENABLED=1 go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./... # the race detector needs cgo
 	scripts/coverage.sh coverage.out $(COVERAGE_MIN)
 
+# Reproducible: the same commit, built with the same Go toolchain and gzip,
+# gives byte-identical tarballs (GNU tar format, sorted entries, fixed owner
+# and modes, the commit time as every file's mtime, gzip without a name or
+# timestamp).
+SOURCE_DATE_EPOCH ?= $(shell git log -1 --format=%ct 2>/dev/null || echo 0)
+
 release:
-	@for arch in amd64 arm64; do \
-		GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o build/hwspec ./cmd/hwspec && \
-		tar -C build -czf build/hwspec-$(VERSION)-linux-$$arch.tar.gz hwspec && \
-		echo "build/hwspec-$(VERSION)-linux-$$arch.tar.gz"; \
+	@set -e; for arch in amd64 arm64; do \
+		stage=build/stage-$$arch; rm -rf $$stage; mkdir -p $$stage; \
+		GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o $$stage/hwspec ./cmd/hwspec; \
+		install -m644 LICENSE README.md $$stage/; chmod 755 $$stage/hwspec; \
+		tar -C $$stage --format=gnu --sort=name --owner=0 --group=0 --numeric-owner \
+			--mtime=@$(SOURCE_DATE_EPOCH) -cf - hwspec LICENSE README.md | gzip -9 -n > build/hwspec-$(VERSION)-linux-$$arch.tar.gz; \
+		rm -rf $$stage; echo "build/hwspec-$(VERSION)-linux-$$arch.tar.gz"; \
 	done
 	@cd build && sha256sum hwspec-$(VERSION)-*.tar.gz > SHA256SUMS
 
