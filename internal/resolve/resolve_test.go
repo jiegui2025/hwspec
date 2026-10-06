@@ -1,8 +1,11 @@
 package resolve
 
 import (
+	"maps"
+	"slices"
 	"testing"
 
+	"github.com/jiegui2025/hwspec/internal/ids"
 	"github.com/jiegui2025/hwspec/internal/report"
 )
 
@@ -88,5 +91,18 @@ func TestNamesFromRawIDs(t *testing.T) {
 	Names(r)
 	if *r.Memory.Modules[0].Identity != before {
 		t.Errorf("second pass changed memory module: %+v", r.Memory.Modules[0].Identity)
+	}
+}
+
+// Names loads every database up front, in parallel, but the report lists
+// only the ones its lookups used: a capture with PCI devices alone names
+// the PCI database and nothing else.
+func TestNamesListsOnlyTheDatabasesItUsed(t *testing.T) {
+	ids.UseEmbeddedOnly()
+	t.Cleanup(ids.UseEnvironment)
+	r := &report.Report{PCI: []report.PCIDevice{{Address: "0000:00:02.0", VendorID: "8086", DeviceID: "3e92", ClassCode: "030000"}}}
+	Names(r)
+	if got := slices.Sorted(maps.Keys(r.Tool.IDDatabases)); !slices.Equal(got, []string{"pci"}) {
+		t.Errorf("id_databases = %v, want only pci", r.Tool.IDDatabases)
 	}
 }

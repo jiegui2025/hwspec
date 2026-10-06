@@ -64,7 +64,8 @@ func collectNow(version string) *report.Report {
 		moduleSigning: moduleSigningSupported(),
 	}
 
-	c.dmi() // before osInfo, which uses DMI to recognise VMs
+	idsLoaded := resolve.Prefetch() // loads while the collectors wait on the kernel
+	c.dmi()                         // before osInfo, which uses DMI to recognise VMs
 	c.osInfo()
 	c.cpu()
 	c.memory()
@@ -82,6 +83,7 @@ func collectNow(version string) *report.Report {
 	c.sensors()
 	c.usb()
 
+	idsLoaded()
 	resolve.Names(r)
 	r.Sanitize() // strings from hardware and firmware are untrusted
 
