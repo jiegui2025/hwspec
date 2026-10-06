@@ -227,7 +227,6 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | [#53](https://github.com/jiegui2025/hwspec/issues/53) | chore(board): add PRs to the board and move linked issues automatically | P1 | XS |
 | [#38](https://github.com/jiegui2025/hwspec/issues/38) | chore: back up the ID-signing key offline | P1 | XS |
 | [#22](https://github.com/jiegui2025/hwspec/issues/22) | ci: gated deployment to edge and release, verified on real distros afterwards | P1 | L |
-| [#46](https://github.com/jiegui2025/hwspec/issues/46) | fix(smbios): treat ASUS and AMI default DMI strings as unknown | P2 | XS |
 | [#19](https://github.com/jiegui2025/hwspec/issues/19) | data(ids): cite a source for every curated CPU codename and fix the wrong ones | P2 | S |
 | [#37](https://github.com/jiegui2025/hwspec/issues/37) | feat(cli): publish a JSON Schema for the capture format, with a compatibility check | P2 | M |
 | [#27](https://github.com/jiegui2025/hwspec/issues/27) | ci: cover Linux Mint and MX Linux (sysvinit) explicitly | P2 | M |

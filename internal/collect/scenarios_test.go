@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -100,6 +101,42 @@ func TestLegacyBIOSVirtualMachine(t *testing.T) {
 	// The hypervisor's microcode revision is reported as it is.
 	if fw := r.CPU.Firmware; fw == nil || fw.Version != "0x1" || fw.Source != "microcode" {
 		t.Errorf("microcode = %+v", fw)
+	}
+}
+
+// An ASUS desktop whose firmware left the DMI system strings at their
+// defaults: they're unknown, not names, while the board keeps its own.
+func TestASUSFirmwareDefaultsAreUnknown(t *testing.T) {
+	file, _ := fakeRoot(t)
+	asMachine(t, "x86_64", 0)
+	for name, v := range map[string]string{
+		"sys_vendor": "System manufacturer", "product_name": "System Product Name",
+		"product_version": "System Version", "product_serial": "System Serial Number", "product_sku": "SKU",
+		"board_vendor": "ASUSTeK COMPUTER INC.", "board_name": "ROG STRIX X570-E GAMING WIFI II",
+	} {
+		file(dmiDir+name, v+"\n")
+	}
+	r := Collect("test")
+	if r.System.Identity != nil {
+		t.Errorf("system identity = %+v, want none", r.System.Identity)
+	}
+	if b := r.Board.Identity; b == nil || b.Vendor != "ASUSTeK COMPUTER INC." || b.Model != "ROG STRIX X570-E GAMING WIFI II" {
+		t.Errorf("board identity = %+v", b)
+	}
+	js, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"System manufacturer", "System Product Name", "System Version", "System Serial Number", `"SKU"`} {
+		if strings.Contains(string(js), s) {
+			t.Errorf("capture contains %s", s)
+		}
+	}
+
+	// Newer ASUS firmware names the vendor but keeps the default model.
+	file(dmiDir+"sys_vendor", "ASUS\n")
+	if id := Collect("test").System.Identity; id == nil || id.Vendor != "ASUS" || id.Model != "" {
+		t.Errorf("system identity = %+v, want vendor ASUS only", id)
 	}
 }
 

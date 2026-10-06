@@ -195,3 +195,22 @@ func TestTruncatedTables(t *testing.T) {
 		t.Errorf("full = %+v", got)
 	}
 }
+
+// Firmware placeholders mean "unknown" in any case and spacing; real names
+// that merely contain one are kept.
+func TestCleanDropsPlaceholders(t *testing.T) {
+	for _, s := range []string{
+		"Not Specified", "To Be Filled By O.E.M.", "Default string", "0000000", "\xff\xff",
+		"System manufacturer", "System Product Name", "System Version", "System Serial Number", "SKU",
+		"SYSTEM MANUFACTURER", "  system product name\t", " sku ",
+	} {
+		if got := Clean(s); got != "" {
+			t.Errorf("Clean(%q) = %q, want \"\"", s, got)
+		}
+	}
+	for _, s := range []string{"System76", "System Product Name 2", "SKU1234", "Thelio", "ASUS", "ROG STRIX X570-E GAMING WIFI II"} {
+		if got := Clean(s); got != s {
+			t.Errorf("Clean(%q) = %q, want it kept", s, got)
+		}
+	}
+}
