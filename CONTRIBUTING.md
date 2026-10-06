@@ -210,7 +210,7 @@ flowchart LR
   pre --> verify
   rel --> verify["verify.yml: SHA256SUMS, attestations"]
   verify --> tamper["tamper: tampered local copies must fail"]
-  verify --> ctr["containers: 6 distros × amd64/arm64"]
+  verify --> ctr["containers: 8 distros on amd64, 5 on arm64"]
   verify --> vms["vms.yml: KVM VMs (amd64)<br/>systemd, OpenRC, sysvinit"]
 ```
 
