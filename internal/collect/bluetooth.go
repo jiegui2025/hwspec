@@ -22,7 +22,7 @@ func (c *collector) bluetooth() {
 		if !strings.HasPrefix(n, "hci") || err != nil {
 			continue
 		}
-		bt := report.BluetoothController{Name: n}
+		bt := report.BluetoothController{Name: n, Firmware: report.UnknownFirmware("hwspec doesn't read the controller's HCI revision yet")}
 		bt.Bus, bt.BusAddress = busOf("/sys/class/bluetooth/" + n + "/device")
 		bt.Driver = c.driverAt("/sys/class/bluetooth/" + n + "/device")
 		info, err := readBTInfo(uint16(idx))

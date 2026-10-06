@@ -2,7 +2,6 @@ package collect
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -368,18 +367,32 @@ func TestFirmwareVersionsAndDates(t *testing.T) {
 	}
 }
 
-func TestEthtoolFailureLeavesFirmwareEmpty(t *testing.T) {
+func TestEthtoolFailureLeavesFirmwareUnknown(t *testing.T) {
 	old := ethtoolDrvinfo
 	t.Cleanup(func() { ethtoolDrvinfo = old })
-	ethtoolDrvinfo = func(string) (string, error) { return "", errors.New("operation not supported") }
-	file, link := fakeRoot(t)
-	link("/sys/class/net/eth0/device", "../../../devices/pci0000:00/0000:00:1f.6")
-	file("/sys/devices/pci0000:00/0000:00:1f.6/vendor", "0x8086")
-	file("/sys/class/net/eth0/operstate", "up")
-	c := &collector{r: &report.Report{}}
-	c.network()
-	if len(c.r.Network) != 1 || c.r.Network[0].Firmware != nil {
-		t.Errorf("network = %+v", c.r.Network)
+	for _, c := range []struct {
+		fw     string
+		err    error
+		reason string
+		warn   string
+	}{
+		{"", nil, "the driver reports no firmware version (ethtool)", ""},
+		{"N/A", nil, "the driver reports no firmware version (ethtool)", ""},
+		{"", syscall.EOPNOTSUPP, "the driver reports no firmware version (ethtool)", ""},
+		{"", syscall.EPERM, "ethtool can't ask the driver: operation not permitted", "network eth0: ethtool: operation not permitted"},
+		{"", syscall.ENODEV, "ethtool can't ask the driver: no such device", "network eth0: ethtool: no such device"},
+	} {
+		ethtoolDrvinfo = func(string) (string, error) { return c.fw, c.err }
+		file, link := fakeRoot(t)
+		link("/sys/class/net/eth0/device", "../../../devices/pci0000:00/0000:00:1f.6")
+		file("/sys/devices/pci0000:00/0000:00:1f.6/vendor", "0x8086")
+		file("/sys/class/net/eth0/operstate", "up")
+		col := &collector{r: &report.Report{}}
+		col.network()
+		w := strings.Join(col.r.Warnings, "\n")
+		if len(col.r.Network) != 1 || col.r.Network[0].Firmware.Known() || col.r.Network[0].Firmware.Reason != c.reason || w != c.warn {
+			t.Errorf("%q %v: network = %+v, warnings %q", c.fw, c.err, col.r.Network, w)
+		}
 	}
 }
 
@@ -655,7 +668,9 @@ func meDevice(file func(path, content string), link func(path, target string), n
 	dir := "/sys/devices/pci0000:00/" + addr
 	file(dir+"/class", class)
 	file(dir+"/vendor", "0x8086")
-	file(dir+"/mei/"+name+"/fw_ver", fwVer)
+	if fwVer != "-" { // "-": no fw_ver at all
+		file(dir+"/mei/"+name+"/fw_ver", fwVer)
+	}
 	if kind != "" {
 		file(dir+"/mei/"+name+"/kind", kind)
 	}
@@ -667,6 +682,7 @@ func meDevice(file func(path, content string), link func(path, target string), n
 // other mei devices, all-zero blocks and kernels without kind are
 // handled; a machine without mei, an EC release or a TPM gets none of
 // them and no warning; a read error or an unexpected format is a warning.
+// A platform ME without a version is "unknown", with the reason.
 func TestPlatformFirmware(t *testing.T) {
 	const three = "0:16.1.30.2307\n0:16.1.30.2307\n0:16.0.15.1810\n"
 	for _, c := range []struct {
@@ -701,17 +717,23 @@ func TestPlatformFirmware(t *testing.T) {
 		}, "", ""},
 		{"trailing text", func(f func(string, string), l func(string, string)) {
 			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "0:12.0.45.1509x\n")
-		}, "", `unexpected fw_ver "0:12.0.45.1509x"`},
+		}, "unknown: fw_ver isn't in the kernel's format", `unexpected fw_ver "0:12.0.45.1509x"`},
 		{"no platform prefix", func(f func(string, string), l func(string, string)) {
 			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "x:12.0.45.1509\n")
-		}, "", `unexpected fw_ver "x:12.0.45.1509"`},
+		}, "unknown: fw_ver isn't in the kernel's format", `unexpected fw_ver "x:12.0.45.1509"`},
 		{"garbage", func(f func(string, string), l func(string, string)) {
 			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "0:12.0.45\n")
-		}, "", `me firmware: unexpected fw_ver "0:12.0.45"`},
+		}, "unknown: fw_ver isn't in the kernel's format", `me firmware: unexpected fw_ver "0:12.0.45"`},
 		{"unreadable", func(f func(string, string), l func(string, string)) {
 			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", three)
 			unreadable = map[string]error{"/sys/class/mei/mei0/fw_ver": syscall.EIO}
-		}, "", "me firmware: open"},
+		}, "unknown: fw_ver can't be read: open ", "me firmware: open"},
+		{"no version at all", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "0:0.0.0.0\n")
+		}, "unknown: the kernel got no version from the Management Engine", ""},
+		{"no fw_ver", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "-")
+		}, "unknown: the kernel gives no fw_ver for the Management Engine", ""},
 		{"unreadable first, the CSME second", func(f func(string, string), l func(string, string)) {
 			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", three)
 			meDevice(f, l, "mei1", "0000:00:16.4", "mei", "0x078000", "0:15.0.10.1000\n")
@@ -724,14 +746,20 @@ func TestPlatformFirmware(t *testing.T) {
 			col := &collector{r: &report.Report{}}
 			col.platformFirmware()
 			got := ""
-			if fw := col.r.System.MEFirmware; fw != nil {
+			switch fw := col.r.System.MEFirmware; {
+			case fw.Known():
 				if fw.Vendor != "Intel" || fw.Source != "mei" {
 					t.Errorf("me %+v", fw)
 				}
 				got = fw.Version
+			case fw != nil:
+				if fw.Version != "" || fw.Source != "" {
+					t.Errorf("me %+v", fw)
+				}
+				got = "unknown: " + fw.Reason
 			}
 			w := strings.Join(col.r.Warnings, "\n")
-			if got != c.want || c.warn == "" && w != "" || c.warn != "" && !strings.Contains(w, c.warn) {
+			if !strings.HasPrefix(got, c.want) || c.want == "" && got != "" || c.warn == "" && w != "" || c.warn != "" && !strings.Contains(w, c.warn) {
 				t.Errorf("version %q, warnings %q; want %q, %q", got, w, c.want, c.warn)
 			}
 		})
@@ -770,11 +798,66 @@ func TestTPMSpecVersion(t *testing.T) {
 	}
 }
 
+// A TPM 2.0's firmware version is in udev's tpm2_id record (readable by
+// anyone), a TPM 1.2's in the kernel's caps file; without them, the block
+// says why.
+func TestTPMFirmware(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		setup func(file func(string, string))
+		want  string
+	}{
+		{"tpm2 from udev", func(f func(string, string)) {
+			f("/sys/class/tpm/tpm0/tpm_version_major", "2")
+			f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
+			f("/run/udev/data/c252:65536", "E:ID_TPM2_VENDOR_STRING=SLB9670\nE:ID_TPM2_MODALIAS=fi2.0:lv0:rv1.38:sy2018:sd8:mfIFX:vsSLB9670:ty0:fw7.85.1166080:\n")
+		}, "IFX 7.85.1166080 udev"},
+		{"tpm2 without the record", func(f func(string, string)) {
+			f("/sys/class/tpm/tpm0/tpm_version_major", "2")
+			f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
+		}, "unknown: udev didn't record it, and hwspec doesn't query the TPM yet"},
+		{"tpm2 record without fw", func(f func(string, string)) {
+			f("/sys/class/tpm/tpm0/tpm_version_major", "2")
+			f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
+			f("/run/udev/data/c252:65536", "E:ID_TPM2_MODALIAS=fi2.0:mfIFX:\n")
+		}, "unknown: udev didn't record it, and hwspec doesn't query the TPM yet"},
+		{"tpm1.2 caps", func(f func(string, string)) {
+			f("/sys/class/tpm/tpm0/tpm_version_major", "1")
+			f("/sys/class/tpm/tpm0/caps", "Manufacturer: 0x53544d20\nTCG version: 1.2\nFirmware version: 13.12\n")
+		}, " 13.12 caps"},
+		{"tpm1.2 caps without it", func(f func(string, string)) {
+			f("/sys/class/tpm/tpm0/tpm_version_major", "1")
+			f("/sys/class/tpm/tpm0/caps", "Manufacturer: 0x53544d20\nFirmware version: \n")
+		}, "unknown: the TPM 1.2 caps file gives no firmware version"},
+		{"tpm1.2 without caps", func(f func(string, string)) {
+			f("/sys/class/tpm/tpm0/tpm_version_major", "1")
+		}, "unknown: the TPM 1.2 caps file can't be read"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			file, _ := fakeRoot(t)
+			c.setup(file)
+			col := &collector{r: &report.Report{}}
+			col.platformFirmware()
+			got := ""
+			switch fw := col.r.TPM.Firmware; {
+			case fw.Known():
+				got = fw.Vendor + " " + fw.Version + " " + fw.Source
+			case fw != nil:
+				got = "unknown: " + fw.Reason
+			}
+			if got != c.want {
+				t.Errorf("tpm firmware %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
 // The EC's release comes from DMI as the kernel prints it ("%u.%u"):
 // 0.0 is kept as written, anything else is a warning.
 func TestECFirmware(t *testing.T) {
 	for _, c := range []struct{ content, want, warn string }{
-		{"8.9\n", "8.9", ""}, {"0.0", "0.0", ""}, {"", "", ""}, {"8.9.1", "", `dmi ec_firmware_release: unexpected "8.9.1"`},
+		{"8.9\n", "8.9", ""}, {"0.0", "0.0", ""}, {"", "", ""},
+		{"8.9.1", "unknown: ec_firmware_release isn't in the kernel's format", `dmi ec_firmware_release: unexpected "8.9.1"`},
 	} {
 		file, _ := fakeRoot(t)
 		file(dmiDir+"sys_vendor", "HP\n")
@@ -784,11 +867,14 @@ func TestECFirmware(t *testing.T) {
 		col := &collector{r: &report.Report{}}
 		col.dmi()
 		got := ""
-		if fw := col.r.System.ECFirmware; fw != nil {
+		switch fw := col.r.System.ECFirmware; {
+		case fw.Known():
 			if fw.Source != "dmi" {
 				t.Errorf("%+v", fw)
 			}
 			got = fw.Version
+		case fw != nil:
+			got = "unknown: " + fw.Reason
 		}
 		w := strings.Join(col.r.Warnings, "\n")
 		if got != c.want || c.warn == "" && w != "" || c.warn != "" && !strings.Contains(w, c.warn) {

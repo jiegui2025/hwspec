@@ -120,6 +120,16 @@ func firmwareVersion(version, source string) *report.Firmware {
 	return &report.Firmware{Version: v, Source: source}
 }
 
+// firmwareOrUnknown returns fw, or, when no version was read, an unknown block
+// with the reason: a part that has firmware never goes without the block
+// (ADR 0008).
+func firmwareOrUnknown(fw *report.Firmware, reason string) *report.Firmware {
+	if fw == nil {
+		return report.UnknownFirmware(reason)
+	}
+	return fw
+}
+
 // metric adds a measurement to h when ok.
 func metric(h *report.Health, name string, value float64, ok bool) {
 	if !ok {

@@ -29,7 +29,7 @@ func asMachine(t *testing.T, arch string, euid int) {
 	geteuid = func() int { return euid }
 	hostname = func() (string, error) { return "scenario", nil }
 	readBTInfo = func(uint16) (*mgmtInfo, error) { return nil, errors.New("no controller") }
-	ethtoolDrvinfo = func(string) (string, error) { return "", errors.New("not supported") }
+	ethtoolDrvinfo = func(string) (string, error) { return "", syscall.EOPNOTSUPP }
 	nvmeHealthFn = func(string) (*report.Health, error) { return nil, errors.New("no NVMe") }
 	findSmartctl = func() string { return "" }
 	runCommand = func(time.Duration, string, ...string) ([]byte, error) { return nil, errors.New("no commands") }
@@ -56,6 +56,7 @@ func TestARMBoardInAContainer(t *testing.T) {
 	file("/proc/sys/kernel/osrelease", "6.6.51+rpt-rpi-v8")
 
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	if r.OS.PrettyName != "Debian 12" || r.OS.Arch != "aarch64" || r.OS.Kernel != "6.6.51+rpt-rpi-v8" {
 		t.Errorf("os = %+v", r.OS)
 	}
@@ -90,6 +91,7 @@ func TestLegacyBIOSVirtualMachine(t *testing.T) {
 		file(dmiDir+name, v+"\n")
 	}
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	if r.OS.Virtualization != "vm" || r.OS.BootMode != "bios" || !r.Privileged {
 		t.Errorf("os = %+v, privileged %v", r.OS, r.Privileged)
 	}
@@ -118,6 +120,7 @@ func TestASUSFirmwareDefaultsAreUnknown(t *testing.T) {
 		file(dmiDir+name, v+"\n")
 	}
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	if r.System.Identity != nil {
 		t.Errorf("system identity = %+v, want none", r.System.Identity)
 	}
@@ -151,6 +154,7 @@ func TestUEFIWithSecureBootAndRootOnlySerials(t *testing.T) {
 	file(dmiDir+"product_serial", "PF123456\n")
 	unreadable = map[string]error{dmiDir + "product_serial": syscall.EACCES}
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	if r.OS.BootMode != "uefi" || r.OS.SecureBoot == nil || !*r.OS.SecureBoot || r.OS.Virtualization != "none" {
 		t.Errorf("os = %+v", r.OS)
 	}
@@ -165,6 +169,7 @@ func TestBareSystemReportsWhatIsMissing(t *testing.T) {
 	fakeRoot(t)
 	asMachine(t, "riscv64", 1000)
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	for _, want := range []string{"os-release: not found", "dmi: /sys/class/dmi/id not present", "cpu:", "pci: no devices"} {
 		if !hasWarning(r, want) {
 			t.Errorf("no warning %q in %v", want, r.Warnings)
@@ -447,23 +452,6 @@ func TestBluetoothManagementReplies(t *testing.T) {
 	}
 }
 
-// GPU firmware: amdgpu exposes the VBIOS version, NVIDIA's driver lists it
-// in /proc.
-func TestGPUFirmwareFromEachDriver(t *testing.T) {
-	file, _ := fakeRoot(t)
-	file(pciDir+"0000:03:00.0/vbios_version", "113-D4120100-100\n")
-	file("/proc/driver/nvidia/gpus/0000:01:00.0/information", "Model: \t\t NVIDIA GeForce RTX 3060\nVideo BIOS: \t 94.06.2f.00.9a\n")
-	if fw := gpuFirmware("0000:03:00.0"); fw == nil || fw.Version != "113-D4120100-100" || fw.Source != "vbios" {
-		t.Errorf("amdgpu = %+v", fw)
-	}
-	if fw := gpuFirmware("0000:01:00.0"); fw == nil || fw.Version != "94.06.2f.00.9a" {
-		t.Errorf("nvidia = %+v", fw)
-	}
-	if fw := gpuFirmware("0000:00:02.0"); fw != nil {
-		t.Errorf("i915 = %+v", fw)
-	}
-}
-
 // Hybrid Intel CPUs list their performance and efficiency cores; a
 // modular frequency driver names its module.
 func TestHybridCPUAndModularScalingDriver(t *testing.T) {
@@ -554,6 +542,14 @@ func TestDisksOfEveryKindWithoutUdev(t *testing.T) {
 	}
 	if got["sr0"].Health != nil || got["mmcblk0"].Health != nil || got["sda"].Health == nil {
 		t.Error("drive health: optical and eMMC have no SMART, SATA does")
+	}
+	// A drive's firmware is never silently absent; a virtual disk's is the
+	// host's, so it has no block.
+	if fw := got["sdb"].Firmware; fw == nil || fw.Status != report.FirmwareUnknown || fw.Reason != "the kernel doesn't expose this drive's firmware revision" {
+		t.Errorf("sdb firmware = %+v", fw)
+	}
+	if fw := got["vda"].Firmware; fw != nil {
+		t.Errorf("vda firmware = %+v", fw)
 	}
 }
 
@@ -803,6 +799,7 @@ func TestRootCaptureRecordsTheFirmwareTables(t *testing.T) {
 	file("/proc/cpuinfo", "flags\t\t: fpu sse2\n")
 	file("/sys/firmware/dmi/tables/DMI", string(smbiostest.EliteDesk800G5Mini()))
 	r := Collect("test")
+	checkFirmwareComplete(t, r)
 	if len(r.CPU.Packages) != 1 || r.CPU.Packages[0].Package != "Socket LGA1151" || len(r.Board.Slots) != 5 || len(r.Board.OnboardDevices) != 2 {
 		t.Errorf("packages %+v, slots %d, onboard %d", r.CPU.Packages, len(r.Board.Slots), len(r.Board.OnboardDevices))
 	}

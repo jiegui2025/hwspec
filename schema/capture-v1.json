@@ -150,6 +150,12 @@
             },
             "source": {
               "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
             }
           }
         },
@@ -173,6 +179,12 @@
             },
             "source": {
               "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
             }
           }
         },
@@ -195,6 +207,12 @@
               "type": "string"
             },
             "source": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "reason": {
               "type": "string"
             }
           }
@@ -456,6 +474,12 @@
               "type": "string"
             },
             "source": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "reason": {
               "type": "string"
             }
           }
@@ -919,6 +943,12 @@
               },
               "source": {
                 "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
               }
             }
           },
@@ -1196,6 +1226,12 @@
               },
               "source": {
                 "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
               }
             }
           },
@@ -1400,6 +1436,12 @@
               },
               "source": {
                 "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
               }
             }
           },
@@ -1577,6 +1619,35 @@
                 "type": "string"
               },
               "manufacture_date_source": {
+                "type": "string"
+              }
+            }
+          },
+          "firmware": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "vendor": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "release": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
                 "type": "string"
               }
             }
@@ -1862,6 +1933,35 @@
       "properties": {
         "spec_version_major": {
           "type": "integer"
+        },
+        "firmware": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -2163,6 +2263,12 @@
                 "type": "string"
               },
               "source": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
                 "type": "string"
               }
             }

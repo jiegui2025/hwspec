@@ -2,11 +2,14 @@ package collect
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/jiegui2025/hwspec/internal/report"
 )
@@ -28,8 +31,15 @@ func (c *collector) network() {
 			Driver: c.driverAt(d + "device"),
 		}
 		// The driver reports the adapter's firmware (no root needed).
-		if fw, err := ethtoolDrvinfo(name); err == nil {
-			nic.Firmware = firmwareVersion(fw, "ethtool")
+		// An empty answer, or a driver without the query, is "none
+		// reported"; any other error means the question wasn't answered.
+		fw, err := ethtoolDrvinfo(name)
+		switch {
+		case err == nil || errors.Is(err, unix.EOPNOTSUPP):
+			nic.Firmware = firmwareOrUnknown(firmwareVersion(fw, "ethtool"), "the driver reports no firmware version (ethtool)")
+		default:
+			c.warn("network %s: ethtool: %v", name, err)
+			nic.Firmware = report.UnknownFirmware("ethtool can't ask the driver: " + err.Error())
 		}
 		nic.Health = nicHealth(d + "statistics/")
 		if exists(d+"wireless") || exists(d+"phy80211") {
@@ -369,7 +379,7 @@ func (c *collector) usb() {
 			VendorID:   vid,
 			ProductID:  pid,
 			USBVersion: strings.TrimSpace(readStr(d + "version")),
-			Firmware:   firmwareVersion(usbRelease(readStr(d+"bcdDevice")), "usb"),
+			Firmware:   firmwareOrUnknown(firmwareVersion(usbRelease(readStr(d+"bcdDevice")), "usb"), "bcdDevice can't be read"),
 		}
 		if id := (&report.Identity{
 			Vendor: readStr(d + "manufacturer"),

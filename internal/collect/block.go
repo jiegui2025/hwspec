@@ -16,12 +16,15 @@ import (
 // udevProps returns the udev properties (E: lines) of the block device
 // whose sysfs directory is dir, or nil without a udev database (containers,
 // minimal systems).
-func udevProps(dir string) map[string]string {
+func udevProps(dir string) map[string]string { return udevRecord("b", dir) }
+
+// udevRecord is udevProps for a block ("b") or character ("c") device.
+func udevRecord(kind, dir string) map[string]string {
 	dev := readStr(dir + "/dev") // major:minor
 	if dev == "" {
 		return nil
 	}
-	b, err := readFile("/run/udev/data/b" + dev)
+	b, err := readFile("/run/udev/data/" + kind + dev)
 	if err != nil {
 		return nil
 	}

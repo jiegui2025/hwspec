@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/jiegui2025/hwspec/internal/report"
@@ -40,16 +41,6 @@ func (c *collector) storage() {
 		if !id.Empty() {
 			disk.Identity = id
 		}
-		if disk.Transport == "mmc" {
-			// An eMMC's rev is its EXT_CSD revision; fwrev is the firmware.
-			disk.Firmware = firmwareVersion(readStr(base+"/device/fwrev"), "mmc")
-		} else {
-			disk.Firmware = firmwareVersion(readStr(base+"/device/firmware_rev"), "nvme")
-			if disk.Firmware == nil {
-				// SCSI, SATA and USB disks (through the SCSI layer).
-				disk.Firmware = firmwareVersion(readStr(base+"/device/rev"), "scsi")
-			}
-		}
 		// Only claim a type the kernel gives evidence for.
 		switch rot := readStr(base + "/queue/rotational"); {
 		case disk.Transport == "nvme":
@@ -64,6 +55,11 @@ func (c *collector) storage() {
 			disk.Type = "hdd"
 		case rot == "0":
 			disk.Type = "ssd"
+		}
+		// A virtual disk's firmware is the host's; md RAID, zvols and other
+		// block devices without a device link aren't drives.
+		if disk.Type != "virtual" && exists(base+"/device") {
+			disk.Firmware = diskFirmware(base, disk.Transport)
 		}
 		for _, part := range partitionNames(base, name) {
 			dir := base + "/" + part
@@ -126,4 +122,29 @@ func transport(name string) string {
 		return bus
 	}
 	return "unknown"
+}
+
+// diskFirmware reads a drive's firmware revision from its transport's
+// attribute: an eMMC's fwrev (its rev is the EXT_CSD revision), an NVMe
+// drive's firmware_rev, a SCSI, SATA or USB disk's rev. Without one, the
+// block says why.
+func diskFirmware(base, transport string) *report.Firmware {
+	attrs := [][2]string{{"firmware_rev", "nvme"}, {"rev", "scsi"}}
+	if transport == "mmc" {
+		attrs = [][2]string{{"fwrev", "mmc"}}
+	}
+	reported := ""
+	for _, a := range attrs {
+		v := readStr(base + "/device/" + a[0])
+		if fw := firmwareVersion(v, a[1]); fw != nil {
+			return fw
+		}
+		if reported == "" {
+			reported = v
+		}
+	}
+	if reported != "" {
+		return report.UnknownFirmware("the drive reports " + strconv.Quote(reported))
+	}
+	return report.UnknownFirmware("the kernel doesn't expose this drive's firmware revision")
 }

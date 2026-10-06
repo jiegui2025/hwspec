@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -125,7 +126,7 @@ func (c *collector) gpus() {
 			BootVGA:    readStr(pciDir+dev.Address+"/boot_vga") == "1",
 			Link:       dev.Link,
 			Outputs:    []string{},
-			Firmware:   gpuFirmware(dev.Address),
+			Firmware:   gpuFirmware(dev),
 		}
 		if dev.Identity != nil {
 			g.Identity = &report.Identity{Revision: dev.Identity.Revision}
@@ -150,17 +151,40 @@ func (c *collector) gpus() {
 }
 
 // gpuFirmware reads the video BIOS version where the driver exposes it
-// without root: amdgpu in sysfs, the NVIDIA driver under /proc.
-func gpuFirmware(addr string) *report.Firmware {
-	if fw := firmwareVersion(readStr(pciDir+addr+"/vbios_version"), "vbios"); fw != nil {
-		return fw
+// without root: amdgpu in sysfs, the NVIDIA driver under /proc. Without
+// one, the block says why, after the bound driver.
+func gpuFirmware(dev report.PCIDevice) *report.Firmware {
+	if dev.Driver == nil {
+		return report.UnknownFirmware("no driver is bound")
 	}
-	for line := range strings.SplitSeq(readStr("/proc/driver/nvidia/gpus/"+addr+"/information"), "\n") {
-		if k, v, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(k) == "Video BIOS" {
-			return firmwareVersion(v, "vbios")
+	v, err := readStrErr(pciDir + dev.Address + "/vbios_version")
+	switch {
+	case err == nil:
+		if fw := firmwareVersion(v, "vbios"); fw != nil {
+			return fw
 		}
+		return report.UnknownFirmware("the driver reports no VBIOS version")
+	case !os.IsNotExist(err):
+		return report.UnknownFirmware("vbios_version can't be read: " + err.Error())
 	}
-	return nil
+	info, err := readStrErr("/proc/driver/nvidia/gpus/" + dev.Address + "/information")
+	switch {
+	case err == nil:
+		for line := range strings.SplitSeq(info, "\n") {
+			if k, v, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(k) == "Video BIOS" {
+				if fw := firmwareVersion(v, "vbios"); fw != nil {
+					return fw
+				}
+			}
+		}
+		return report.UnknownFirmware("the NVIDIA driver gives no Video BIOS version")
+	case !os.IsNotExist(err):
+		return report.UnknownFirmware("the NVIDIA driver's information can't be read: " + err.Error())
+	}
+	if dev.Driver.Name == "i915" || dev.Driver.Name == "xe" {
+		return report.UnknownFirmware("hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet")
+	}
+	return report.UnknownFirmware("the " + dev.Driver.Name + " driver doesn't expose a firmware version")
 }
 
 // gpuClocks reads the graphics core's hardware clock range and its
