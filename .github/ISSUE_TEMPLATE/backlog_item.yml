@@ -1,0 +1,59 @@
+name: Backlog item (maintainers)
+description: A refined feature, defect, chore or research task, backed by evidence and with its full solution
+title: "type(scope): summary"
+labels: ["status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every backlog item is backed by evidence and carries its full solution (CONTRIBUTING.md › Backlog). Reports from the other forms are refined into this shape during triage.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What's wrong or missing, and for whom.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: "Facts with sources: path/file.go:123, output of a real run, or an upstream document you read. Nothing from memory. A table works well: | Fact | Source |"
+      placeholder: "| smbios.Clean doesn't treat \"System Product Name\" as a placeholder | internal/smbios/smbios.go:58 |"
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution
+      description: The design and why; packages and files it touches; a Mermaid diagram where it helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: Small, concrete tasks as a checklist.
+      placeholder: "- [ ] Add the strings to placeholders"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checks that can be tested or observed, as a checklist.
+      placeholder: "- [ ] A capture of a board reporting \"System Product Name\" shows the machine as unknown"
+    validations:
+      required: true
+  - type: textarea
+    id: priority
+    attributes:
+      label: Priority and size
+      description: P0–P3 and XS–XL, each with its reason (impact, risk, deadline, dependency).
+    validations:
+      required: true
+  - type: textarea
+    id: questions
+    attributes:
+      label: Open questions
+      description: Anything you couldn't verify, as a question.
