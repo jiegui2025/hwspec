@@ -16,7 +16,14 @@ import (
 type collector struct {
 	r          *report.Report
 	privileged bool
-	cpuinfo    map[string]string // lazily read by cpuinfoField
+	// moduleSigning is fixed for a capture: the E taint flag is meaningful
+	// only when the kernel exposes its module-signing parameter.
+	moduleSigning bool
+	cpuinfo       map[string]string // lazily read by cpuinfoField
+}
+
+func moduleSigningSupported() bool {
+	return exists("/sys/module/module/parameters/sig_enforce")
 }
 
 func (c *collector) warn(format string, args ...any) {
@@ -48,7 +55,11 @@ func collectNow(version string) *report.Report {
 		Privileged:    geteuid() == 0,
 	}
 	r.Hostname, _ = hostname()
-	c := &collector{r: r, privileged: r.Privileged}
+	c := &collector{
+		r:             r,
+		privileged:    r.Privileged,
+		moduleSigning: moduleSigningSupported(),
+	}
 
 	c.dmi() // before osInfo, which uses DMI to recognise VMs
 	c.osInfo()

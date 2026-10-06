@@ -27,7 +27,7 @@ func (c *collector) pci() {
 			ClassCode:   class,
 			IOMMUGroup:  linkBase(d + "iommu_group"),
 			Link:        pcieLink(d),
-			Driver:      driverAt(pciDir + addr),
+			Driver:      c.driverAt(pciDir + addr),
 		}
 		// Names are filled in by resolve; the revision is the device's own.
 		if rev := hex4(readStr(d + "revision")); rev != "" {

@@ -24,7 +24,7 @@ func (c *collector) bluetooth() {
 		}
 		bt := report.BluetoothController{Name: n}
 		bt.Bus, bt.BusAddress = busOf("/sys/class/bluetooth/" + n + "/device")
-		bt.Driver = driverAt("/sys/class/bluetooth/" + n + "/device")
+		bt.Driver = c.driverAt("/sys/class/bluetooth/" + n + "/device")
 		info, err := readBTInfo(uint16(idx))
 		if err != nil {
 			c.warn("bluetooth %s: %v", n, err)

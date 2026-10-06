@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -41,6 +42,7 @@ func fakeRoot(t *testing.T) (file func(path, content string), link func(path, ta
 
 func TestDriversReportTheirModuleAndTaint(t *testing.T) {
 	file, link := fakeRoot(t)
+	file("/sys/module/module/parameters/sig_enforce", "N\n")
 	// An out-of-tree, proprietary, unsigned module (e.g. a vendor GPU driver).
 	link("/sys/devices/pci0000:00/0000:01:00.0/driver", "../../../bus/pci/drivers/nvidia")
 	link("/sys/bus/pci/drivers/nvidia/module", "../../../../module/nvidia")
@@ -62,23 +64,50 @@ func TestDriversReportTheirModuleAndTaint(t *testing.T) {
 	link("/sys/bus/pci/drivers/ahci/module", "../../../../module/ahci")
 	file("/sys/module/ahci/version", "3.0\n")
 
-	nv := driverAt("/sys/devices/pci0000:00/0000:01:00.0")
-	if nv == nil || nv.Name != "nvidia" || nv.Module != "nvidia" || nv.Version != "580.95.05" || *nv.InTree || !*nv.Proprietary || !*nv.Unsigned {
-		t.Errorf("nvidia driver = %+v", nv)
+	t.Run("signing", func(t *testing.T) {
+		c := &collector{moduleSigning: moduleSigningSupported()}
+		nv := c.driverAt("/sys/devices/pci0000:00/0000:01:00.0")
+		if nv == nil || nv.Name != "nvidia" || nv.Module != "nvidia" || nv.Version != "580.95.05" || *nv.InTree || !*nv.Proprietary || !*nv.Unsigned {
+			t.Errorf("nvidia driver = %+v", nv)
+		}
+		e := c.driverAt("/sys/devices/pci0000:00/0000:00:1f.6")
+		if e == nil || !*e.InTree || *e.Proprietary || *e.Unsigned || e.Builtin {
+			t.Errorf("e1000e driver = %+v", e)
+		}
+		out, err := json.Marshal(&report.Report{PCI: []report.PCIDevice{{Driver: e}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(out), `"unsigned":false`) {
+			t.Errorf("unsigned state with module signing = %s", out)
+		}
+		if x := c.driverAt("/sys/devices/pci0000:00/0000:00:14.0"); x == nil || !x.Builtin || x.Module != "" {
+			t.Errorf("built-in driver = %+v", x)
+		}
+		if a := c.driverAt("/sys/devices/pci0000:00/0000:00:17.0"); a == nil || !a.Builtin || a.Module != "" || a.Version != "3.0" {
+			t.Errorf("built-in ahci = %+v", a)
+		}
+		if d := c.driverAt("/sys/devices/pci0000:00/0000:00:00.0"); d != nil {
+			t.Errorf("unbound device has driver %+v", d)
+		}
+	})
+
+	if err := os.Remove(filepath.Join(root, "sys/module/module/parameters/sig_enforce")); err != nil {
+		t.Fatal(err)
 	}
-	e := driverAt("/sys/devices/pci0000:00/0000:00:1f.6")
-	if e == nil || !*e.InTree || *e.Proprietary || *e.Unsigned || e.Builtin {
-		t.Errorf("e1000e driver = %+v", e)
-	}
-	if x := driverAt("/sys/devices/pci0000:00/0000:00:14.0"); x == nil || !x.Builtin || x.Module != "" {
-		t.Errorf("built-in driver = %+v", x)
-	}
-	if a := driverAt("/sys/devices/pci0000:00/0000:00:17.0"); a == nil || !a.Builtin || a.Module != "" || a.Version != "3.0" {
-		t.Errorf("built-in ahci = %+v", a)
-	}
-	if d := driverAt("/sys/devices/pci0000:00/0000:00:00.0"); d != nil {
-		t.Errorf("unbound device has driver %+v", d)
-	}
+	t.Run("no signing", func(t *testing.T) {
+		withoutSigning := (&collector{moduleSigning: moduleSigningSupported()}).driverAt("/sys/devices/pci0000:00/0000:01:00.0")
+		if withoutSigning == nil || withoutSigning.Unsigned != nil || withoutSigning.InTree == nil || *withoutSigning.InTree || withoutSigning.Proprietary == nil || !*withoutSigning.Proprietary {
+			t.Errorf("driver without module signing = %+v", withoutSigning)
+		}
+		out, err := json.Marshal(&report.Report{PCI: []report.PCIDevice{{Driver: withoutSigning}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(out), `"unsigned"`) {
+			t.Errorf("unsigned state without module signing = %s", out)
+		}
+	})
 }
 
 // A disk's driver is its controller's: nvme for an NVMe namespace, not
@@ -93,7 +122,7 @@ func TestDiskDriverIsTheControllers(t *testing.T) {
 		t.Fatal(err)
 	}
 	link("/sys/block/nvme0n1/device", "../../devices/pci0000:00/0000:00:1b.0/0000:01:00.0/nvme/nvme0")
-	if d := controllerDriver("/sys/block/nvme0n1/device"); d == nil || d.Name != "nvme" {
+	if d := (&collector{}).controllerDriver("/sys/block/nvme0n1/device"); d == nil || d.Name != "nvme" {
 		t.Errorf("controller driver = %+v", d)
 	}
 }

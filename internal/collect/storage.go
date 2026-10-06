@@ -32,7 +32,7 @@ func (c *collector) storage() {
 			LogicalBlockBytes:  readUint(base + "/queue/logical_block_size"),
 			PhysicalBlockBytes: d.PhysicalBlockSizeBytes,
 			Partitions:         []report.Partition{},
-			Driver:             controllerDriver(base + "/device"),
+			Driver:             c.controllerDriver(base + "/device"),
 		}
 		// ghw takes model/serial from the udev database, which is missing in
 		// containers and on some minimal systems; sysfs has them too.
