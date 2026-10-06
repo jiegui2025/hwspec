@@ -855,3 +855,36 @@ func TestSPDReadsOnlyTheBytesTheParserUses(t *testing.T) {
 		}
 	}
 }
+
+// Codec identity comes from the hwdep node's cached values, not from
+// /proc/asound/cardN/codec#M, whose read queries every widget (and can wake
+// the codec); /proc is the fallback when there's no hwdep node.
+func TestCodecsComeFromSysfsBeforeProc(t *testing.T) {
+	file, _ := fakeRoot(t)
+	file("/proc/asound/cards", " 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n")
+	file("/proc/asound/card0/codec#0", "Codec: Stale Name\nVendor Id: 0x11112222\nSubsystem Id: 0x33334444\nRevision Id: 0x100001\n")
+	for k, v := range map[string]string{
+		"vendor_id": "0x14f15098", "subsystem_id": "0x103c8595", "revision_id": "0x100100",
+		"vendor_name": "Conexant", "chip_name": "CX20632",
+	} {
+		file("/sys/class/sound/hwC0D0/"+k, v+"\n")
+	}
+	file("/sys/class/sound/hwC10D0/vendor_id", "0x99990000\n") // card 10, not card 1x of card 1
+
+	c := &collector{r: &report.Report{}}
+	c.audio()
+	want := []report.AudioCodec{{VendorID: "14f15098", SubsystemID: "103c8595", Identity: &report.Identity{Model: "Conexant CX20632", Revision: "100100"}}}
+	if len(c.r.Audio) != 1 || !reflect.DeepEqual(c.r.Audio[0].Codecs, want) {
+		t.Fatalf("codecs = %+v", c.r.Audio)
+	}
+
+	if err := os.RemoveAll(filepath.Join(root, "sys/class/sound/hwC0D0")); err != nil {
+		t.Fatal(err)
+	}
+	c = &collector{r: &report.Report{}}
+	c.audio()
+	want = []report.AudioCodec{{VendorID: "11112222", SubsystemID: "33334444", Identity: &report.Identity{Model: "Stale Name", Revision: "100001"}}}
+	if !reflect.DeepEqual(c.r.Audio[0].Codecs, want) {
+		t.Errorf("fallback codecs = %+v", c.r.Audio[0].Codecs)
+	}
+}
