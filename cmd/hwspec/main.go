@@ -34,6 +34,7 @@ const usage = `hwspec captures this machine's hardware specification.
 Usage:
   hwspec capture [-o FILE] [-f json|yaml|text] [--full] [--redact]
   hwspec show FILE [-o FILE] [-f text|json|yaml] [--redact]
+  hwspec advise [FILE] [--full] [--redact] [-o FILE] [-f text|json|yaml]
   hwspec ids [update [--check] | lookup KIND ID | template]
   hwspec schema
   hwspec version
@@ -52,6 +53,14 @@ show:
   -f json/yaml it re-exports the capture with the refreshed names;
   --redact removes identifiers before sharing an existing capture.
 
+advise:
+  Prints advice (text by default) about this machine, or about a saved
+  capture: devices that need attention, with what to do and the sources the
+  advice rests on. Advice about this machine also uses its maintenance
+  record. --full captures this machine as root first (not with FILE);
+  --redact works as for capture. It makes no network calls; the knowledge
+  base is built in.
+
 ids:
   Without arguments, lists the ID databases and where their names come
   from. "update" downloads the latest signed databases (--check only
@@ -68,6 +77,8 @@ Examples:
   hwspec capture -o myspec.json
   hwspec capture --full --redact -o spec.yaml
   hwspec show myspec.json
+  hwspec advise
+  hwspec advise myspec.json -f json -o advice.json
 `
 
 func main() {
@@ -112,6 +123,8 @@ func run(args []string, c cli) int {
 		err = c.capture(args[1:])
 	case "show":
 		err = c.show(args[1:])
+	case "advise":
+		err = c.advise(args[1:])
 	case "ids":
 		err = c.idsCmd(args[1:])
 	case "schema":
@@ -346,7 +359,7 @@ func (c cli) capture(args []string) error {
 
 	var r *report.Report
 	if full && geteuid() != 0 {
-		if r, err = c.captureAsRoot(); err != nil {
+		if r, err = c.captureAsRoot("capture"); err != nil {
 			return err
 		}
 		// The root child named devices with root's overrides (if any);
@@ -365,7 +378,7 @@ func (c cli) capture(args []string) error {
 // captureAsRoot re-runs this binary through pkexec and reads its JSON from
 // stdout. The parent (running as the user) writes the output file, so the
 // file isn't owned by root.
-func (c cli) captureAsRoot() (*report.Report, error) {
+func (c cli) captureAsRoot(command string) (*report.Report, error) {
 	pkexec, err := findPkexec()
 	if err != nil {
 		return nil, errors.New("--full needs pkexec (polkit); alternatively run hwspec with sudo")
@@ -381,7 +394,7 @@ func (c cli) captureAsRoot() (*report.Report, error) {
 	// just before the user approves the root prompt.
 	if err := rootOwned(self); err != nil {
 		return nil, fmt.Errorf("--full runs this binary as root, but %w. Install hwspec somewhere only root can change "+
-			"(e.g. `sudo install -m755 %s /usr/local/bin/`), or run `sudo %s capture`", err, self, self)
+			"(e.g. `sudo install -m755 %s /usr/local/bin/`), or run `sudo %s %s`", err, self, self, command)
 	}
 	cmd := exec.Command(pkexec, self, "capture", "-f", "json")
 	cmd.Stdin = c.stdin // lets pkexec fall back to a terminal prompt
@@ -394,7 +407,7 @@ func (c cli) captureAsRoot() (*report.Report, error) {
 			// 126: authorization dismissed or refused; 127: not authorized,
 			// or pkexec couldn't ask (no authentication agent). pkexec's
 			// own message is on stderr above.
-			return nil, errors.New("root access was not obtained (see pkexec's message above); run without --full for a capture without memory modules, serials and drive health")
+			return nil, fmt.Errorf("root access was not obtained (see pkexec's message above); run hwspec %s without --full to go without memory modules, serials and drive health", command)
 		}
 		return nil, fmt.Errorf("privileged capture failed: %w", err)
 	}
@@ -412,30 +425,18 @@ func (c cli) show(args []string) error {
 	var redact bool
 	outputFlags(fs, &outPath, &format)
 	fs.BoolVar(&redact, "redact", false, "")
-	// Accept the file before or after the flags.
-	var file string
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") || len(args) > 0 && args[0] == "-" {
-		file, args = args[0], args[1:]
-	}
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if file == "" && fs.NArg() == 1 {
-		file = fs.Arg(0)
-	} else if fs.NArg() > 0 || file == "" {
+	file, err := fileArg(fs, args, true)
+	if errors.Is(err, errArgs) {
 		return errors.New("usage: hwspec show FILE [-o FILE] [-f text|json|yaml] [--redact]")
 	}
-	format, err := pickFormat(format, outPath, "text")
 	if err != nil {
 		return err
 	}
-
-	var data []byte
-	if file == "-" {
-		data, err = io.ReadAll(c.stdin)
-	} else {
-		data, err = os.ReadFile(file) //nolint:gosec // G703: reading the file the user named is the point
+	format, err = pickFormat(format, outPath, "text")
+	if err != nil {
+		return err
 	}
+	data, err := c.readInput(file)
 	if err != nil {
 		return err
 	}
