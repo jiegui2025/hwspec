@@ -163,3 +163,35 @@ network:
 		t.Errorf("captured_at = %v", r.CapturedAt)
 	}
 }
+
+// plainWord lets needsQuotes skip encoding a string; it must only ever
+// say "plain" for strings that YAML 1.1 and the encoder both read as
+// strings. Every case spelling of the boolean and null words is checked.
+func TestPlainWordShortcutNeverSkipsAQuote(t *testing.T) {
+	words := []string{"pci", "Intel", "x86_64", "e", "E1", "nan", "inf", "Nil", "_x", "a_b_9", "NVMe", "i915", "eno1", "ondemand", "offline", "yesterday"}
+	// YAML 1.1's boolean and null words (https://yaml.org/type/bool.html,
+	// null.html), listed here independently of yaml11Words.
+	for _, w := range []string{"y", "n", "yes", "no", "on", "off", "true", "false", "null"} {
+		for mask := 0; mask < 1<<len(w); mask++ {
+			b := []byte(w)
+			for i := range b {
+				if mask&(1<<i) != 0 {
+					b[i] -= 'a' - 'A'
+				}
+			}
+			words = append(words, string(b))
+		}
+	}
+	for _, w := range words {
+		if !plainWord(w) {
+			continue
+		}
+		out, err := yaml.Marshal(w)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if yaml11.MatchString(w) || out[0] == '"' || out[0] == '\'' {
+			t.Errorf("plainWord(%q) = true, but YAML 1.1 or the encoder doesn't read it as a plain string", w)
+		}
+	}
+}
