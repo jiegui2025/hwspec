@@ -60,6 +60,36 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 
 Pushes to `main` run everything.
 
+## Backlog
+
+Work is tracked as issues on the [project board](https://github.com/users/jiegui2025/projects/6); the [roadmap](README.md#roadmap) shows the milestones. Every issue is **backed by evidence and carries its full solution**, so anyone can pick it up without re-researching it.
+
+```mermaid
+flowchart LR
+  backlog[Backlog] --> ready[Ready] --> progress[In progress] --> review[In review] --> done[Done]
+```
+
+Once [#53](https://github.com/jiegui2025/hwspec/issues/53) lands, new issues and PRs join the board automatically, a PR that closes an issue moves it to In review, and merging moves both to Done. Until then, add PRs and move statuses by hand.
+
+| An issue has | What it means |
+|---|---|
+| **Problem** | what's wrong or missing, for whom |
+| **Evidence** | a table of facts, each with its source: `path/file.go:123`, output of a real run, or an upstream document that was actually read; nothing from memory |
+| **Solution** | the design and why, the packages and files it touches, a Mermaid diagram where it helps |
+| **Steps** and **Acceptance criteria** | small concrete tasks; checks that can be tested or observed |
+| **Priority and size** | P0–P3 and XS–XL, each with its reason |
+| **Open questions** | anything that couldn't be verified, stated as a question, never as a fact |
+
+| Field | Values |
+|---|---|
+| Priority | **P0** broken for users, now · **P1** next up (release blockers, deadlines) · **P2** planned · **P3** nice to have — always with the reason in the issue |
+| Size | **XS** < 1 hour · **S** ≤ ½ day · **M** 1–2 days · **L** 3–5 days · **XL** > 1 week (split it) |
+| Milestone | the release it ships in; none means unscheduled |
+| Labels | `type: …`, `area: …`, `priority: P0`–`priority: P3`; `status: triage` until refined; `status: blocked`, `status: needs decision`, `status: deferred` where they apply |
+| Title | `type(scope): summary` with the commit types above, plus `research` and `data` for issues |
+
+Reports from the bug, feature and name-correction forms are triaged into this shape; maintainers file new items with the [backlog item form](.github/ISSUE_TEMPLATE/backlog_item.yml).
+
 ## Tests
 
 Tests describe **behaviour**, not lines: "a laptop whose battery holds 80% of its design capacity reports 80% health", not "call `batteries()`". Collectors are tested three ways:
@@ -101,7 +131,7 @@ flowchart LR
 | Item | Where |
 |---|---|
 | Signing key (private) | `HWSPEC_IDS_SIGNING_KEY` secret in the `ids-signing` environment, usable only from `main` |
-| Public key | `internal/ids/key.go` (`trustedKeys`) |
+| Public key | `internal/ids/key.go` (`SigningPublicKey`), trusted through `trustedKeys` in `internal/ids/manifest.go` |
 | Key rotation | add the new public key to `trustedKeys`, release, then replace the environment secret; remove the old key in a later release |
 | Expected shrink of a database | rerun the workflow with `HWSPEC_ALLOW_SHRINK=1` after checking the upstream change |
 

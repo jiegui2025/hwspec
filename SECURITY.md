@@ -58,4 +58,4 @@ Redaction removes direct identifiers; it doesn't make captures of the same machi
 | Artifact | Check |
 |---|---|
 | Release tarball | `sha256sum -c --ignore-missing SHA256SUMS` and `gh attestation verify hwspec-vX.Y.Z-linux-amd64.tar.gz --repo jiegui2025/hwspec` |
-| ID database bundle | automatic: `hwspec ids update` refuses anything not signed by the key in `internal/ids/key.go` |
+| ID database bundle | automatic: `hwspec ids update` refuses anything not signed by a key in `trustedKeys` (`internal/ids/manifest.go`) |
