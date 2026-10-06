@@ -52,13 +52,15 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 
 | The PR changes | Jobs |
 |---|---|
-| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds, 6-distro smoke tests, Nix |
+| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds, 6-distro smoke tests, Nix, the 7 VMs |
 | `flake.nix` / `flake.lock` only | Nix |
-| `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts | everything, plus actionlint |
+| the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs |
+| `verify.yml` or `scripts/verify-release*.sh` | everything in the next row, plus the tamper test against the live `edge` release (`verify-release`) |
+| `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts (`scripts/changed-areas*.sh`, `check-commits.sh`, `check-mermaid.sh`, `verify-release*.sh`) | everything above except the tamper test, plus actionlint |
 | Markdown | Mermaid rendering check (every diagram must render) |
 | anything | commit messages, PR title |
 
-Pushes to `main` run everything.
+Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs both on the published build.
 
 Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. A `canary-26-04` job runs the tests on the next image (`ubuntu-26.04`) to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 
@@ -166,6 +168,7 @@ flowchart LR
   tag[release.yml] --> rel[Release]
   pre --> verify
   rel --> verify["verify.yml: SHA256SUMS, attestations"]
+  verify --> tamper["tamper: tampered local copies must fail"]
   verify --> ctr["containers: 6 distros × amd64/arm64"]
   verify --> vms["vms.yml: KVM VMs (amd64)<br/>systemd, OpenRC, sysvinit"]
 ```
@@ -173,7 +176,7 @@ flowchart LR
 | Workflow | Does |
 |---|---|
 | `edge.yml` | after CI passes on `main`: builds that commit, attests it, and replaces the `edge` pre-release (never Latest) |
-| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner, then runs the published binary in the distro containers on amd64 and arm64 runners, and in the VMs. Run it by hand from the Actions tab for any tag. |
+| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner, checks that tampered local copies of those assets fail the same checks, then runs the published binary in the distro containers on amd64 and arm64 runners, and in the VMs. Run it by hand from the Actions tab for any tag. |
 | `vms.yml` | boots each pinned cloud image below under KVM and runs `scripts/vm-run.sh` on it. Also runs in CI, with the binary just built, when a PR changes Go code, the VM harness (`scripts/vm-*.sh`, `vms.yml`) or CI itself. |
 | `vm-images.yml` | weekly: every pinned image URL still exists, and `vms.yml`'s matrix matches `scripts/vm-run.sh --list` |
 
@@ -203,5 +206,25 @@ Only boot 1 of the sysvinit image reaches the outside world (for apt). Every oth
   3. Run that image locally.
   4. Commit as `ci(vm): …`.
 
-- `verify.yml` runs after publishing, so it **detects** a bad release rather than preventing it. A failure means: fix it, then delete or supersede that release.
+- `verify.yml` runs after publishing, so it **detects** a bad release rather than preventing it. Failures name their kind:
+  - `FAIL (checksums)` or `FAIL (attestation)`: the release is wrong. Fix it, then delete or supersede that release.
+  - `FAIL (error)`: anything that isn't gh's definite "no" (no attestation for the digest, or one from another commit, ref or signer). It means the check couldn't run: auth, rate limit, outage, no network, or a gh message not seen before. That says nothing about the release: fix the cause and re-run.
+- The checksum and attestation checks live in `scripts/verify-release.sh`. `scripts/verify-release_test.sh TAG REPO [COMMIT]` proves they catch tampering, on local copies of a real release's assets. Nothing published changes.
+  - It runs in `verify.yml` after every publish, pinned to the commit `integrity` verified. It stops with an error if the tag moves or disappears while it runs (checked again after the download).
+  - It runs in CI, against the live `edge` release, on PRs that change `verify.yml` or these scripts. That job depends on `edge` existing. If `edge` is missing (a fork, deleted by hand, or a publish that died between delete and create), it fails with `release 'edge' not found`. The next push to `main` whose CI passes republishes it, or re-run the Edge workflow for `main`'s tip.
+  - Each case must fail at the expected check, **and** for the expected reason, so an outage can't pass as "tampering caught":
+
+  | Case | Must fail at | Because |
+  |---|---|---|
+  | untouched assets (checked first and last) | nothing: they pass | |
+  | a tarball changed | checksums | doesn't match `SHA256SUMS` |
+  | a tarball changed and `SHA256SUMS` rewritten to match | attestation | `HTTP 404 … /attestations/sha256:…` |
+  | a tarball added, or one missing from `SHA256SUMS` | checksums | `SHA256SUMS lists …` |
+  | another file added | checksums | `unexpected file` |
+  | attested at another commit | attestation | `expected SourceRepositoryDigest` |
+  | signed by the other workflow (`edge.yml` vs `release.yml`) | attestation | `verifying with issuer` |
+  | a malformed tag; the attestation API answering 503; gh with no network ("no valid Sigstore verifiers") | error | |
+
+  - Coverage limits: `--signer-workflow` and `--source-ref` cover each other in the "other workflow" case, and no self-hosted attestation exists to test `--deny-self-hosted-runners`. A static check makes sure the script passes all four flags.
+  - The `release.yml` path (`refs/tags/vX.Y.Z`) first runs live with the first release candidate (#3).
 - `edge` is deleted and recreated on every publish. Turning on GitHub's immutable releases would break that, so the edge flow has to change before that setting does.
