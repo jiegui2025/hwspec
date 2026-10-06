@@ -205,6 +205,10 @@ type source struct {
 	name string
 	open func() (io.ReadCloser, error)
 	date string
+	// parsed, when set, returns the source's names already parsed and
+	// shared: the embedded copy, which never changes, is parsed once per
+	// process however often databases are reset (tests reset them a lot).
+	parsed func() (map[string]string, error)
 }
 
 func load(k Kind) *db {
@@ -222,7 +226,7 @@ func load(k Kind) *db {
 			if m, err := syncedManifest(); err != nil {
 				d.layers = append(d.layers, Layer{Source: path, Err: "synced manifest unreadable: " + err.Error()})
 			} else {
-				cands = append(cands, source{path, fileOpener(path), manifestDate(m, s.file)})
+				cands = append(cands, source{name: path, open: fileOpener(path), date: manifestDate(m, s.file)})
 			}
 		}
 	}
@@ -242,28 +246,32 @@ func load(k Kind) *db {
 			break
 		}
 	}
-	cands = append(cands, source{"embedded", func() (io.ReadCloser, error) {
-		raw, err := embedded.ReadFile("data/" + s.file + ".gz")
-		if err != nil {
-			return nil, err
-		}
-		return gzip.NewReader(bytes.NewReader(raw))
-	}, manifestDate(embeddedManifest(), s.file)})
+	cands = append(cands, source{name: "embedded", date: manifestDate(embeddedManifest(), s.file),
+		parsed: func() (map[string]string, error) { return embeddedNames(k) }})
 	sort.SliceStable(cands, func(i, j int) bool { return cands[i].date > cands[j].date })
 
+	shared := false // d.names is the shared embedded map: copy before changing it
 	for _, src := range cands {
 		layer := Layer{Source: src.name, Date: src.date}
-		r, err := src.open()
-		if err == nil {
-			err = s.parse(r, d.names)
-			r.Close()
+		var err error
+		if src.parsed != nil {
+			var m map[string]string
+			if m, err = src.parsed(); err == nil {
+				d.names, shared = m, true
+			}
+		} else {
+			var r io.ReadCloser
+			if r, err = src.open(); err == nil {
+				err = s.parse(r, d.names)
+				r.Close()
+			}
 		}
 		if err == nil && len(d.names) == 0 {
 			err = errors.New("no entries")
 		}
 		if err != nil {
 			layer.Err = err.Error()
-			d.names = make(map[string]string, sizeHint(s.file))
+			d.names, shared = make(map[string]string, sizeHint(s.file)), false
 			d.layers = append(d.layers, layer)
 			continue // fall back to the next newest
 		}
@@ -276,6 +284,9 @@ func load(k Kind) *db {
 	// not as a layer of every database.
 	ov, _ := loadOverrides(overridesPath)
 	if len(ov[k]) > 0 {
+		if shared {
+			d.names = maps.Clone(d.names)
+		}
 		maps.Copy(d.names, ov[k])
 		d.layers = append(d.layers, Layer{Source: overridesPath, Entries: len(ov[k])})
 	}
@@ -310,6 +321,47 @@ func syncedManifest() (*Manifest, error) {
 		return nil, err
 	}
 	return ParseManifest(b)
+}
+
+var (
+	embMu     sync.Mutex
+	embParsed = map[Kind]*embeddedParse{}
+)
+
+type embeddedParse struct {
+	once  sync.Once
+	names map[string]string
+	err   error
+}
+
+// embeddedNames parses the embedded copy of a database once per process
+// and shares the result, which callers must not change.
+func embeddedNames(k Kind) (map[string]string, error) {
+	embMu.Lock()
+	e := embParsed[k]
+	if e == nil {
+		e = &embeddedParse{}
+		embParsed[k] = e
+	}
+	embMu.Unlock()
+	e.once.Do(func() {
+		s := specs[k]
+		raw, err := embedded.ReadFile("data/" + s.file + ".gz")
+		if err != nil {
+			e.err = err
+			return
+		}
+		r, err := gzip.NewReader(bytes.NewReader(raw))
+		if err != nil {
+			e.err = err
+			return
+		}
+		m := make(map[string]string, sizeHint(s.file))
+		if e.err = s.parse(r, m); e.err == nil {
+			e.names = m
+		}
+	})
+	return e.names, e.err
 }
 
 // sizeHint is how many names the embedded copy of a database holds, so
