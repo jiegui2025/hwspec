@@ -47,6 +47,22 @@ flowchart TD
 | **One feature or fix per PR** | Reviewable size |
 | **The PR body follows the [template](.github/pull_request_template.md)** | Reviewers find the acceptance evidence and the proof that tests fail without the change in one place |
 | **The sidebar is complete and the PR closes its issue** (below) | Merging closes the right issue and keeps the board true |
+| **No rebase just because `main` moved** | The `main` ruleset doesn't require an up-to-date branch (owner, 2026-10-06): a PR with a green `ci-ok` and no conflict merges as it is. A merged tree that differs from its PR head gets `main`'s full CI, and edge publishes only when that is green; if `main` goes red, two PRs clashed: fix or revert before merging anything else. Rebase for a conflict; to refresh a PR against `main` without one, GitHub's GraphQL `updatePullRequestBranch` with `updateMethod: REBASE` does it server-side (the REST `update-branch` endpoint merges instead, and a merge commit fails the `commits` check) |
+| **Critical or large changes need two more things** (below) | The checks that matter most where a mistake costs most |
+
+### Critical and large changes
+
+Most PRs merge on `ci-ok` and the review. A PR that is **critical** or **large** also needs a clean [CodeQL](https://github.com/jiegui2025/hwspec/security/code-scanning) analysis of its head, and its privileged workflows must pin every action by full commit SHA (owner, 2026-10-06). CodeQL runs on every PR anyway; for the others its result is advisory.
+
+| A PR is | When it changes |
+|---|---|
+| **critical** | the privileged path: `cmd/hwspec` (the pkexec re-run, writing files as root), `internal/trust`; untrusted input: the binary parsers (`internal/smbios`, `internal/edid`, `internal/spd`), reading captures (`internal/output`), sanitising and redaction (`internal/report/{sanitize,redact}.go`), the knowledge base (`internal/kb`); the signed bundle (`internal/ids` sync, manifest, keys; `tools/genids`); release and signing (`release.yml`, `edge.yml`, `ids.yml`, `verify.yml`, `scripts/verify-release*.sh`); or `SECURITY.md`'s claims |
+| **large** | more than 500 lines outside tests, test data and generated files (`schema/`, `internal/ids/data/`, `internal/kb/data/`) |
+
+| Extra condition | How it's checked |
+|---|---|
+| CodeQL found nothing new on the PR head | the reviewer, before merging: the CodeQL checks on the head are green and code scanning shows no open alert for the PR |
+| Actions pinned by full SHA in the privileged workflows | automatically: [`scripts/check-pinned-actions.sh`](scripts/check-pinned-actions.sh) in the `actionlint` job, for every workflow that has a write permission, a secret or an environment |
 
 ### Commits
 
@@ -100,7 +116,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 | Markdown | Mermaid rendering check for the files whose diagrams the PR touched ([`scripts/changed-diagrams.sh`](scripts/changed-diagrams.sh); a prose edit renders nothing; every file when the renderer or its image changes), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
-Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs the tamper test on the published build, and the VMs boot for releases. **Every night, and by hand from the Actions tab, CI runs everything, VMs included**: the backstop for checks a PR skipped because its paths couldn't affect them, and for drift no commit causes (Go `stable`, `:latest` distro images, the runner image, new vulnerability advisories). A nightly failure blocks nothing and is reported to the owner; fix it in a PR like any other. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
+Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs the tamper test on the published build, and the VMs boot for releases. **Every night, and by hand from the Actions tab, CI runs everything, VMs included**: the backstop for checks a PR skipped because its paths couldn't affect them, and for drift no commit causes (Go `stable`, `:latest` distro images, the runner image, new vulnerability advisories). A nightly failure blocks nothing and is reported to the owner; fix it in a PR like any other. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested. When `main` moved while the PR was open, the merged tree differs from the head, so the push runs in full and catches a clash between the two.
 
 Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. The [Canary workflow](.github/workflows/canary.yml) runs the tests on the next image (`ubuntu-26.04`) daily, and by hand from the Actions tab, to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 
