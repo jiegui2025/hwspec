@@ -220,7 +220,7 @@ func manifest(stdout io.Writer, dir, prevPath string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
-		entries, err := ids.Validate(kind, content)
+		entries, err := validate(kind, content)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
@@ -254,6 +254,10 @@ func manifest(stdout io.Writer, dir, prevPath string) error {
 	}
 	return os.WriteFile(filepath.Join(dir, "manifest.json"), append(out, '\n'), 0o644)
 }
+
+// validate is ids.Validate, swappable so tests that check many bundles of
+// the same real databases parse each database once.
+var validate = ids.Validate
 
 var headerDate = regexp.MustCompile(`(?m)^#\s*(?:Version|Date):\s*(\d{4})[.-](\d{2})[.-](\d{2})`)
 
@@ -347,7 +351,7 @@ func verify(stdout io.Writer, dir, prevPath string) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
-		n, err := ids.Validate(kind, content)
+		n, err := validate(kind, content)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
