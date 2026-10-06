@@ -86,19 +86,21 @@ The independent review is posted as one comment per round: *Review* (`| # | Seve
 
 ### What CI runs
 
-CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-areas.sh)); `ci-ok` is the single required check, and skipped jobs count as passed.
+CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-areas.sh)): every required check runs when the change can affect what it checks (#189). `ci-ok` is the single required check, and skipped jobs count as passed.
 
 | The PR changes | Jobs |
 |---|---|
-| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests + coverage gate, govulncheck, static builds (amd64 first: the distros and VMs start as soon as it's built), 8-distro smoke tests (one job, in parallel), Nix, the 7 VMs |
+| Go code, `go.mod`/`go.sum`, embedded data, lint config, Makefile | lint, tests (race and coverage gate on stable Go; plain on the oldest supported Go), govulncheck, static builds, 8-distro smoke tests (one job, in parallel), Nix |
+| …code the VM checks exercise: `cmd/hwspec`, `internal/trust`, the system, platform, PCI and firmware collectors and their shared reads (`internal/collect/{collect,system,platform,pci,firmwaretables,sysfs}.go`), `go.mod`/`go.sum`, `vendor/` | the above, plus the 7 VMs (tests alone don't boot them) |
 | `flake.nix` / `flake.lock` only | Nix |
-| the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs |
-| `verify.yml` or `scripts/verify-release*.sh` | everything in the next row, plus the tamper test against the live `edge` release (`verify-release`) |
-| `.github/workflows/**`, `.github/actionlint.yaml` or CI scripts (`scripts/changed-areas*.sh`, `check-commits*.sh`, `check-mermaid.sh`, `verify-release*.sh`) | everything above except the tamper test, plus actionlint and the scripts' own tests |
+| the VM harness (`scripts/vm-*.sh`, `vms.yml`) | static builds, the 7 VMs, actionlint |
+| `verify.yml` or `scripts/verify-release*.sh` | the tamper test against the live `edge` release (`verify-release`), actionlint |
+| CI's own definition: `ci.yml`, `.github/actions/**`, `scripts/changed-areas*.sh` | everything, plus actionlint and the scripts' own tests |
+| any other workflow, `.github/actionlint.yaml` or CI script | actionlint and the scripts' own tests (and, for the docs scripts, the docs checks) |
 | Markdown | Mermaid rendering check (every diagram in the changed Markdown files must render; every file when CI itself changes), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
-Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs the tamper test on the published build, and the VMs boot for releases (an `edge` build's tree already booted them in its PR's CI). A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
+Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs the tamper test on the published build, and the VMs boot for releases. **Every night, and by hand from the Actions tab, CI runs everything, VMs included**: the backstop for checks a PR skipped because its paths couldn't affect them, and for drift no commit causes (Go `stable`, `:latest` distro images, the runner image, new vulnerability advisories). A nightly failure blocks nothing and is reported to the owner; fix it in a PR like any other. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
 
 Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. The [Canary workflow](.github/workflows/canary.yml) runs the tests on the next image (`ubuntu-26.04`) daily, and by hand from the Actions tab, to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 
