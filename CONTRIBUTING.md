@@ -197,8 +197,8 @@ flowchart LR
 | Signing key (private) | `HWSPEC_IDS_SIGNING_KEY` secret in the `ids-signing` environment, usable only from `main` |
 | Public key | `internal/ids/key.go` (`SigningPublicKey`), trusted through `trustedKeys` in `internal/ids/manifest.go` |
 | Key rotation | add the new public key to `trustedKeys`, release, then replace the environment secret; remove the old key in a later release |
-| Expected shrink of a database | rerun the workflow with `HWSPEC_ALLOW_SHRINK=1` after checking the upstream change |
-| The advisor knowledge base | the bundle also carries every committed `internal/kb/data/advisor-v*.json.gz`, as committed (CI checks it against `kb/`), dated by its `version` (the UTC time its content last changed) and counted by its rules. Before signing, the publish job checks it is the committed file byte for byte. A week where neither it nor upstream changed publishes nothing. `hwspec ids update` installs the format this build reads, with the same signature checks, if its version and rule count are the manifest's; `hwspec advise` uses the newer of it and the built-in copy and falls back to the built-in one, with a warning, if the synced copy doesn't parse or doesn't match the manifest. A rule count more than 5% below the previous bundle's needs `HWSPEC_ALLOW_SHRINK=1`, as for a database |
+| Expected shrink of a database | after checking the upstream change, run the ids workflow by hand (Actions → ID databases → Run workflow) with **allow_shrink** ticked; scheduled runs never allow it |
+| The advisor knowledge base | the bundle also carries every committed `internal/kb/data/advisor-v*.json.gz`, as committed (CI checks it against `kb/`), dated by its `version` (the UTC time its content last changed) and counted by its rules. Before signing, the publish job checks it is the committed file byte for byte. A week where neither it nor upstream changed publishes nothing. `hwspec ids update` installs the format this build reads, with the same signature checks, if its version and rule count are the manifest's; `hwspec advise` uses the newer of it and the built-in copy and falls back to the built-in one, with a warning, if the synced copy doesn't parse or doesn't match the manifest. A rule count more than 5% below the previous bundle's needs the **allow_shrink** input, as for a database |
 
 ## Releases
 
@@ -214,6 +214,7 @@ flowchart LR
 |---|---|
 | Refresh the ID databases | `make update-ids`, then merge through a PR |
 | Release candidate first | tag `vX.Y.Z-rc.N` on `main`; tags with a `-` publish as **pre-releases**, never as Latest |
+| Checks before approval | a `checks` job without write permissions refuses a tag that isn't on `main`, or whose commit has no passing `ci-ok`, and runs govulncheck. Tag after `main`'s CI run for that commit has finished: a tag pushed earlier fails `checks` (safe; re-run the job once `ci-ok` is green). The release job then builds, signs and publishes without running the tests, which CI ran on that commit, and without keeping git credentials |
 | Approve | the release job runs in the `production` environment: it waits until the owner approves it in the run's page; only `v*` tags may deploy there |
 | Live-ISO check | before the final tag, boot the MX Linux 25.x live ISO with sysvinit and the Linux Mint 22.x live ISO, run the candidate's binary (`hwspec capture -f json`, and `--full`), and attach both captures to the release issue: neither distro has an image CI can boot unattended |
 | Final release | tag `vX.Y.Z` on the same commit once the candidate checks out; GitHub marks it Latest when it's the newest version, so a patch to an older line doesn't take Latest |

@@ -216,7 +216,7 @@ rules:
 | Captures stay facts; new knowledge re-evaluates old captures, and says when it can't | every new fact a check needs is a capture field first (#7, #8 add some) |
 | One engine, format and output for #7–#11 | every check needs Go; contributors without Go can only add data for existing checks |
 | Every claim can be traced to a source, its licence and its confidence | knowledge-base entries are slower to write |
-| The knowledge base updates weekly, offline after that, and older binaries skip what they can't apply | rules for new checks help only after a release; the shrink guard can block a legitimate cleanup (override: `HWSPEC_ALLOW_SHRINK=1`, CONTRIBUTING) |
+| The knowledge base updates weekly, offline after that, and older binaries skip what they can't apply | rules for new checks help only after a release; the shrink guard can block a legitimate cleanup (override: the ids workflow's **allow_shrink** input, CONTRIBUTING) |
 | No firmware metadata is redistributed | firmware update paths (#10) need a decision that amends ADR 0002 first |
 | Maintenance state works without root and without revealing `machine-id` | it doesn't follow a reinstall |
 

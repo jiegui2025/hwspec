@@ -16,6 +16,11 @@ on:
   schedule:
     - cron: "23 4 * * 1" # Mondays 04:23 UTC
   workflow_dispatch:
+    inputs:
+      allow_shrink:
+        description: Publish although a database or the knowledge base shrank more than 5% (after checking why)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,13 +30,18 @@ concurrency: ids
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     env:
-      GH_TOKEN: ${{ github.token }}
       BUNDLE: build/ids-bundle
+      # The documented override (CONTRIBUTING › ID databases), only from a
+      # manual run's input.
+      HWSPEC_ALLOW_SHRINK: ${{ inputs.allow_shrink && '1' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
@@ -44,6 +54,8 @@ jobs:
         # Fail closed: only a confirmed "no such release" means first publish.
         # Any other error (API outage, rate limit) must not skip the
         # comparison with the previous bundle.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p build
           if out=$(gh release view ids-latest --json tagName 2>&1); then
@@ -80,14 +92,19 @@ jobs:
     needs: build
     if: needs.build.outputs.changed == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     environment: ids-signing
     permissions:
       contents: write # create and update the ids-* releases
+    # The write token reaches only the steps that call gh: not the
+    # re-verification, which parses data the build job made (#191).
     env:
-      GH_TOKEN: ${{ github.token }}
       BUNDLE: build/ids-bundle
+      HWSPEC_ALLOW_SHRINK: ${{ inputs.allow_shrink && '1' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
@@ -101,6 +118,8 @@ jobs:
         # Fail closed: only a confirmed "no such release" means first publish.
         # Any other error (API outage, rate limit) must not skip the
         # comparison with the previous bundle.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p build
           if out=$(gh release view ids-latest --json tagName 2>&1); then
@@ -122,6 +141,8 @@ jobs:
         run: go run ./tools/genids sign "$BUNDLE/manifest.json"
 
       - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           date=$(date -u +%Y.%m.%d)
           notes="Hardware ID databases built from upstream on $date, and the advisor knowledge base as committed. Installed by \`hwspec ids update\`; see manifest.json for per-file dates and counts."
