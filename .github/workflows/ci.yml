@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-  merge_group:
   # Nightly, everything runs, VMs included: the backstop for checks a PR
   # skips because its paths can't affect them, and for drift no commit
   # causes (Go stable, :latest distro images, the runner image, new
@@ -121,13 +120,22 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ matrix.go }}
-      - run: go vet ./...
+      # No separate go vet: golangci-lint's govet and go test's own vet
+      # checks cover it (#189).
       - name: Test (race detector, coverage)
+        if: matrix.go == 'stable'
         # Tests whose coverage depends on the runner's hardware are skipped
         # here, so the gate measures the same code on every machine.
         env:
           HWSPEC_SKIP_HOST_TESTS: "1"
         run: go test -race -count=1 -coverpkg=./... -coverprofile=coverage.out ./...
+      # The oldest supported Go: does it build and pass? Coverage and races
+      # come from the stable leg.
+      - name: Test
+        if: matrix.go != 'stable'
+        env:
+          HWSPEC_SKIP_HOST_TESTS: "1"
+        run: go test -count=1 ./...
       - name: Host tests (this runner's kernel and hardware)
         run: go test -count=1 -run 'Ethtool|BluetoothManagementSocket|SystemFiles|StickyWritable|FUSE|RecordingReproduces' ./...
       - name: Coverage gate
@@ -139,7 +147,7 @@ jobs:
         if: matrix.go == 'stable' && github.event_name == 'pull_request'
         shell: bash # -o pipefail: a failed git archive must fail the step
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           # A missing base must fail, not look like "no schema yet".
           : "${BASE:?no base commit for this event}"
@@ -155,7 +163,7 @@ jobs:
         if: matrix.go == 'stable' && github.event_name == 'pull_request'
         shell: bash
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           : "${BASE:?no base commit for this event}"
           for f in internal/kb/data/advisor-v*.json.gz; do
