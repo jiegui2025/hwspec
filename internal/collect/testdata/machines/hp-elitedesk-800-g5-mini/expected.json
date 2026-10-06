@@ -276,6 +276,7 @@
           "size_bytes": 4294967296,
           "filesystem": "vfat",
           "uuid": "REDACTED",
+          "partuuid": "REDACTED",
           "mount_point": "/boot"
         },
         {
@@ -283,6 +284,7 @@
           "size_bytes": 251763412992,
           "filesystem": "btrfs",
           "uuid": "REDACTED",
+          "partuuid": "REDACTED",
           "mount_point": "/"
         }
       ],

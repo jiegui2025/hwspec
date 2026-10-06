@@ -861,6 +861,9 @@
                 "uuid": {
                   "type": "string"
                 },
+                "partuuid": {
+                  "type": "string"
+                },
                 "mount_point": {
                   "type": "string"
                 }

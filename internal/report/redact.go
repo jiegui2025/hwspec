@@ -39,7 +39,7 @@ func (r *Report) Redact() {
 		d.WWN = ""
 		for j := range d.Partitions {
 			p := &d.Partitions[j]
-			p.UUID, p.Label = "", ""
+			p.UUID, p.PartUUID, p.Label = "", "", ""
 			// /home/alice, /run/media/alice/Backup: user names and labels.
 			if !systemMounts[p.MountPoint] {
 				p.MountPoint = ""

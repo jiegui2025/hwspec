@@ -3,48 +3,39 @@ package collect
 import (
 	"strings"
 
-	"github.com/jaypipes/ghw"
-
 	"github.com/jiegui2025/hwspec/internal/report"
 )
 
 func (c *collector) storage() {
 	c.r.Storage = []report.Disk{}
-	info, err := ghw.Block(ghw.WithChroot(root), ghw.WithDisableWarnings(), ghw.WithDisableTools())
-	if err != nil {
-		c.warn("storage: %v", err)
-		return
-	}
+	mounted := mounts()
 	needRoot := false
-	for _, d := range info.Disks {
-		if skipDisk(d.Name) || d.SizeBytes == 0 {
+	for _, name := range list("/sys/block") {
+		base := "/sys/block/" + name
+		size := readUint(base+"/size") * 512 // always in 512-byte sectors
+		if skipDisk(name) || size == 0 {
 			continue
 		}
-		base := "/sys/block/" + d.Name
+		u := udevProps(base)
 		disk := report.Disk{
-			Name:               d.Name,
-			WWN:                clean(d.WWN),
-			SizeBytes:          d.SizeBytes,
-			Transport:          transport(d.Name),
+			Name:               name,
+			WWN:                firstOf(u["ID_WWN_WITH_EXTENSION"], u["ID_WWN"]),
+			SizeBytes:          size,
+			Transport:          transport(name),
 			Rotational:         readStr(base+"/queue/rotational") == "1",
 			Type:               "unknown",
-			Removable:          d.IsRemovable,
+			Removable:          readStr(base+"/removable") == "1",
 			LogicalBlockBytes:  readUint(base + "/queue/logical_block_size"),
-			PhysicalBlockBytes: d.PhysicalBlockSizeBytes,
+			PhysicalBlockBytes: readUint(base + "/queue/physical_block_size"),
 			Partitions:         []report.Partition{},
 			Driver:             c.controllerDriver(base + "/device"),
 		}
-		// ghw takes model/serial from the udev database, which is missing in
-		// containers and on some minimal systems; sysfs has them too.
-		id := &report.Identity{Vendor: clean(d.Vendor), Model: clean(d.Model), Serial: clean(d.SerialNumber)}
-		if id.Model == "" {
-			id.Model = readStr(base + "/device/model")
-		}
-		if id.Vendor == "" {
-			id.Vendor = readStr(base + "/device/vendor")
-		}
-		if id.Serial == "" {
-			id.Serial = readStr(base + "/device/serial")
+		// The udev database has the full model (ATA's is 40 characters, the
+		// SCSI inquiry's in sysfs 16); sysfs is the fallback without udev.
+		id := &report.Identity{
+			Vendor: readStr(base + "/device/vendor"),
+			Model:  firstOf(udevValue(u, "ID_MODEL"), readStr(base+"/device/model")),
+			Serial: firstOf(u["ID_SCSI_SERIAL"], u["ID_SERIAL_SHORT"], u["ID_SERIAL"], readStr(base+"/device/serial")),
 		}
 		if !id.Empty() {
 			disk.Identity = id
@@ -63,7 +54,7 @@ func (c *collector) storage() {
 		switch rot := readStr(base + "/queue/rotational"); {
 		case disk.Transport == "nvme":
 			disk.Type = "nvme"
-		case strings.HasPrefix(d.Name, "sr"):
+		case strings.HasPrefix(name, "sr"):
 			disk.Type = "optical"
 		case disk.Transport == "mmc":
 			disk.Type = "flash"
@@ -74,21 +65,25 @@ func (c *collector) storage() {
 		case rot == "0":
 			disk.Type = "ssd"
 		}
-		for _, part := range d.Partitions {
+		for _, part := range partitionNames(base, name) {
+			dir := base + "/" + part
+			pu := udevProps(dir)
+			m := mounted["/dev/"+part]
 			disk.Partitions = append(disk.Partitions, report.Partition{
-				Name:       part.Name,
-				SizeBytes:  part.SizeBytes,
-				Filesystem: clean(part.Type),
-				Label:      clean(part.FilesystemLabel),
-				UUID:       clean(part.UUID),
-				MountPoint: part.MountPoint,
+				Name:       part,
+				SizeBytes:  readUint(dir+"/size") * 512,
+				Filesystem: firstOf(pu["ID_FS_TYPE"], m.fstype),
+				Label:      udevValue(pu, "ID_FS_LABEL"),
+				UUID:       udevValue(pu, "ID_FS_UUID"),
+				PartUUID:   firstOf(pu["ID_PART_ENTRY_UUID"], ueventValue(dir, "PARTUUID")),
+				MountPoint: m.point,
 			})
 		}
 		switch {
 		case disk.Type == "optical":
 			// no SMART on optical drives
 		case c.privileged:
-			disk.Health = c.diskHealth(d.Name, disk.Transport)
+			disk.Health = c.diskHealth(name, disk.Transport)
 		default:
 			needRoot = true
 		}
@@ -106,14 +101,6 @@ func skipDisk(name string) bool {
 		}
 	}
 	return false
-}
-
-func clean(s string) string {
-	s = strings.TrimSpace(strings.ReplaceAll(s, "_", " "))
-	if s == "unknown" {
-		return ""
-	}
-	return s
 }
 
 // transport works out how a disk is attached from its sysfs device path.

@@ -14,7 +14,7 @@ func TestRedactRemovesPersonalPathsAndMACDerivedNames(t *testing.T) {
 		USB:      []USBDevice{{Identity: &Identity{Model: "Receiver", Serial: "XYZ"}}},
 		Storage: []Disk{{Name: "sda", Identity: &Identity{Model: "SSD", Serial: "S1"}, Partitions: []Partition{
 			{MountPoint: "/"}, {MountPoint: "/home"}, {MountPoint: "/home/alice"},
-			{MountPoint: "/run/media/alice/Backup", Label: "Backup", UUID: "u"},
+			{MountPoint: "/run/media/alice/Backup", Label: "Backup", UUID: "u", PartUUID: "p"},
 		}}},
 		Network: []NIC{
 			{Name: "enx00e04c680123", MAC: "00:e0:4c:68:01:23"},
@@ -30,8 +30,8 @@ func TestRedactRemovesPersonalPathsAndMACDerivedNames(t *testing.T) {
 			t.Errorf("partition %d mount point = %q, want %q", i, p.MountPoint, want[i])
 		}
 	}
-	if parts[3].Label != "" || parts[3].UUID != "" {
-		t.Errorf("partition label/UUID kept: %+v", parts[3])
+	if parts[3].Label != "" || parts[3].UUID != "" || parts[3].PartUUID != "" {
+		t.Errorf("partition label/UUIDs kept: %+v", parts[3])
 	}
 	if r.Network[0].Name != "enxxxxxxxxxxxxx" || r.Network[0].MAC != "" || r.Network[1].Name != "wlp2s0" {
 		t.Errorf("network = %+v", r.Network)
