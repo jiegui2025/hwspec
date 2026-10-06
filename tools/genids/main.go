@@ -65,7 +65,7 @@ func run(argv []string, stdout, stderr io.Writer) int {
 			break
 		}
 		var data []byte
-		if data, err = cpu(args[0], args[1], args[2]); err == nil {
+		if data, err = cpu(args[0], args[1], args[2], stderr); err == nil {
 			err = writeGzip(args[3], data)
 		}
 	case "manifest":

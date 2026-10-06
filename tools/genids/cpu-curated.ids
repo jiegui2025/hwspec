@@ -1,54 +1,78 @@
 # Hand-curated CPU codenames, applied on top of what genids derives from the
 # Linux kernel (intel-family.h model numbers, amd.c Zen generation ranges).
 #
-# Format: VENDOR FAMILY MODEL [STEPPINGS]<TAB>Codename<TAB>Microarchitecture
+# Format: VENDOR FAMILY MODEL [STEPPINGS]<TAB>Codename<TAB>Microarchitecture<TAB>Sources
 # Family and model in hex, steppings in decimal ("10-13" or "9").
-# An empty field keeps the generated value.
+# An empty codename or microarchitecture keeps the generated value.
 #
-# Best effort: corrections are welcome (with a source) as pull requests.
+# Every line names at least one source a reviewer can open, space-separated
+# (genids refuses a line without one, and warns about a line that changes
+# nothing the kernel doesn't already say):
+#   kernel:PATH[#SYMBOL]  a file in torvalds/linux
+#   instlat:FILE          a CPUID dump in github.com/InstLatx64/InstLatx64,
+#                         named <Vendor><CPUID 1 EAX>_<codename>_CPUID.txt
+#   amd:URL, intel:URL    the vendor's own documentation (https:// URLs)
+#   url:URL               anything else (an https:// URL)
+# Never guess: a name without a source is left out. Corrections are welcome
+# as pull requests, with a source.
 
 # Intel: the kernel lists one name per model number, but some model numbers
-# span several codenames, told apart by stepping.
-intel 6 9e 9	Kaby Lake	Skylake
-intel 6 9e 10-13	Coffee Lake	Skylake
-intel 6 8e 9	Kaby Lake	Skylake
-intel 6 8e 10	Kaby Lake R	Skylake
-intel 6 8e 11	Whiskey Lake	Skylake
-intel 6 8e 12	Whiskey Lake / Comet Lake	Skylake
-intel 6 a5	Comet Lake	Skylake
-intel 6 a6	Comet Lake	Skylake
+# span several codenames, told apart by stepping. Intel's microcode release
+# notes list each stepping's products (abbreviated: AML Amber Lake, CFL
+# Coffee Lake, CLX Cascade Lake, CML Comet Lake, CPX Cooper Lake, KBL-R Kaby
+# Lake R, WHL Whiskey Lake).
+intel 6 9e 10-13	Coffee Lake	Skylake	kernel:arch/x86/include/asm/intel-family.h#COFFEELAKE instlat:GenuineIntel/GenuineIntel00906EA_Coffeelake_CPUID.txt intel:https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/main/releasenote.md
+intel 6 8e 9	Kaby Lake / Amber Lake	Skylake	kernel:arch/x86/include/asm/intel-family.h#AMBERLAKE_L instlat:GenuineIntel/GenuineIntel00806E9_Kabylake_CPUID.txt instlat:GenuineIntel/GenuineIntel00806E9_AmberLakeY_CPUID.txt intel:https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/main/releasenote.md
+intel 6 8e 10	Kaby Lake R / Coffee Lake	Skylake	kernel:arch/x86/include/asm/intel-family.h#COFFEELAKE_L instlat:GenuineIntel/GenuineIntel00806EA_Kabylake_CPUID.txt intel:https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/main/releasenote.md
+intel 6 8e 11	Whiskey Lake	Skylake	kernel:arch/x86/include/asm/intel-family.h#WHISKEYLAKE_L instlat:GenuineIntel/GenuineIntel00806EB_WhiskeyLake_CPUID.txt
+# The kernel says Whiskey Lake only; Intel lists WHL-U, CML-U42, CML-Y42 and
+# AML-Y42 at 06-8e-0c, and the dumps there are Comet Lake (i5-10210U).
+intel 6 8e 12	Whiskey Lake / Comet Lake / Amber Lake	Skylake	kernel:arch/x86/include/asm/intel-family.h#WHISKEYLAKE_L instlat:GenuineIntel/GenuineIntel00806EC_CometLake_CPUID2.txt intel:https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/main/releasenote.md
+# Intel lists Cascade Lake at steppings 5, 6 and 7 (the kernel names 7).
+intel 6 55 5-7	Cascade Lake-X	Skylake	kernel:arch/x86/include/asm/intel-family.h#CASCADELAKE_X instlat:GenuineIntel/GenuineIntel0050657_CascadeLakeSP_CPUID1.txt instlat:GenuineIntel/GenuineIntel0050656_CascadeLakeSP_CPUID.txt intel:https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/main/releasenote.md
+intel 6 55 11	Cooper Lake-X	Skylake	kernel:arch/x86/include/asm/intel-family.h#COOPERLAKE_X intel:https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/main/releasenote.md
 
-# AMD family 17h (Zen, Zen+, Zen 2)
-amd 17 01	Summit Ridge / Naples	Zen
-amd 17 08	Pinnacle Ridge / Colfax	Zen+
-amd 17 11	Raven Ridge	Zen
-amd 17 18	Picasso	Zen+
-amd 17 20	Dali / Pollock	Zen
-amd 17 31	Rome / Castle Peak	Zen 2
-amd 17 60	Renoir	Zen 2
-amd 17 68	Lucienne	Zen 2
-amd 17 71	Matisse	Zen 2
-amd 17 90	Van Gogh	Zen 2
-amd 17 a0	Mendocino	Zen 2
+# AMD family 17h (Zen, Zen+, Zen 2). The kernel gives only the Zen
+# generation (amd.c); codenames come from AMD's revision guides, kernel
+# comments and the InstLatx64 dumps. AMD's revision guide 55449 lists
+# Ryzen at 00800F11h and EPYC at 00800F12h.
+amd 17 01	Summit Ridge / Naples	Zen	amd:https://docs.amd.com/api/khub/documents/abOrVU_gcO7ZsC3qDF4uNQ/content url:https://github.com/torvalds/linux/commit/2770d4722036
+amd 17 08	Pinnacle Ridge	Zen+	amd:https://docs.amd.com/api/khub/documents/abOrVU_gcO7ZsC3qDF4uNQ/content instlat:AuthenticAMD/AuthenticAMD0800F82_K17_PinnacleRidge_01_CPUID.txt kernel:drivers/hwmon/k10temp.c
+amd 17 11	Raven Ridge / Great Horned Owl	Zen	url:https://github.com/torvalds/linux/commit/f9bc6b2dd9cf kernel:drivers/hwmon/k10temp.c instlat:AuthenticAMD/AuthenticAMD0810F10_K17_Zen_CPUID.txt instlat:AuthenticAMD/AuthenticAMD0810F10_K17_GreatHornedOwl_CPUID.txt
+amd 17 18	Picasso	Zen+	instlat:AuthenticAMD/AuthenticAMD0810F81_K17_Picasso_CPUID.txt kernel:drivers/hwmon/k10temp.c
+amd 17 20	Dali	Zen	instlat:AuthenticAMD/AuthenticAMD0820F01_K17_Dali_CPUID.txt
+amd 17 31	Rome / Castle Peak	Zen 2	instlat:AuthenticAMD/AuthenticAMD0830F10_K17_Rome_CPUID.txt instlat:AuthenticAMD/AuthenticAMD0830F10_K17_CastlePeak_CPUID.txt
+amd 17 60	Renoir	Zen 2	instlat:AuthenticAMD/AuthenticAMD0860F01_K17_Renoir_CPUID2.txt
+amd 17 68	Lucienne	Zen 2	instlat:AuthenticAMD/AuthenticAMD0860F81_K17_Lucienne_CPUID04.txt
+amd 17 71	Matisse	Zen 2	instlat:AuthenticAMD/AuthenticAMD0870F10_K17_Matisse_CPUID.txt
+amd 17 90	Van Gogh	Zen 2	instlat:AuthenticAMD/AuthenticAMD0890F02_K17_VanGogh_01_CPUID.txt
+amd 17 91	Van Gogh	Zen 2	instlat:AuthenticAMD/AuthenticAMD0890F10_K17_VanGogh_01_CPUID.txt
+amd 17 a0	Mendocino	Zen 2	instlat:AuthenticAMD/AuthenticAMD08A0F00_K17_Mendocino_01_CPUID.txt
 
-# AMD family 19h (Zen 3, Zen 3+, Zen 4)
-amd 19 01	Milan	Zen 3
-amd 19 08	Chagall	Zen 3
-amd 19 11	Genoa	Zen 4
-amd 19 18	Storm Peak	Zen 4
-amd 19 21	Vermeer	Zen 3
-amd 19 44	Rembrandt	Zen 3+
-amd 19 50	Cezanne / Barcelo	Zen 3
-amd 19 61	Raphael	Zen 4
-amd 19 74	Phoenix	Zen 4
-amd 19 75	Phoenix / Hawk Point	Zen 4
-amd 19 78	Phoenix 2	Zen 4
-amd 19 a0	Bergamo / Siena	Zen 4c
+# AMD family 19h (Zen 3, Zen 3+, Zen 4, Zen 4c)
+amd 19 01	Milan	Zen 3	instlat:AuthenticAMD/AuthenticAMD0A00F11_K19_Milan_CPUID1.txt
+amd 19 08	Chagall	Zen 3	kernel:drivers/hwmon/k10temp.c
+amd 19 11	Genoa	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A10F11_K19_Genoa_01_CPUID.txt
+amd 19 18	Storm Peak	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A10F81_K19_StormPeak_01_CPUID.txt
+amd 19 21	Vermeer	Zen 3	instlat:AuthenticAMD/AuthenticAMD0A20F10_K19_Vermeer_CPUID1.txt instlat:AuthenticAMD/AuthenticAMD0A20F12_K19_Vermeer_01_CPUID.txt
+# Ryzen 6000 (the dumps here: Ryzen 7 6800HS, Ryzen 9 6900HX) is "Zen 3+".
+amd 19 44	Rembrandt	Zen 3+	instlat:AuthenticAMD/AuthenticAMD0A40F41_K19_Rembrandt_01_CPUID.txt url:https://ir.amd.com/news-events/press-releases/detail/1039/amdunveils-new-ryzen-mobile-processors-uniting-zen
+amd 19 50	Cezanne / Barcelo	Zen 3	instlat:AuthenticAMD/AuthenticAMD0A50F00_K19_Cezanne_CPUID6.txt instlat:AuthenticAMD/AuthenticAMD0A50F00_K19_Barcelo_00_CPUID.txt
+amd 19 61	Raphael	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A60F12_K19_Raphael_01_CPUID.txt
+amd 19 74	Phoenix	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A70F41_K19_Phoenix_03_CPUID.txt
+amd 19 75	Phoenix / Hawk Point	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A70F52_K19_Phoenix_01_CPUID.txt instlat:AuthenticAMD/AuthenticAMD0A70F52_K19_HawkPoint_01_CPUID.txt
+amd 19 78	Phoenix 2	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A70F80_K19_Phoenix2_01_CPUID.txt
+amd 19 7c	Hawk Point 2	Zen 4	instlat:AuthenticAMD/AuthenticAMD0A70FC0_K19_HawkPoint2_01_CPUID.txt
+# Revision guide 57926: EPYC 9004 (SP5) and 8004 (SP6) at 00AA0F02h (Zen4c-A2).
+amd 19 a0	Bergamo / Siena	Zen 4c	amd:https://docs.amd.com/api/khub/documents/aBaGVEhC_kN7n61TYp_76A/content instlat:AuthenticAMD/AuthenticAMD0AA0F02_K19_Bergamo_04_CPUID.txt url:https://www.amd.com/en/blogs/2023/4th-gen-amd-epyc-8004-series-processors-designed-.html
 
-# AMD family 1Ah (Zen 5)
-amd 1a 02	Turin	Zen 5
-amd 1a 11	Turin Dense	Zen 5c
-amd 1a 24	Strix Point	Zen 5
-amd 1a 44	Granite Ridge	Zen 5
-amd 1a 60	Krackan Point	Zen 5
-amd 1a 70	Strix Halo	Zen 5
+# AMD family 1Ah (Zen 5, Zen 5c)
+amd 1a 02	Turin	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B00F21_K20_Turin_01_CPUID.txt
+amd 1a 08	Shimada Peak	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B00F81_K20_ShimadaPeak_03_CPUID.txt
+# Revision guide 58730: 00B10F10h (Turin-Zen5c-B0).
+amd 1a 11	Turin Dense	Zen 5c	amd:https://docs.amd.com/api/khub/documents/l7TodT1HuS0vIc3~4AgUvw/content instlat:AuthenticAMD/AuthenticAMD0B10F10_K20_TurinD_03_CPUID.txt
+amd 1a 24	Strix Point / Gorgon Point	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B20F40_K20_StrixPoint_06_CPUID.txt instlat:AuthenticAMD/AuthenticAMD0B20F40_K20_GorgonPoint_01_CPUID.txt
+amd 1a 44	Granite Ridge	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B40F40_K20_GraniteRidge_02_CPUID.txt
+amd 1a 60	Krackan Point / Gorgon Point	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B60F00_K20_KrackanPoint_03_CPUID.txt instlat:AuthenticAMD/AuthenticAMD0B60F00_K20_GorgonPoint_01_CPUID.txt
+amd 1a 68	Gorgon Point	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B60F80_K20_GorgonPoint_01_CPUID.txt
+amd 1a 70	Strix Halo	Zen 5	instlat:AuthenticAMD/AuthenticAMD0B70F00_K20_StrixHalo_01_CPUID.txt

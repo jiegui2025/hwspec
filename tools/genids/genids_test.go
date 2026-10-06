@@ -186,7 +186,7 @@ func TestCPUCodenamesFromKernelSourcesAndTheCuratedList(t *testing.T) {
 	dir := t.TempDir()
 	intel := write(t, filepath.Join(dir, "intel-family.h"), intelFamily())
 	amd := write(t, filepath.Join(dir, "amd.c"), amdC)
-	curated := write(t, filepath.Join(dir, "curated.ids"), "# curated\n\nintel 6 9E 10-13\tCoffee Lake\tSkylake\namd 19 61\tRaphael\t\n")
+	curated := write(t, filepath.Join(dir, "curated.ids"), "# curated\n\nintel 6 9E 10-13\tCoffee Lake\tSkylake\tkernel:intel-family.h\namd 19 61\tRaphael\t\tinstlat:a.txt url:https://example.org\n")
 	out := filepath.Join(dir, "cpu.ids.gz")
 	runOK(t, "cpu", intel, amd, curated, out)
 	got := gunzip(t, out)
@@ -221,15 +221,63 @@ func TestCPUCodenamesFromKernelSourcesAndTheCuratedList(t *testing.T) {
 		"no Zen table":          {intel, write(t, filepath.Join(dir, "nozen.c"), "int x;\n"), curated},
 		"too few Zen":           {intel, write(t, filepath.Join(dir, "fewzen.c"), "Figure out Zen generations\ncase 0x17:\nswitch (c->x86_model) {\ncase 0x01:\nX86_FEATURE_ZEN1\n"), curated},
 		"malformed curated":     {intel, amd, write(t, filepath.Join(dir, "bad1.ids"), "intel 6\n")},
-		"bad stepping range":    {intel, amd, write(t, filepath.Join(dir, "bad2.ids"), "intel 6 9e 5-2\tX\n")},
+		"bad stepping range":    {intel, amd, write(t, filepath.Join(dir, "bad2.ids"), "intel 6 9e 5-2\tX\t\tkernel:x\n")},
+		"no source":             {intel, amd, write(t, filepath.Join(dir, "bad3.ids"), "intel 6 9e 5\tX\tY\n")},
+		"empty source":          {intel, amd, write(t, filepath.Join(dir, "bad4.ids"), "intel 6 9e 5\tX\tY\t \n")},
+		"unknown source kind":   {intel, amd, write(t, filepath.Join(dir, "bad5.ids"), "intel 6 9e 5\tX\tY\tkernel:x wikipedia:Y\n")},
+		"bare source prefix":    {intel, amd, write(t, filepath.Join(dir, "bad6.ids"), "intel 6 9e 5\tX\tY\tinstlat:\n")},
+		"a fifth field":         {intel, amd, write(t, filepath.Join(dir, "bad7.ids"), "intel 6 9e 5\tX\tY\tkernel:x\tkernel:y\n")},
+		"vendor source no URL":  {intel, amd, write(t, filepath.Join(dir, "bad8.ids"), "intel 6 9e 5\tX\tY\tamd:55449\n")},
+		"plain http source":     {intel, amd, write(t, filepath.Join(dir, "bad9.ids"), "intel 6 9e 5\tX\tY\turl:http://example.org\n")},
 		"missing Intel source":  {filepath.Join(dir, "none.h"), amd, curated},
 		"missing AMD source":    {intel, filepath.Join(dir, "none.c"), curated},
 		"missing curated list":  {intel, amd, filepath.Join(dir, "none.ids")},
 		"family before its Zen": {intel, write(t, filepath.Join(dir, "order.c"), strings.Replace(amdC, "setup_force_cpu_cap(X86_FEATURE_ZEN2);", "", 1)), curated},
 	} {
-		if _, err := cpu(files[0], files[1], files[2]); err == nil {
+		if _, err := cpu(files[0], files[1], files[2], io.Discard); err == nil {
 			t.Errorf("%s: accepted", name)
 		}
+	}
+}
+
+// A curated line that changes nothing is reported, not fatal: kernel
+// updates make lines redundant.
+func TestCPUWarnsAboutCuratedLinesThatChangeNothing(t *testing.T) {
+	dir := t.TempDir()
+	intel := write(t, filepath.Join(dir, "intel-family.h"), intelFamily())
+	amd := write(t, filepath.Join(dir, "amd.c"), amdC)
+	curated := write(t, filepath.Join(dir, "curated.ids"),
+		"intel 6 9e 9\tKaby Lake\tKaby Lake\tkernel:x\n"+ // 1: what the model says already
+			"intel 6 9e 11\tCoffee Lake\t\tkernel:x\n"+ // 2: changes the codename
+			"amd 17 31\t\tZen 2\tinstlat:x\n"+ // 3: the kernel's Zen generation
+			"amd 19 61\t\tZen 4c\tinstlat:x\n"+ // 4: changes only the microarchitecture
+			"intel 6 9e 10-11\tCoffee Lake\t\tkernel:x\n"+ // 5: changes stepping 10, not 11 (line 2)
+			"intel 6 9e 11\tCoffee Lake\t\tkernel:x\n") // 6: repeats line 2
+	var warn bytes.Buffer
+	if _, err := cpu(intel, amd, curated, &warn); err != nil {
+		t.Fatal(err)
+	}
+	// Exactly lines 1, 3 and 6, as GitHub Actions annotations.
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(warn.String()), "\n") {
+		if !strings.HasPrefix(l, "::warning file="+curated+",line=") || !strings.HasSuffix(l, ": the kernel or an earlier line already says this; remove it") {
+			t.Errorf("warning %q isn't an annotation with the expected message", l)
+		}
+		_, n, _ := strings.Cut(strings.TrimPrefix(l, "::warning file="+curated+",line="), "::")
+		lines = append(lines, strings.TrimPrefix(strings.Split(n, ": ")[0], curated+":"))
+	}
+	if got := strings.Join(lines, " "); got != "1 3 6" {
+		t.Errorf("warned about lines %q, want 1 3 6:\n%s", got, warn.String())
+	}
+}
+
+// The real curated list parses, and every line names a source.
+func TestTheCuratedListIsSourced(t *testing.T) {
+	dir := t.TempDir()
+	intel := write(t, filepath.Join(dir, "intel-family.h"), intelFamily())
+	amd := write(t, filepath.Join(dir, "amd.c"), amdC)
+	if _, err := cpu(intel, amd, "cpu-curated.ids", io.Discard); err != nil {
+		t.Fatal(err)
 	}
 }
 
