@@ -9,7 +9,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 # including NixOS and musl-based ones.
 export CGO_ENABLED = 0
 
-.PHONY: build test lint cover release install fetch-ids gen-ids update-ids clean
+.PHONY: build test lint cover release install fetch-ids gen-ids update-ids gen-kb clean
 
 GOLANGCI_LINT_VERSION := v2.14.0
 COVERAGE_MIN := $(shell sed -n 's/^  COVERAGE_MIN: "\([0-9]*\)"/\1/p' .github/workflows/ci.yml)
@@ -86,6 +86,13 @@ gen-ids:
 	go run ./tools/genids bluetooth $(IDS_SRC)/bluetooth.yaml $(DIR)/bluetooth.ids.gz
 	go run ./tools/genids cpu $(IDS_SRC)/intel-family.h $(IDS_SRC)/amd.c tools/genids/cpu-curated.ids $(DIR)/cpu.ids.gz
 	go run ./tools/genids manifest $(DIR) $(PREV)
+
+# Compile the advisor's knowledge base (kb/**/*.yaml, ADR 0009) into the
+# copy embedded in the binary. Its version is the date its content last
+# changed: today's (UTC) when it changes, else the file keeps its own.
+# Commit it with the YAML: go test ./tools/genkb fails while they differ.
+gen-kb:
+	go run ./tools/genkb -o internal/kb/data/advisor-v1.json.gz kb
 
 # Refresh the copies embedded in the binary. The steps run in order even
 # under make -j: gen-ids reads what fetch-ids downloads.
