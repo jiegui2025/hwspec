@@ -5,8 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -419,5 +421,184 @@ func TestECCErrorsNeverLandOnTheWrongModule(t *testing.T) {
 	}
 	if len(c.r.Warnings) != 1 || !strings.Contains(c.r.Warnings[0], "several modules") {
 		t.Errorf("ambiguous label not reported: %v", c.r.Warnings)
+	}
+}
+
+// GPU clocks come from the driver's own files, whichever it has: i915's
+// hardware range (gt_RPn/RP0) and measured clock (gt_act), or amdgpu's
+// pp_dpm_sclk levels with the active one starred. Missing files: nothing,
+// silently. Unreadable or inconsistent ones: nothing, and a warning.
+func TestGPUClocksFromTheDriversFiles(t *testing.T) {
+	const i915, amd = "/sys/class/drm/card0/", "/sys/bus/pci/devices/0000:03:00.0/pp_dpm_sclk"
+	mhz := func(v int) *int { return &v }
+	cases := []struct {
+		name  string
+		files map[string]string
+		want  *report.GPUClocks
+		warn  string
+	}{
+		{"i915", map[string]string{i915 + "gt_RPn_freq_mhz": "350\n", i915 + "gt_RP0_freq_mhz": "1100\n", i915 + "gt_act_freq_mhz": "700\n",
+			i915 + "gt_min_freq_mhz": "500\n", i915 + "gt_cur_freq_mhz": "1000\n"}, // soft limit and request: ignored
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, ActualFreqMHz: mhz(700), Source: "i915"}, ""},
+		{"i915 idle in RC6", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz": "1100", i915 + "gt_act_freq_mhz": "0"},
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, ActualFreqMHz: mhz(0), Source: "i915"}, ""},
+		{"i915 without an actual clock", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz": "1100"},
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, Source: "i915"}, ""},
+		{"i915 locked", map[string]string{i915 + "gt_RPn_freq_mhz": "1000", i915 + "gt_RP0_freq_mhz": "1000"},
+			&report.GPUClocks{MinFreqMHz: 1000, MaxFreqMHz: 1000, Source: "i915"}, ""},
+		{"i915 actual below the range", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz": "1100", i915 + "gt_act_freq_mhz": "300"},
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, Source: "i915"}, "actual clock 300 MHz is outside 350–1100 MHz"},
+		{"i915 actual negative", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz": "1100", i915 + "gt_act_freq_mhz": "-1"},
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, Source: "i915"}, "actual clock -1 MHz is outside 350–1100 MHz"},
+		{"i915 actual above the range", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz": "1100", i915 + "gt_act_freq_mhz": "1200"},
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, Source: "i915"}, "actual clock 1200 MHz is outside 350–1100 MHz"},
+		{"i915 actual unreadable", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz": "1100", i915 + "gt_act_freq_mhz": "fast"},
+			&report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, Source: "i915"}, "actual clock: gt_act_freq_mhz: strconv.Atoi"},
+		{"i915 maximum only", map[string]string{i915 + "gt_RP0_freq_mhz": "1100"}, nil, "has gt_RP0_freq_mhz but no gt_RPn_freq_mhz"},
+		{"i915 minimum only", map[string]string{i915 + "gt_RPn_freq_mhz": "350"}, nil, "has gt_RPn_freq_mhz but no gt_RP0_freq_mhz"},
+		{"i915 inverted", map[string]string{i915 + "gt_RPn_freq_mhz": "1100", i915 + "gt_RP0_freq_mhz": "350"}, nil, "1100–350 MHz, not a range"},
+		{"i915 zero", map[string]string{i915 + "gt_RPn_freq_mhz": "0", i915 + "gt_RP0_freq_mhz": "1100"}, nil, "0–1100 MHz, not a range"},
+		{"i915 unreadable", map[string]string{i915 + "gt_RPn_freq_mhz": "350", i915 + "gt_RP0_freq_mhz/x": ""}, // a directory: EISDIR
+			nil, "gt_RP0_freq_mhz: is a directory"},
+		{"i915 garbage", map[string]string{i915 + "gt_RPn_freq_mhz": "low", i915 + "gt_RP0_freq_mhz": "1100"}, nil, "gt_RPn_freq_mhz: strconv.Atoi"},
+		{"amdgpu", map[string]string{amd: "0: 300Mhz\n1: 1000Mhz *\n2: 2100Mhz\n"},
+			&report.GPUClocks{MinFreqMHz: 300, MaxFreqMHz: 2100, ActualFreqMHz: mhz(1000), Source: "amdgpu"}, ""},
+		{"amdgpu deep sleep", map[string]string{amd: "S: 19Mhz *\n0: 500Mhz\n1: 2100Mhz\n"}, // smu_cmn.c's real format
+			&report.GPUClocks{MinFreqMHz: 500, MaxFreqMHz: 2100, ActualFreqMHz: mhz(19), Source: "amdgpu"}, ""},
+		{"amdgpu, none active, any case", map[string]string{amd: "0: 500MHZ\n1: 2100mhz\n"},
+			&report.GPUClocks{MinFreqMHz: 500, MaxFreqMHz: 2100, Source: "amdgpu"}, ""},
+		{"amdgpu out of order", map[string]string{amd: "0: 800Mhz\n1: 300Mhz *\n"},
+			&report.GPUClocks{MinFreqMHz: 300, MaxFreqMHz: 800, ActualFreqMHz: mhz(300), Source: "amdgpu"}, ""},
+		{"amdgpu locked", map[string]string{amd: "0: 1000Mhz *\n"},
+			&report.GPUClocks{MinFreqMHz: 1000, MaxFreqMHz: 1000, ActualFreqMHz: mhz(1000), Source: "amdgpu"}, ""},
+		{"amdgpu half-parsed", map[string]string{amd: "0: 300Mhz\n1: 1000Mhz *\n2: garbage\n"}, nil, `unexpected pp_dpm_sclk line "2: garbage"`},
+		{"amdgpu trailing text", map[string]string{amd: "0: 300Mhz\n1: 2100Mhz (boost)\n"}, nil, `unexpected pp_dpm_sclk line "1: 2100Mhz (boost)"`},
+		{"amdgpu leading text", map[string]string{amd: "x0: 300Mhz\n1: 2100Mhz\n"}, nil, `unexpected pp_dpm_sclk line "x0: 300Mhz"`},
+		{"amdgpu overflow", map[string]string{amd: "0: 300Mhz\n1: 99999999999999999999Mhz\n"}, nil, "value out of range"},
+		{"amdgpu two active", map[string]string{amd: "0: 300Mhz *\n1: 1000Mhz *\n"}, nil, "marks two levels active"},
+		{"amdgpu zero level", map[string]string{amd: "0: 0Mhz\n1: 1000Mhz\n"}, nil, "no usable levels"},
+		{"amdgpu deep sleep above the range", map[string]string{amd: "S: 3000Mhz *\n0: 500Mhz\n1: 2100Mhz\n"},
+			&report.GPUClocks{MinFreqMHz: 500, MaxFreqMHz: 2100, Source: "amdgpu"}, "active level 3000 MHz is above 2100 MHz"},
+		{"amdgpu empty", map[string]string{amd: "\n"}, nil, "no usable levels"},
+		{"amdgpu unreadable", map[string]string{amd + "/x": ""}, nil, "pp_dpm_sclk: is a directory"},
+		{"amdgpu sleep only", map[string]string{amd: "S: 19Mhz *\n"}, nil, "no usable levels"},
+		{"neither", map[string]string{}, nil, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			file, _ := fakeRoot(t)
+			for p, v := range c.files {
+				file(p, v)
+			}
+			col := &collector{r: &report.Report{}}
+			got := col.gpuClocks("card0", "0000:03:00.0")
+			if !reflect.DeepEqual(got, c.want) {
+				g, _ := json.Marshal(got)
+				w, _ := json.Marshal(c.want)
+				t.Errorf("clocks %s, want %s", g, w)
+			}
+			w := strings.Join(col.r.Warnings, "\n")
+			if c.warn == "" && w != "" || c.warn != "" && !strings.Contains(w, c.warn) {
+				t.Errorf("warnings %q, want %q", w, c.warn)
+			}
+		})
+	}
+}
+
+// EPERM (amdgpu while the GPU is runtime-suspended) is the driver's
+// refusal, not a missing privilege: a warning that says so, and no
+// suggestion to run with --full.
+func TestGPUClocksPermissionErrorDoesNotAskForRoot(t *testing.T) {
+	file, _ := fakeRoot(t)
+	const amd = "/sys/bus/pci/devices/0000:03:00.0/pp_dpm_sclk"
+	file(amd, "0: 300Mhz *\n")
+	unreadable = map[string]error{amd: syscall.EPERM}
+	col := &collector{r: &report.Report{}}
+	if got := col.gpuClocks("card0", "0000:03:00.0"); got != nil {
+		t.Errorf("clocks %+v, want none", got)
+	}
+	w := strings.Join(col.r.Warnings, "\n")
+	if !strings.Contains(w, "pp_dpm_sclk: operation not permitted") || strings.Contains(w, "--full") {
+		t.Errorf("warnings %q", w)
+	}
+}
+
+// Through gpus(): a GPU without clock files gets no clocks block and no
+// warning; with an i915 and an amdgpu card, each with a render node, each
+// GPU gets its own clocks, every time.
+func TestEachGPUGetsItsOwnClocks(t *testing.T) {
+	for range 20 {
+		file, link := fakeRoot(t)
+		col := &collector{r: &report.Report{PCI: []report.PCIDevice{
+			{Address: "0000:00:02.0", ClassCode: "030000"},
+			{Address: "0000:03:00.0", ClassCode: "030000"},
+			{Address: "0000:04:00.0", ClassCode: "030200"}, // NVIDIA-like: no clock files
+		}}}
+		for _, card := range []struct{ name, addr string }{{"card0", "0000:00:02.0"}, {"renderD128", "0000:00:02.0"}, {"card1", "0000:03:00.0"},
+			{"renderD129", "0000:03:00.0"}, {"card2", "0000:04:00.0"}} {
+			file("/sys/devices/pci0000:00/"+card.addr+"/drm/"+card.name+"/uevent", "")
+			link("/sys/class/drm/"+card.name, "../../devices/pci0000:00/"+card.addr+"/drm/"+card.name)
+			link("/sys/devices/pci0000:00/"+card.addr+"/drm/"+card.name+"/device", "../..")
+		}
+		file("/sys/bus/pci/.keep", "")
+		for _, addr := range []string{"0000:00:02.0", "0000:03:00.0", "0000:04:00.0"} {
+			link("/sys/devices/pci0000:00/"+addr+"/subsystem", "../../../bus/pci")
+		}
+		file("/sys/class/drm/card0/gt_RPn_freq_mhz", "350")
+		file("/sys/class/drm/card0/gt_RP0_freq_mhz", "1100")
+		file("/sys/bus/pci/devices/0000:03:00.0/pp_dpm_sclk", "0: 300Mhz\n1: 2100Mhz\n")
+		col.gpus()
+		got := map[string]*report.GPUClocks{}
+		for _, g := range col.r.GPUs {
+			got[g.PCIAddress] = g.Clocks
+		}
+		if c := got["0000:00:02.0"]; c == nil || c.Source != "i915" || c.MaxFreqMHz != 1100 {
+			t.Fatalf("i915: %+v", c)
+		}
+		if c := got["0000:03:00.0"]; c == nil || c.Source != "amdgpu" || c.MaxFreqMHz != 2100 || c.ActualFreqMHz != nil {
+			t.Fatalf("amdgpu: %+v", c)
+		}
+		if got["0000:04:00.0"] != nil || len(col.r.Warnings) != 0 {
+			t.Fatalf("no clock files: %+v, warnings %q", got["0000:04:00.0"], col.r.Warnings)
+		}
+		js, _ := json.Marshal(col.r.GPUs[2])
+		if strings.Contains(string(js), "clocks") {
+			t.Fatalf("a GPU without clock files has %s", js)
+		}
+		js, _ = json.Marshal(col.r.GPUs[1])
+		if strings.Contains(string(js), "actual_freq_mhz") {
+			t.Fatalf("an unstarred amdgpu has %s", js)
+		}
+	}
+}
+
+// Two cards on one device: the first in sorted order is the GPU's card
+// and gives its clocks, every time (map order would pick either). A
+// display GPU with only a render node gets no card and no clocks.
+func TestTheFirstCardOfADeviceGivesItsClocks(t *testing.T) {
+	for range 20 {
+		file, link := fakeRoot(t)
+		col := &collector{r: &report.Report{PCI: []report.PCIDevice{
+			{Address: "0000:00:02.0", ClassCode: "030000"},
+			{Address: "0000:05:00.0", ClassCode: "030000"},
+		}}}
+		for _, card := range []struct{ name, addr string }{{"card0", "0000:00:02.0"}, {"card1", "0000:00:02.0"}, {"renderD130", "0000:05:00.0"}} {
+			file("/sys/devices/pci0000:00/"+card.addr+"/drm/"+card.name+"/uevent", "")
+			link("/sys/class/drm/"+card.name, "../../devices/pci0000:00/"+card.addr+"/drm/"+card.name)
+			link("/sys/devices/pci0000:00/"+card.addr+"/drm/"+card.name+"/device", "../..")
+		}
+		file("/sys/bus/pci/.keep", "")
+		for _, addr := range []string{"0000:00:02.0", "0000:05:00.0"} {
+			link("/sys/devices/pci0000:00/"+addr+"/subsystem", "../../../bus/pci")
+		}
+		file("/sys/class/drm/card0/gt_RPn_freq_mhz", "350")
+		file("/sys/class/drm/card0/gt_RP0_freq_mhz", "1100")
+		col.gpus()
+		if g := col.r.GPUs[0]; g.DRMCard != "card0" || g.Clocks == nil || g.Clocks.MaxFreqMHz != 1100 {
+			t.Fatalf("two cards: card %q, clocks %+v", g.DRMCard, g.Clocks)
+		}
+		if g := col.r.GPUs[1]; g.DRMCard != "" || g.Clocks != nil {
+			t.Fatalf("render node only: card %q, clocks %+v", g.DRMCard, g.Clocks)
+		}
 	}
 }

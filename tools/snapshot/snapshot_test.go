@@ -269,6 +269,7 @@ func comparable(t *testing.T, r any) any {
 	drop := map[string]bool{
 		"captured_at": true, "hostname": true, "serial": true, "mac": true, "address": true, "uuid": true, "label": true,
 		"local_name": true, "wwn": true, "asset_tag": true, "sensors": true, "metrics": true, "batteries": true, "warnings": true,
+		"actual_freq_mhz": true, // a GPU's clock moves between two captures
 	}
 	var walk func(any) any
 	walk = func(v any) any {

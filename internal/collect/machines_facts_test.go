@@ -34,6 +34,14 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 			"module DDR4 SODIMM": len(r.Memory.Modules) == 1 && r.Memory.Modules[0].Type == "DDR4" && r.Memory.Modules[0].FormFactor == "SODIMM",
 			"module part":        len(r.Memory.Modules) == 1 && r.Memory.Modules[0].Identity.PartNumber == "J642GU44J2320NL",
 		}
+		// GPU: the UHD 630's hardware clock range, as the machine's own
+		// read-only gt_RPn/RP0_freq_mhz gave it (350, 1100) when read
+		// directly on 2026-10-06; not the adjustable gt_min/max limits.
+		if g := find(r.GPUs, func(g report.GPU) bool { return g.PCIAddress == "0000:00:02.0" }); g != nil {
+			want["gpu clock range"] = g.Clocks != nil && g.Clocks.Source == "i915" && g.Clocks.MinFreqMHz == 350 && g.Clocks.MaxFreqMHz == 1100 && g.Clocks.ActualFreqMHz != nil
+		} else {
+			want["gpu found"] = false
+		}
 		// Disk: model, firmware and the controller's driver.
 		if d := find(r.Storage, func(d report.Disk) bool { return d.Name == "nvme0n1" }); d != nil {
 			want["nvme model"] = d.Identity != nil && d.Identity.Model == "SAMSUNG MZVLB256HAHQ-000L7"

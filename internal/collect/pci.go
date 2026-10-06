@@ -1,7 +1,13 @@
 package collect
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
+	"maps"
+	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -79,11 +85,14 @@ func (c *collector) gpus() {
 			g.Identity = &report.Identity{Revision: dev.Identity.Revision}
 		}
 		g.VRAMBytes = readUint(pciDir + dev.Address + "/mem_info_vram_total") // amdgpu
-		for card, addr := range cards {
-			if addr != dev.Address {
+		// Sorted, and the first card only: two cards on one device would
+		// otherwise overwrite each other in map order.
+		for _, card := range slices.Sorted(maps.Keys(cards)) {
+			if cards[card] != dev.Address || g.DRMCard != "" {
 				continue
 			}
 			g.DRMCard = card
+			g.Clocks = c.gpuClocks(card, dev.Address)
 			for _, conn := range list("/sys/class/drm") {
 				if after, ok := strings.CutPrefix(conn, card+"-"); ok {
 					g.Outputs = append(g.Outputs, after)
@@ -106,6 +115,129 @@ func gpuFirmware(addr string) *report.Firmware {
 		}
 	}
 	return nil
+}
+
+// gpuClocks reads the graphics core's hardware clock range and its
+// measured clock where the driver exposes them to users:
+//   - i915: gt_RPn_freq_mhz and gt_RP0_freq_mhz, the hardware's lowest and
+//     highest (read-only; gt_min/max_freq_mhz are adjustable limits), and
+//     gt_act_freq_mhz, the measured clock (0 while the GPU idles in RC6;
+//     gt_cur_freq_mhz is the requested one). On multi-GT parts the
+//     card-level files cover all GTs.
+//   - amdgpu: the levels in pp_dpm_sclk, the active one starred
+//     (https://docs.kernel.org/gpu/amdgpu/thermal.html); a starred "S:"
+//     line is the deep-sleep clock: the actual clock, not a level.
+//
+// Files a driver doesn't have give no clocks and no warning; unreadable or
+// inconsistent ones give no clocks and a warning, never a guess.
+func (c *collector) gpuClocks(card, addr string) *report.GPUClocks {
+	if g, isI915 := c.i915Clocks("/sys/class/drm/"+card+"/", addr); isI915 {
+		return g
+	}
+	return c.amdgpuClocks(addr)
+}
+
+// readMHz reads a whole number of MHz: present is false when the file
+// doesn't exist. Errors name the file.
+func readMHz(path string) (mhz int, present bool, err error) {
+	s, err := readStrErr(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, true, err
+	}
+	if mhz, err = strconv.Atoi(s); err != nil {
+		return 0, true, fmt.Errorf("%s: %w", filepath.Base(path), err)
+	}
+	return mhz, true, nil
+}
+
+func (c *collector) i915Clocks(base, addr string) (*report.GPUClocks, bool) {
+	lo, hasLo, errLo := readMHz(base + "gt_RPn_freq_mhz")
+	hi, hasHi, errHi := readMHz(base + "gt_RP0_freq_mhz")
+	switch {
+	case !hasLo && !hasHi:
+		return nil, false
+	case errLo != nil || errHi != nil:
+		c.warn("gpu %s clocks: %v", addr, errors.Join(errLo, errHi))
+		return nil, true
+	case !hasLo:
+		c.warn("gpu %s clocks: i915 has gt_RP0_freq_mhz but no gt_RPn_freq_mhz", addr)
+		return nil, true
+	case !hasHi:
+		c.warn("gpu %s clocks: i915 has gt_RPn_freq_mhz but no gt_RP0_freq_mhz", addr)
+		return nil, true
+	case lo <= 0 || lo > hi:
+		c.warn("gpu %s clocks: i915 reports %d–%d MHz, not a range", addr, lo, hi)
+		return nil, true
+	}
+	g := &report.GPUClocks{MinFreqMHz: lo, MaxFreqMHz: hi, Source: "i915"}
+	act, hasAct, err := readMHz(base + "gt_act_freq_mhz")
+	switch {
+	case err != nil:
+		c.warn("gpu %s clocks: actual clock: %v", addr, err)
+	case hasAct && act != 0 && (act < lo || act > hi):
+		c.warn("gpu %s clocks: actual clock %d MHz is outside %d–%d MHz; left out", addr, act, lo, hi)
+	case hasAct:
+		g.ActualFreqMHz = &act
+	}
+	return g, true
+}
+
+// dpmLevel is one line of pp_dpm_sclk: "1: 1000Mhz *", or "S: 19Mhz *" in
+// deep sleep.
+var dpmLevel = regexp.MustCompile(`^(S|[0-9]+): ([0-9]+)[Mm][Hh][Zz]( \*)?$`)
+
+func (c *collector) amdgpuClocks(addr string) *report.GPUClocks {
+	text, err := readStrErr(pciDir + addr + "/pp_dpm_sclk")
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		// e.g. EPERM while the GPU is runtime-suspended
+		c.warn("gpu %s clocks: %v", addr, err)
+		return nil
+	}
+	var levels []int
+	var actual *int
+	for line := range strings.SplitSeq(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		m := dpmLevel.FindStringSubmatch(line)
+		if m == nil {
+			c.warn("gpu %s clocks: unexpected pp_dpm_sclk line %q", addr, line)
+			return nil
+		}
+		mhz, err := strconv.Atoi(m[2]) // digits only, but may overflow
+		if err != nil {
+			c.warn("gpu %s clocks: pp_dpm_sclk line %q: %v", addr, line, err)
+			return nil
+		}
+		if m[3] != "" {
+			if actual != nil {
+				c.warn("gpu %s clocks: pp_dpm_sclk marks two levels active", addr)
+				return nil
+			}
+			actual = &mhz
+		}
+		if m[1] != "S" {
+			levels = append(levels, mhz)
+		}
+	}
+	if len(levels) == 0 || slices.Min(levels) <= 0 {
+		c.warn("gpu %s clocks: pp_dpm_sclk lists no usable levels", addr)
+		return nil
+	}
+	g := &report.GPUClocks{MinFreqMHz: slices.Min(levels), MaxFreqMHz: slices.Max(levels), Source: "amdgpu"}
+	if actual != nil && *actual > g.MaxFreqMHz {
+		c.warn("gpu %s clocks: active level %d MHz is above %d MHz; left out", addr, *actual, g.MaxFreqMHz)
+	} else {
+		g.ActualFreqMHz = actual
+	}
+	return g
 }
 
 // drmCards maps DRM card names (card0, card1) to their PCI addresses.

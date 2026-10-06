@@ -149,6 +149,20 @@ func writeText(w io.Writer, r *report.Report) error {
 			if g.VRAMBytes > 0 {
 				s += ", " + bytesStr(g.VRAMBytes) + " VRAM"
 			}
+			if c := g.Clocks; c != nil {
+				if c.MinFreqMHz == c.MaxFreqMHz {
+					s += fmt.Sprintf(", %d MHz", c.MaxFreqMHz)
+				} else {
+					s += fmt.Sprintf(", %d–%d MHz", c.MinFreqMHz, c.MaxFreqMHz)
+				}
+				switch a := c.ActualFreqMHz; {
+				case a == nil:
+				case *a == 0:
+					s += " (idle at capture)"
+				default:
+					s += fmt.Sprintf(" (%d MHz at capture)", *a)
+				}
+			}
 			line("GPU", "%s", withParts(s, fwText(g.Firmware), driverText(g.Driver)))
 		}
 		for _, d := range r.Displays {
