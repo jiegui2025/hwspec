@@ -15,4 +15,15 @@ Each record captures one significant decision as context → options → decisio
 | [0009](0009-advisor.md) | Advisor: a separate command over captures, a sourced knowledge base, no network | Accepted |
 | [0010](0010-peripheral-batteries.md) | Peripheral and UPS batteries: kernel interfaces, plus read-only queries to UPower (amends 0002) | Accepted |
 
-New records: copy the structure of an existing one, take the next number, prefer tables and Mermaid diagrams to prose.
+New records: copy [template.md](template.md) to `NNNN-short-title.md` with the next number, add its row above, and fill its tables and diagram; prefer tables and Mermaid diagrams to prose.
+
+A record starts from a research issue as *Proposed*, becomes *Accepted* when the owner decides, and is only ever superseded by a newer record, never edited into a different decision:
+
+```mermaid
+flowchart LR
+  accTitle: Life of a decision record
+  accDescr: A research issue leads to a record copied from the template with status Proposed; after PR review it becomes Accepted with the date and who decided; a later decision can only supersede it.
+  issue["research issue"] --> draft["NNNN-title.md from template.md<br/>Status: Proposed"]
+  draft --> review["PR review"] --> accepted["Accepted (date, who decided)"]
+  accepted -. "a later decision" .-> superseded["Superseded by NNNN"]
+```
