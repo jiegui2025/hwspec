@@ -49,6 +49,30 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["me firmware"] = r.System.MEFirmware != nil && r.System.MEFirmware.Version == "12.0.45.1509" && r.System.MEFirmware.Source == "mei"
 		want["ec firmware"] = r.System.ECFirmware != nil && r.System.ECFirmware.Version == "8.9" && r.System.ECFirmware.Source == "dmi"
 		want["tpm 2"] = r.TPM != nil && r.TPM.SpecVersionMajor == 2
+		// Mounting without root: the kernel's labels for the IGD and the
+		// LAN come from SMBIOS type 41 (index files present), so both are
+		// onboard; the Wi-Fi and NVMe need the root-only slot table. A
+		// root capture of the same machine is TestTheReferenceMachinesMountings.
+		pciDev := func(addr string) *report.PCIDevice {
+			return find(r.PCI, func(d report.PCIDevice) bool { return d.Address == addr })
+		}
+		mount := func(addr string) *report.Mounting {
+			if d := pciDev(addr); d != nil && d.Mounting != nil {
+				return d.Mounting
+			}
+			return &report.Mounting{Kind: "none"}
+		}
+		const needsRoot = "the firmware's slot table needs root (run with --full)"
+		for _, addr := range []string{"0000:00:02.0", "0000:00:1f.6"} {
+			d := pciDev(addr)
+			want["label from smbios "+addr] = d != nil && d.LabelSource == "smbios" && strings.HasPrefix(d.Label, "Onboard ")
+			want["onboard "+addr] = mount(addr).Kind == "onboard" && mount(addr).Confidence == "high"
+		}
+		want["wi-fi needs root"] = mount("0000:02:00.0").Kind == "unknown" && mount("0000:02:00.0").Reason == needsRoot
+		want["nvme needs root"] = mount("0000:01:00.0").Kind == "unknown" && mount("0000:01:00.0").Reason == needsRoot
+		want["sodimm in a slot, from its SPD"] = len(r.Memory.Modules) == 1 && r.Memory.Modules[0].Mounting != nil &&
+			r.Memory.Modules[0].Mounting.Kind == "slot" && len(r.Memory.Modules[0].Mounting.Evidence) == 1 &&
+			r.Memory.Modules[0].Mounting.Evidence[0] == "the module's SPD gives form factor SODIMM"
 		// PCI topology: the NVMe and the Wi-Fi card sit behind root ports
 		// 00:1b.0 and 00:1c.0 (readlink -f on the machine, 2026-10-06);
 		// the iGPU is on the root bus.

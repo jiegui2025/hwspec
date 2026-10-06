@@ -290,6 +290,39 @@ func writeText(w io.Writer, r *report.Report) error {
 		}
 	}
 
+	// One line per part whose mounting the capture decided or tried to.
+	var mounted [][2]string
+	for _, p := range r.CPU.Packages {
+		if p.Mounting != "" && p.Populated {
+			mounted = append(mounted, [2]string{p.Designation, "CPU: " + mountingText(&report.Mounting{Kind: p.Mounting}) + " (" + p.Package + ")"})
+		}
+	}
+	for _, m := range r.Memory.Modules {
+		if m.Mounting != nil {
+			mounted = append(mounted, [2]string{m.Locator, "memory module: " + mountingText(m.Mounting)})
+		}
+	}
+	for _, d := range r.PCI {
+		if d.Mounting != nil {
+			name := d.Class
+			if d.Identity != nil && d.Identity.Model != "" {
+				name = product(d.Identity)
+			}
+			mounted = append(mounted, [2]string{strings.TrimPrefix(d.Address, "0000:"), name + ": " + mountingText(d.Mounting)})
+		}
+	}
+	for _, d := range r.Storage {
+		if d.Mounting != nil {
+			mounted = append(mounted, [2]string{d.Name, mountingText(d.Mounting)})
+		}
+	}
+	if len(mounted) > 0 {
+		section("Soldered or removable")
+		for _, m := range mounted {
+			line(m[0], "%s", m[1])
+		}
+	}
+
 	fmt.Fprintf(&b, "\n%d PCI devices, %d sensor chips. Full detail (serials, drivers, metrics) is in the JSON/YAML output.\n", len(r.PCI), len(r.Sensors))
 	if len(attention) > 0 {
 		// The reasons are data from the capture, which may be a file
@@ -517,4 +550,31 @@ func bytesStr(n uint64) string {
 	s := fmt.Sprintf("%.1f", v)
 	s = strings.TrimSuffix(s, ".0")
 	return s + " " + []string{"KiB", "MiB", "GiB", "TiB", "PiB"}[exp]
+}
+
+// mountingText says where a part sits, how sure that is, and why when it
+// isn't certain.
+func mountingText(m *report.Mounting) string {
+	var s string
+	switch m.Kind {
+	case "onboard":
+		s = "soldered on"
+	case "socket":
+		s = "in a socket"
+	case "slot":
+		switch {
+		case m.Slot != "":
+			s = fmt.Sprintf("in slot %q", m.Slot)
+		case m.SlotType != "":
+			s = "in a " + m.SlotType + " slot"
+		default:
+			s = "in a slot"
+		}
+	default:
+		return "unknown: " + m.Reason
+	}
+	if m.Confidence == "medium" && m.Reason != "" {
+		s += " (medium confidence; " + m.Reason + ")"
+	}
+	return s
 }

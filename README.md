@@ -96,6 +96,7 @@ flowchart LR
 | Audio | card, codec chips | — | ✅ | — |
 | Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |
 | PCI and USB devices | IDs, names, serial, revision; the bridge each PCI device sits behind (absent on a root bus) | USB device release | ✅ per interface | — |
+| Soldered or removable | for memory modules, storage, network, display, audio and wireless devices: onboard, socket or slot (which one when it can tell), with the evidence and how sure; the firmware's slot table needs root¹, onboard labels don't | — | — | — |
 
 Plus: OS, kernel, boot mode, Secure Boot, VM/container; CPU cores, caches, clocks, flags; partitions; PCIe links; IOMMU groups; sensors (temperatures, fans, voltages, power). Text output ends with a **Needs attention** list of every warning and failure, with reasons.
 

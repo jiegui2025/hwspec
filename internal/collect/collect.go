@@ -72,7 +72,8 @@ func collectNow(version string) *report.Report {
 	c.platformFirmware()
 	c.storage()
 	c.pci()
-	c.gpus() // after pci
+	c.gpus()      // after pci
+	c.mountings() // after pci, memory, storage and the firmware tables
 	c.displays()
 	c.network()
 	c.bluetooth()
