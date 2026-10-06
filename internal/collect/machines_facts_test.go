@@ -42,6 +42,13 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		} else {
 			want["gpu found"] = false
 		}
+		// Platform firmware the kernel shows a normal user: the CSME and EC
+		// versions and the TPM's spec version, as read on the machine
+		// (/sys/class/mei/mei0/fw_ver "0:12.0.45.1509",
+		// ec_firmware_release "8.9", tpm_version_major "2"; 2026-10-06).
+		want["me firmware"] = r.System.MEFirmware != nil && r.System.MEFirmware.Version == "12.0.45.1509" && r.System.MEFirmware.Source == "mei"
+		want["ec firmware"] = r.System.ECFirmware != nil && r.System.ECFirmware.Version == "8.9" && r.System.ECFirmware.Source == "dmi"
+		want["tpm 2"] = r.TPM != nil && r.TPM.SpecVersionMajor == 2
 		// PCI topology: the NVMe and the Wi-Fi card sit behind root ports
 		// 00:1b.0 and 00:1c.0 (readlink -f on the machine, 2026-10-06);
 		// the iGPU is on the root bus.

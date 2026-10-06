@@ -645,3 +645,162 @@ func TestPCIDevicesNameTheBridgeTheySitBehind(t *testing.T) {
 		t.Errorf("warnings %q, want one each for 0000:06:00.0, 0000:07:00.0 and 0000:08:00.0", w)
 	}
 }
+
+// meDevice adds a mei device to a fake root: its kind ("" for a kernel
+// before 5.8, which has none), its parent's PCI class and vendor, and
+// its fw_ver.
+func meDevice(file func(path, content string), link func(path, target string), name, addr, kind, class, fwVer string) {
+	dir := "/sys/devices/pci0000:00/" + addr
+	file(dir+"/class", class)
+	file(dir+"/vendor", "0x8086")
+	file(dir+"/mei/"+name+"/fw_ver", fwVer)
+	if kind != "" {
+		file(dir+"/mei/"+name+"/kind", kind)
+	}
+	link(dir+"/mei/"+name+"/device", "../..")
+	link("/sys/class/mei/"+name, "../../devices/pci0000:00/"+addr+"/mei/"+name)
+}
+
+// The platform ME's first fw_ver block (its running code) is recorded;
+// other mei devices, all-zero blocks and kernels without kind are
+// handled; a machine without mei, an EC release or a TPM gets none of
+// them and no warning; a read error or an unexpected format is a warning.
+func TestPlatformFirmware(t *testing.T) {
+	const three = "0:16.1.30.2307\n0:16.1.30.2307\n0:16.0.15.1810\n"
+	for _, c := range []struct {
+		name  string
+		setup func(file func(string, string), link func(string, string))
+		want  string
+		warn  string
+	}{
+		{"the code block", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", three)
+		}, "16.1.30.2307", ""},
+		{"a GPU's GSC only", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:03:00.0", "gsc", "0x030000", "0:1.2.3.4\n")
+		}, "", ""},
+		{"IVSC first, the CSME second", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:05.0", "ivsc", "0x048000", "0:1.0.0.1\n")
+			meDevice(f, l, "mei1", "0000:00:16.0", "mei", "0x078000", three)
+		}, "16.1.30.2307", ""},
+		{"no version yet, then one", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "0:0.0.0.0\n0:0.0.0.0\n0:0.0.0.0\n")
+			meDevice(f, l, "mei1", "0000:00:16.4", "mei", "0x078000", three)
+		}, "16.1.30.2307", ""},
+		{"before 5.8: an Intel communication controller", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "", "0x078000", three)
+		}, "16.1.30.2307", ""},
+		{"before 5.8: another parent", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:03:00.0", "", "0x030000", three)
+		}, "", ""},
+		{"before 5.8: another vendor's communication controller", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "", "0x078000", three)
+			f("/sys/devices/pci0000:00/0000:00:16.0/vendor", "0x1022")
+		}, "", ""},
+		{"trailing text", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "0:12.0.45.1509x\n")
+		}, "", `unexpected fw_ver "0:12.0.45.1509x"`},
+		{"no platform prefix", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "x:12.0.45.1509\n")
+		}, "", `unexpected fw_ver "x:12.0.45.1509"`},
+		{"garbage", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", "0:12.0.45\n")
+		}, "", `me firmware: unexpected fw_ver "0:12.0.45"`},
+		{"unreadable", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", three)
+			unreadable = map[string]error{"/sys/class/mei/mei0/fw_ver": syscall.EIO}
+		}, "", "me firmware: open"},
+		{"unreadable first, the CSME second", func(f func(string, string), l func(string, string)) {
+			meDevice(f, l, "mei0", "0000:00:16.0", "mei", "0x078000", three)
+			meDevice(f, l, "mei1", "0000:00:16.4", "mei", "0x078000", "0:15.0.10.1000\n")
+			unreadable = map[string]error{"/sys/class/mei/mei0/fw_ver": syscall.EIO}
+		}, "15.0.10.1000", "me firmware: open"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			file, link := fakeRoot(t)
+			c.setup(file, link)
+			col := &collector{r: &report.Report{}}
+			col.platformFirmware()
+			got := ""
+			if fw := col.r.System.MEFirmware; fw != nil {
+				if fw.Vendor != "Intel" || fw.Source != "mei" {
+					t.Errorf("me %+v", fw)
+				}
+				got = fw.Version
+			}
+			w := strings.Join(col.r.Warnings, "\n")
+			if got != c.want || c.warn == "" && w != "" || c.warn != "" && !strings.Contains(w, c.warn) {
+				t.Errorf("version %q, warnings %q; want %q, %q", got, w, c.want, c.warn)
+			}
+		})
+	}
+}
+
+// The TPM's spec version, and what's wrong when it can't be read.
+func TestTPMSpecVersion(t *testing.T) {
+	for _, c := range []struct {
+		content string
+		want    int
+		warn    string
+	}{{"2\n", 2, ""}, {"1", 1, ""}, {"two", 0, `tpm: unexpected tpm_version_major "two"`},
+		{"0", 0, `unexpected tpm_version_major "0"`}, {"/x", 0, "tpm_version_major: is a directory"}, {"", -1, ""},
+		{"/x then 2", 2, "tpm_version_major: is a directory"}} {
+		file, _ := fakeRoot(t)
+		switch {
+		case c.content == "/x":
+			file("/sys/class/tpm/tpm0/tpm_version_major/x", "")
+		case c.content == "/x then 2":
+			file("/sys/class/tpm/tpm0/tpm_version_major/x", "")
+			file("/sys/class/tpm/tpm1/tpm_version_major", "2")
+		case c.want >= 0:
+			file("/sys/class/tpm/tpm0/tpm_version_major", c.content)
+		}
+		col := &collector{r: &report.Report{}}
+		col.platformFirmware()
+		got := 0
+		if col.r.TPM != nil {
+			got = col.r.TPM.SpecVersionMajor
+		}
+		w := strings.Join(col.r.Warnings, "\n")
+		if c.want < 0 && (col.r.TPM != nil || w != "") || c.want >= 0 && got != c.want || c.warn != "" && !strings.Contains(w, c.warn) || c.warn == "" && w != "" {
+			t.Errorf("%q: tpm %+v, warnings %q", c.content, col.r.TPM, w)
+		}
+	}
+}
+
+// The EC's release comes from DMI as the kernel prints it ("%u.%u"):
+// 0.0 is kept as written, anything else is a warning.
+func TestECFirmware(t *testing.T) {
+	for _, c := range []struct{ content, want, warn string }{
+		{"8.9\n", "8.9", ""}, {"0.0", "0.0", ""}, {"", "", ""}, {"8.9.1", "", `dmi ec_firmware_release: unexpected "8.9.1"`},
+	} {
+		file, _ := fakeRoot(t)
+		file(dmiDir+"sys_vendor", "HP\n")
+		if c.content != "" {
+			file(dmiDir+"ec_firmware_release", c.content)
+		}
+		col := &collector{r: &report.Report{}}
+		col.dmi()
+		got := ""
+		if fw := col.r.System.ECFirmware; fw != nil {
+			if fw.Source != "dmi" {
+				t.Errorf("%+v", fw)
+			}
+			got = fw.Version
+		}
+		w := strings.Join(col.r.Warnings, "\n")
+		if got != c.want || c.warn == "" && w != "" || c.warn != "" && !strings.Contains(w, c.warn) {
+			t.Errorf("%q: ec %q, warnings %q", c.content, got, w)
+		}
+	}
+}
+
+// A machine without ME, EC or TPM writes none of the keys.
+func TestAbsentPlatformFirmwareIsLeftOut(t *testing.T) {
+	js, _ := json.Marshal(&report.Report{})
+	for _, key := range []string{"me_firmware", "ec_firmware", `"tpm"`} {
+		if strings.Contains(string(js), key) {
+			t.Errorf("%s in %s", key, js)
+		}
+	}
+}

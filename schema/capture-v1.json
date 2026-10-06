@@ -152,6 +152,52 @@
               "type": "string"
             }
           }
+        },
+        "me_firmware": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        },
+        "ec_firmware": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "vendor": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "date": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -1712,6 +1758,17 @@
               }
             }
           }
+        }
+      }
+    },
+    "tpm": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "spec_version_major": {
+          "type": "integer"
         }
       }
     },

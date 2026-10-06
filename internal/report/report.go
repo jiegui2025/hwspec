@@ -38,6 +38,7 @@ type Report struct {
 	Bluetooth []BluetoothController `json:"bluetooth"`
 	Audio     []SoundCard           `json:"audio"`
 	Batteries []Battery             `json:"batteries"`
+	TPM       *TPM                  `json:"tpm,omitempty"`
 	Sensors   []Sensor              `json:"sensors"`
 	PCI       []PCIDevice           `json:"pci"`
 	USB       []USBDevice           `json:"usb"`
@@ -76,7 +77,7 @@ type Firmware struct {
 	Date    string `json:"date,omitempty"`
 	Release string `json:"release,omitempty"`
 	// Source says where the version was read: dmi, microcode, nvme, scsi
-	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios, nvidia.
+	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios, nvidia, mei.
 	Source string `json:"source"`
 }
 
@@ -179,6 +180,18 @@ type System struct {
 	ChassisVendor string    `json:"chassis_vendor,omitempty"`
 	ChassisSerial string    `json:"chassis_serial,omitempty"`
 	Firmware      *Firmware `json:"firmware,omitempty"`
+	// MEFirmware is the Intel Management Engine (CSME) firmware, and
+	// ECFirmware the embedded controller's: separate controllers with
+	// their own firmware.
+	MEFirmware *Firmware `json:"me_firmware,omitempty"`
+	ECFirmware *Firmware `json:"ec_firmware,omitempty"`
+}
+
+// TPM is the machine's Trusted Platform Module.
+type TPM struct {
+	// SpecVersionMajor is the TCG specification major version the TPM
+	// implements (1 or 2).
+	SpecVersionMajor int `json:"spec_version_major"`
 }
 
 type Board struct {

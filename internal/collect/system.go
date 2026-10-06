@@ -3,6 +3,7 @@ package collect
 import (
 	"bufio"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -127,6 +128,9 @@ func utsString[T int8 | uint8](f []T) string {
 
 const dmiDir = "/sys/class/dmi/id/"
 
+// ecRelease is the kernel's "major.minor" for the EC firmware release.
+var ecRelease = regexp.MustCompile(`^[0-9]+\.[0-9]+$`)
+
 func (c *collector) dmi() {
 	if !exists(dmiDir) {
 		// Device-tree boards (most ARM) name themselves there instead.
@@ -170,6 +174,14 @@ func (c *collector) dmi() {
 	if fw := firmwareVersion(get("bios_version"), "dmi"); fw != nil {
 		fw.Vendor, fw.Date, fw.Release = get("bios_vendor"), get("bios_date"), get("bios_release")
 		s.Firmware = fw
+	}
+	// The embedded controller's release, from SMBIOS type 0: the kernel
+	// prints "%u.%u" and leaves the file out when the firmware says FFh.FFh
+	// (not supported); any other value, 0.0 included, is what it wrote.
+	if ec := get("ec_firmware_release"); ecRelease.MatchString(ec) {
+		s.ECFirmware = &report.Firmware{Version: ec, Source: "dmi"}
+	} else if ec != "" {
+		c.warn("dmi ec_firmware_release: unexpected %q", ec)
 	}
 
 	b := &c.r.Board
