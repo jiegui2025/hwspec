@@ -30,6 +30,7 @@ flake.nix|false true false false false false
 .github/actionlint.yaml|true true true true true false
 scripts/changed-areas.sh|true true true true true false
 scripts/changed-areas_test.sh|true true true true true false
+scripts/check-adr-index.sh|true true true true true false
 scripts/verify-release.sh|true true true true true true
 scripts/verify-release_test.sh|true true true true true true
 .github/workflows/verify.yml|true true true true true true
@@ -40,6 +41,7 @@ scripts/vm-seed.sh|false false false false true false
 .github/workflows/vms.yml|true true true true true false
 scripts/vm-run.sh.orig|false false false false false false
 README.md|false false false true false false
+docs/adr/0009-new-decision.md|false false false true false false
 docs/adr/0001-static-go-cli.md,CONTRIBUTING.md|false false false true false false
 README.md,cmd/hwspec/main.go|true true false true true false
 LICENSE|false false false false false false
