@@ -1,9 +1,12 @@
 package advisor
 
 import (
+	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/jiegui2025/hwspec/internal/collect"
 	"github.com/jiegui2025/hwspec/internal/kb"
 	"github.com/jiegui2025/hwspec/internal/report"
 )
@@ -147,5 +150,50 @@ func TestAllowlistsFor(t *testing.T) {
 	}
 	if applies, undetermined := allowlistsFor(k, &report.Report{}); applies != nil || undetermined != nil {
 		t.Errorf("no identity: %+v %+v", applies, undetermined)
+	}
+}
+
+// #129: the recorded reference machine finds its model entry in the
+// built-in knowledge base, with both HP maximums kept, the newer document
+// first, and no value where HP gives none (a minimum speed).
+func TestTheReferenceModelsMemoryData(t *testing.T) {
+	r, err := collect.CollectRecorded("../collect/testdata/machines/hp-elitedesk-800-g5-mini", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	k, err := kb.Embedded()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := modelFor(k, r)
+	if m == nil || m.ID != "hp.elitedesk-800-g5-mini" {
+		t.Fatalf("model %+v", m)
+	}
+	var memory map[string]json.RawMessage
+	if err := json.Unmarshal(m.Data["memory"], &memory); err != nil {
+		t.Fatal(err)
+	}
+	cs, err := k.Claims(memory["max_total_gb"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, c := range cs {
+		got = append(got, string(c.Value)+" GB from "+k.Source(c.Src).Published)
+	}
+	if want := []string{"64 GB from 2019-12", "32 GB from 2019-09"}; !slices.Equal(got, want) {
+		t.Errorf("max_total_gb: %q, want %q", got, want)
+	}
+	var speed map[string]json.RawMessage
+	if err := json.Unmarshal(memory["speed_mts"], &speed); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := speed["min"]; ok {
+		t.Error("a minimum speed no HP document gives")
+	}
+	for _, s := range k.Sources {
+		if strings.HasPrefix(s.ID, "hp-") && (!s.LinkOnly || s.Locator == "" || s.Confidence != "oem-doc") {
+			t.Errorf("source %s: %+v", s.ID, s)
+		}
 	}
 }
