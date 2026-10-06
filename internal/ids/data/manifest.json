@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "generated_at": "2026-10-06T05:54:31Z",
+  "generated_at": "2026-10-06T07:05:57Z",
   "files": {
     "amdgpu.ids.gz": {
       "sha256": "d87986bd9279d53d10357a7f1f39970c8f92c4c5734176bba849648043279acb",
@@ -15,8 +15,8 @@
       "entries": 4045
     },
     "cpu.ids.gz": {
-      "sha256": "b6197646b5b5accc822a6c99ddc32316998a9fd36c19c997bb2fba811523a60a",
-      "size": 2849,
+      "sha256": "a0929a9b1685d0028f0b7ef3b9a2567b4f14deaad8bcbe81daac6aa88cd2e09b",
+      "size": 2870,
       "date": "2026-10-06",
       "entries": 640
     },
