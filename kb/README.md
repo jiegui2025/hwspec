@@ -9,7 +9,7 @@ flowchart LR
   bin --> advise["hwspec advise"]
 ```
 
-Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (ID → source) and `rules` (a list). A rule cites sources by ID; every value in its `data` is a claim list, `[{value: …, src: …}]`. Values are kept as written: quote anything that starts with a zero (`"0403"`), and leave a key out rather than writing `null`.
+Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (ID → source), `rules` (a list) and the data sections `models`, `devices`, `cpus` and `allowlists` (ID → entry). A rule cites sources by ID; every value in its `data` is a claim list, `[{value: …, src: …}]`. Values are kept as written: quote anything that starts with a zero (`"0403"`), and leave a key out rather than writing `null`.
 
 **Sources**
 
@@ -38,6 +38,26 @@ Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (I
 | `data` | per check | the check's settings, every value a claim list, decoded strictly by the check: `genkb` refuses a key it doesn't read, and data for a check that takes none (`pci-without-driver` takes none) |
 | `actions` | | `{distro, text, commands, risk, undo}`: what to do, what can go wrong, how to go back; `distro` is an os-release `ID` or `ID_LIKE` value. Commands are shown, never run; a command may name only the values its check fills (`pci-without-driver`: `{modalias}`, built from the capture's hex IDs); `genkb` refuses any other |
 | `src` | ✅ | the IDs of the sources the rule rests on |
+
+**Data sections** ([ADR 0009 › amendment](../docs/adr/0009-advisor.md#amendment-2026-10-06-the-data-sections-and-the-processor-number-key), #25)
+
+```yaml
+models:
+  hp.elitedesk-800-g5-mini:            # the entry's ID is its key
+    match: {sys_vendor: HP, product_name: "HP EliteDesk 800 G5 Desktop Mini", board_name: "8595"}
+    data:
+      memory:
+        max_total_gb: [{value: 64, src: hp-ds-2019-12}, {value: 32, src: hp-msg-2019-09}]   # both kept
+```
+
+| Section | `match` | `data` groups |
+|---|---|---|
+| `models` | `sys_vendor`, `product_name` (both required), `board_name`, `sku`: DMI names as the kernel gives them | `allowlist`, `chipset`, `cpu_support`, `display_ports`, `form_factor`, `gpu_slot`, `launch`, `memory`, `overclocking`, `parts`, `power`, `rtc_battery`, `storage_slots`, `wlan_slot` |
+| `devices` | `bus` (`pci`, `usb`), `id` (`vendor:device[:subvendor:subdevice]`, lower-case hex) | `display_outputs`, `rated`, `wifi` |
+| `cpus` | `vendor` (`intel`), `processor` (e.g. `i5-9500T`) | `launch`, `memory_channels`, `memory_max_gb`, `memory_max_mts`, `memory_types`, `package`, `socket`, `tdp_w`, `unlocked` |
+| `allowlists` | `sys_vendor`, and `product_name` (list), `family` or `board_name` (list); optionally `bios_version: {from, to}` (HP's `"R21 Ver. 02.27.00"` form, three parts; from included, to excluded) | `approved`, `behaviour`, `checks`, `error_text`, `restricted`, `restricts`, `soft` |
+
+`genkb` refuses an unknown group or field, two entries with the same match, and a BIOS range it can't read. A "no" is a claim too (`restricted: [{value: false, src: …}]`): silence means unknown. An allow-list is shown as confirmed only when every claim cites an `oem-doc` source.
 
 | Rule | Why |
 |---|---|

@@ -81,6 +81,11 @@ type KB struct {
 	Version string   `json:"version"` // YYYY-MM-DD: the date the content last changed (ADR 0009)
 	Sources []Source `json:"sources"` // sorted by ID
 	Rules   []Rule   `json:"rules"`   // sorted by ID
+	// The data sections (#25), each sorted by ID.
+	Models     []Model     `json:"models,omitempty"`
+	Devices    []Device    `json:"devices,omitempty"`
+	CPUs       []CPU       `json:"cpus,omitempty"`
+	Allowlists []Allowlist `json:"allowlists,omitempty"`
 	// Skipped says which sections, rules and sources Parse left out, and why: a
 	// newer knowledge base can use fields and values this build doesn't
 	// know.
@@ -268,6 +273,7 @@ func Parse(gz []byte) (*KB, error) {
 		Sources []json.RawMessage `json:"sources"`
 		Rules   []json.RawMessage `json:"rules"`
 	}
+	known := []string{"format", "version", "sources", "rules", "models", "devices", "cpus", "allowlists"}
 	if err := json.Unmarshal(raw, &file); err != nil {
 		return nil, fmt.Errorf("knowledge base: %w", err)
 	}
@@ -275,10 +281,10 @@ func Parse(gz []byte) (*KB, error) {
 		return nil, fmt.Errorf("knowledge base: version %q isn't YYYY-MM-DD", file.Version)
 	}
 	k := &KB{Format: file.Format, Version: file.Version, Sources: []Source{}, Rules: []Rule{}}
-	// A newer knowledge base may add whole sections (#25's models, #10's
-	// firmware): this build can't use them, and says so.
+	// A newer knowledge base may add whole sections (#10's firmware): this
+	// build can't use them, and says so.
 	for _, name := range slices.Sorted(maps.Keys(sections)) {
-		if !slices.Contains([]string{"format", "version", "sources", "rules"}, name) {
+		if !slices.Contains(known, name) {
 			k.Skipped = append(k.Skipped, fmt.Sprintf("section %s skipped: this build of hwspec doesn't use it", strconv.Quote(name)))
 		}
 	}
@@ -315,6 +321,11 @@ func Parse(gz []byte) (*KB, error) {
 		seen[r.ID] = true
 		k.Rules = append(k.Rules, r)
 	}
+	// The data sections cite the sources too, so they come after them.
+	k.Models = parseSection[ModelMatch](k, "models", sections["models"])
+	k.Devices = parseSection[DeviceMatch](k, "devices", sections["devices"])
+	k.CPUs = parseSection[CPUMatch](k, "cpus", sections["cpus"])
+	k.Allowlists = parseSection[AllowlistMatch](k, "allowlists", sections["allowlists"])
 	return k, nil
 }
 
@@ -438,6 +449,10 @@ func (k *KB) Validate() error {
 		}
 		seen[r.ID] = true
 	}
+	errs = append(errs, validateSection(k, "models", k.Models)...)
+	errs = append(errs, validateSection(k, "devices", k.Devices)...)
+	errs = append(errs, validateSection(k, "cpus", k.CPUs)...)
+	errs = append(errs, validateSection(k, "allowlists", k.Allowlists)...)
 	return errors.Join(errs...)
 }
 

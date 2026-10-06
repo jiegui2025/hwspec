@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -156,6 +157,10 @@ func compile(dir, version string) (*kb.KB, error) {
 			k.Sources = append(k.Sources, s)
 		}
 		k.Rules = append(k.Rules, f.Rules...)
+		k.Models = addEntries(k.Models, f.Models, "models", path, &errs)
+		k.Devices = addEntries(k.Devices, f.Devices, "devices", path, &errs)
+		k.CPUs = addEntries(k.CPUs, f.CPUs, "cpus", path, &errs)
+		k.Allowlists = addEntries(k.Allowlists, f.Allowlists, "allowlists", path, &errs)
 		return nil
 	})
 	if err != nil {
@@ -166,6 +171,10 @@ func compile(dir, version string) (*kb.KB, error) {
 	}
 	slices.SortFunc(k.Sources, func(a, b kb.Source) int { return strings.Compare(a.ID, b.ID) })
 	slices.SortFunc(k.Rules, func(a, b kb.Rule) int { return strings.Compare(a.ID, b.ID) })
+	sortEntries(k.Models)
+	sortEntries(k.Devices)
+	sortEntries(k.CPUs)
+	sortEntries(k.Allowlists)
 	errs = append(errs, k.Validate())
 	// What only the check knows: its match keys, its data, its placeholders.
 	for i := range k.Rules {
@@ -183,10 +192,34 @@ func compile(dir, version string) (*kb.KB, error) {
 	return k, nil
 }
 
-// file is one YAML source file. A source's ID is its key.
+// addEntries adds one file's entries of a data section, their IDs from
+// their keys; an ID another file already defined is an error.
+func addEntries[M any](have []kb.Entry[M], add map[string]kb.Entry[M], section, path string, errs *[]error) []kb.Entry[M] {
+	for _, id := range slices.Sorted(maps.Keys(add)) {
+		if slices.ContainsFunc(have, func(o kb.Entry[M]) bool { return o.ID == id }) {
+			*errs = append(*errs, fmt.Errorf("%s: %s entry %q is defined twice", path, section, id))
+			continue
+		}
+		e := add[id]
+		e.ID = id
+		have = append(have, e)
+	}
+	return have
+}
+
+func sortEntries[M any](entries []kb.Entry[M]) {
+	slices.SortFunc(entries, func(a, b kb.Entry[M]) int { return strings.Compare(a.ID, b.ID) })
+}
+
+// file is one YAML source file. A source's ID is its key, and so is a
+// data section entry's.
 type file struct {
-	Sources map[string]kb.Source `json:"sources"`
-	Rules   []kb.Rule            `json:"rules"`
+	Sources    map[string]kb.Source    `json:"sources"`
+	Rules      []kb.Rule               `json:"rules"`
+	Models     map[string]kb.Model     `json:"models"`
+	Devices    map[string]kb.Device    `json:"devices"`
+	CPUs       map[string]kb.CPU       `json:"cpus"`
+	Allowlists map[string]kb.Allowlist `json:"allowlists"`
 }
 
 // readFile decodes one YAML file through JSON, so the field names are kb's
@@ -226,7 +259,27 @@ func readFile(path string) (*file, error) {
 			return nil, fmt.Errorf("source %q: its id is its key; drop the id field", id)
 		}
 	}
+	for _, c := range []struct {
+		section string
+		ids     []string
+	}{{"models", idsSet(f.Models)}, {"devices", idsSet(f.Devices)}, {"cpus", idsSet(f.CPUs)}, {"allowlists", idsSet(f.Allowlists)}} {
+		if len(c.ids) > 0 {
+			return nil, fmt.Errorf("%s entry %q: its id is its key; drop the id field", c.section, c.ids[0])
+		}
+	}
 	return &f, nil
+}
+
+// idsSet lists the keys of entries that also set an id field.
+func idsSet[M any](entries map[string]kb.Entry[M]) []string {
+	var out []string
+	for key, e := range entries {
+		if e.ID != "" {
+			out = append(out, key)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // plain turns a YAML node into JSON-ready values, keeping every scalar as
