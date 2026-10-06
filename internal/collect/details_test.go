@@ -602,3 +602,46 @@ func TestTheFirstCardOfADeviceGivesItsClocks(t *testing.T) {
 		}
 	}
 }
+
+// A device behind a switch behind a root port names its own bridge, not
+// the root port; behind Intel VMD (a 5-digit domain on a bus the VMD
+// controller hosts) the chain reaches the controller. Root-bus devices
+// have no parent and no warning; an unresolvable path has no parent and
+// a warning.
+func TestPCIDevicesNameTheBridgeTheySitBehind(t *testing.T) {
+	file, link := fakeRoot(t)
+	for _, d := range []struct{ addr, path string }{
+		{"0000:00:1c.0", "pci0000:00/0000:00:1c.0"},
+		{"0000:03:00.0", "pci0000:00/0000:00:1c.0/0000:03:00.0"},
+		{"0000:04:01.0", "pci0000:00/0000:00:1c.0/0000:03:00.0/0000:04:01.0"},
+		{"0000:05:00.0", "pci0000:00/0000:00:1c.0/0000:03:00.0/0000:04:01.0/0000:05:00.0"},
+		{"0000:00:0e.0", "pci0000:00/0000:00:0e.0"},
+		{"10000:e0:06.0", "pci0000:00/0000:00:0e.0/pci10000:e0/10000:e0:06.0"},
+		{"10000:e1:00.0", "pci0000:00/0000:00:0e.0/pci10000:e0/10000:e0:06.0/10000:e1:00.0"},
+		{"0000:07:00.0", "platform/pcie-controller/0000:07:00.0"}, // a parent named like, but not, a bus
+	} {
+		file("/sys/devices/"+d.path+"/vendor", "0x8086")
+		link("/sys/bus/pci/devices/"+d.addr, "../../../devices/"+d.path)
+	}
+	file("/sys/bus/pci/devices/0000:06:00.0/vendor", "0x8086")                                 // a plain directory, not a link into /sys/devices
+	link("/sys/bus/pci/devices/0000:08:00.0", "../../../devices/pci0000:00/gone/0000:08:00.0") // dangling, as in a partial recording
+	col := &collector{r: &report.Report{}}
+	col.pci()
+	got := map[string]string{}
+	for _, d := range col.r.PCI {
+		got[d.Address] = d.Parent
+	}
+	want := map[string]string{"0000:00:1c.0": "", "0000:03:00.0": "0000:00:1c.0", "0000:04:01.0": "0000:03:00.0",
+		"0000:05:00.0": "0000:04:01.0", "0000:06:00.0": "", "0000:00:0e.0": "",
+		"10000:e0:06.0": "0000:00:0e.0", "10000:e1:00.0": "10000:e0:06.0", "0000:07:00.0": "", "0000:08:00.0": ""}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("parents %v, want %v", got, want)
+	}
+	if w := col.r.Warnings; !reflect.DeepEqual(w, []string{
+		"pci 0000:06:00.0: parent unknown: its sysfs path isn't under a PCI bus",
+		"pci 0000:07:00.0: parent unknown: its sysfs path isn't under a PCI bus",
+		"pci 0000:08:00.0: parent unknown: its sysfs path isn't under a PCI bus",
+	}) {
+		t.Errorf("warnings %q, want one each for 0000:06:00.0, 0000:07:00.0 and 0000:08:00.0", w)
+	}
+}

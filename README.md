@@ -95,7 +95,7 @@ flowchart LR
 | Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool | ✅ | error and drop rates |
 | Audio | card, codec chips | — | ✅ | — |
 | Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |
-| PCI and USB devices | IDs, names, serial, revision | USB device release | ✅ per interface | — |
+| PCI and USB devices | IDs, names, serial, revision; the bridge each PCI device sits behind (absent on a root bus) | USB device release | ✅ per interface | — |
 
 Plus: OS, kernel, boot mode, Secure Boot, VM/container; CPU cores, caches, clocks, flags; partitions; PCIe links; IOMMU groups; sensors (temperatures, fans, voltages, power). Text output ends with a **Needs attention** list of every warning and failure, with reasons.
 

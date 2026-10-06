@@ -395,7 +395,12 @@ type SensorReading struct {
 }
 
 type PCIDevice struct {
-	Address     string    `json:"address"`
+	Address string `json:"address"`
+	// Parent is the bridge or root port the device sits behind, from the
+	// kernel's device path (for a root port behind Intel VMD, the VMD
+	// controller). Absent on a platform root bus, and when the path can't
+	// be resolved, which the capture warns about.
+	Parent      string    `json:"parent,omitempty"`
 	VendorID    string    `json:"vendor_id"`
 	DeviceID    string    `json:"device_id"`
 	SubVendorID string    `json:"subsystem_vendor_id,omitempty"`
