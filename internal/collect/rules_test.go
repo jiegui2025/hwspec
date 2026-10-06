@@ -2,8 +2,14 @@ package collect
 
 import (
 	"errors"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"net/http"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -105,6 +111,119 @@ func TestCapturesRunNoProgramButSmartctl(t *testing.T) {
 	for _, name := range ran {
 		if name != smartctl {
 			t.Errorf("a capture ran %q", name)
+		}
+	}
+}
+
+// socketCalls are the syscalls that move packets or accept them; a socket
+// that is only opened (ethtool's AF_INET ioctl socket) and written to (the
+// Bluetooth management socket, a kernel interface) sends nothing.
+var socketCalls = map[string]bool{
+	"Connect": true, "Sendto": true, "Sendmsg": true, "SendmsgN": true, "Sendmmsg": true,
+	"Listen": true, "Accept": true, "Accept4": true,
+}
+
+// socketFamilies are the address families collect may open: kernel
+// interfaces, and AF_INET only for ethtool's ioctls.
+var socketFamilies = map[string]bool{"AF_BLUETOOTH": true, "AF_NETLINK": true, "AF_UNIX": true, "AF_INET": true}
+
+// sendsPackets lists the ways f could put packets on a network through
+// syscall or x/sys/unix, which depguard can't tell apart from the kernel
+// interfaces collect reads.
+func sendsPackets(fset *token.FileSet, f *ast.File) []string {
+	pkgs := map[string]bool{}
+	for _, imp := range f.Imports {
+		path, _ := strconv.Unquote(imp.Path.Value)
+		if path != "syscall" && path != "golang.org/x/sys/unix" {
+			continue
+		}
+		local := path[strings.LastIndex(path, "/")+1:]
+		if imp.Name != nil {
+			local = imp.Name.Name
+		}
+		pkgs[local] = true
+	}
+	var out []string
+	sel := func(e ast.Expr) (string, bool) {
+		s, ok := e.(*ast.SelectorExpr)
+		if !ok {
+			return "", false
+		}
+		x, ok := s.X.(*ast.Ident)
+		return s.Sel.Name, ok && pkgs[x.Name]
+	}
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.CallExpr:
+			name, ok := sel(n.Fun)
+			switch {
+			case !ok:
+			case socketCalls[name]:
+				out = append(out, fmt.Sprintf("%s: calls %s", fset.Position(n.Pos()), name))
+			case name == "Socket" && len(n.Args) > 0:
+				if family, ok := sel(n.Args[0]); !ok || !socketFamilies[family] {
+					out = append(out, fmt.Sprintf("%s: opens a socket of a family collect doesn't use", fset.Position(n.Pos())))
+				}
+			}
+		case *ast.CompositeLit:
+			if name, ok := sel(n.Type); ok && (strings.HasPrefix(name, "SockaddrInet") || name == "SockaddrLinklayer") {
+				out = append(out, fmt.Sprintf("%s: builds a network address (%s)", fset.Position(n.Pos()), name))
+			}
+		}
+		return true
+	})
+	if pkgs["."] {
+		out = append(out, "dot-imports syscall or x/sys/unix, which hides what it calls")
+	}
+	return out
+}
+
+// collect opens sockets only to talk to the kernel (Bluetooth management,
+// ethtool ioctls): nothing in it connects, sends, listens or builds a
+// network address. With depguard (no net import) and the ids test, no
+// capture can reach the network.
+func TestCollectSendsNoPackets(t *testing.T) {
+	files, _ := filepath.Glob("*.go")
+	fset := token.NewFileSet()
+	checked := 0
+	for _, name := range files {
+		if strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		checked++
+		for _, p := range sendsPackets(fset, f) {
+			t.Error(p)
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no source files checked")
+	}
+}
+
+func TestSendsPacketsFindsEachWay(t *testing.T) {
+	for src, want := range map[string]string{
+		`package x; import "golang.org/x/sys/unix"; func f(fd int) { unix.Connect(fd, &unix.SockaddrInet4{Port: 80}) }`:         "calls Connect",
+		`package x; import "syscall"; func f(fd int) { syscall.Sendto(fd, nil, 0, nil) }`:                                       "calls Sendto",
+		`package x; import u "golang.org/x/sys/unix"; func f() { u.Socket(u.AF_PACKET, u.SOCK_RAW, 0) }`:                        "family collect doesn't use",
+		`package x; import "golang.org/x/sys/unix"; func f(d int) { unix.Socket(d, 0, 0) }`:                                     "family collect doesn't use",
+		`package x; import "golang.org/x/sys/unix"; var _ = &unix.SockaddrInet6{}`:                                              "builds a network address",
+		`package x; import "golang.org/x/sys/unix"; var _ = unix.SockaddrLinklayer{}`:                                           "builds a network address",
+		`package x; import . "golang.org/x/sys/unix"; func f() { Socket(AF_INET, SOCK_STREAM, 0) }`:                             "dot-imports",
+		`package x; import "golang.org/x/sys/unix"; func f() { unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, 0) }`:                 "",
+		`package x; import "golang.org/x/sys/unix"; func f(fd int) { unix.Bind(fd, &unix.SockaddrHCI{}); unix.Write(fd, nil) }`: "",
+	} {
+		fset := token.NewFileSet()
+		f, err := parser.ParseFile(fset, "x.go", src, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := strings.Join(sendsPackets(fset, f), "; ")
+		if want == "" && got != "" || want != "" && !strings.Contains(got, want) {
+			t.Errorf("%s:\n  found %q, want %q", src, got, want)
 		}
 	}
 }
