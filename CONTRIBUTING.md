@@ -100,7 +100,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 
 Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs both on the published build. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested, and the up-to-date rule guarantees it is the tree on `main`.
 
-Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. A `canary-26-04` job runs the tests on the next image (`ubuntu-26.04`) to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
+Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. The [Canary workflow](.github/workflows/canary.yml) runs the tests on the next image (`ubuntu-26.04`) daily, and by hand from the Actions tab, to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 
 ## Backlog
 

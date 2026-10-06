@@ -1,0 +1,26 @@
+name: Canary
+
+# The tests on the next runner image (ubuntu-26.04), before we move to it
+# (#39, #57). It runs on a schedule rather than on every PR (owner,
+# 2026-10-06, #175): it informs, never blocks, and a scheduled failure is
+# reported to the repository's owner.
+
+on:
+  schedule:
+    - cron: "17 5 * * *" # daily, off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary-26-04:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30 # a hang on the new image mustn't hold runners for 6 h
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Tests, host tests included
+        run: go test -race -count=1 ./...
