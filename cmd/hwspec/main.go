@@ -4,10 +4,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -105,6 +107,10 @@ var (
 		return exec.LookPath("pkexec")
 	}
 )
+
+// afterChecks runs between writeFileAtomic's checks and its write; tests
+// use it to swap the path in between.
+var afterChecks = func() {}
 
 // errNotFound ends a command with exit status 1 after it printed why.
 var errNotFound = errors.New("not found")
@@ -211,29 +217,50 @@ func (c cli) writeReport(r *report.Report, outPath, format string) error {
 // into place: a full disk can't leave a truncated capture, and a symlink
 // at path is replaced, never followed. The exceptions are written into:
 // the process's own streams (-o /dev/stdout, >(cmd) as /dev/fd/N,
-// /dev/null), and pipes or devices that belong to the caller, opened
-// without following symlinks. Anything else that isn't a regular file is
+// /dev/null), and pipes or devices that belong to the caller. Anything else that isn't a regular file is
 // refused, so a pipe or device another user planted can't receive the
 // capture. Under sudo, a new file is given to the invoking user.
+//
+// Everything after the directory is opened is relative to it, so swapping
+// the directory or a path component for a symlink between the checks and
+// the rename can't redirect the write.
 func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 	if ownStream(path) {
 		return writeInto(path, data, 0)
 	}
-	st, err := os.Lstat(path)
-	switch {
-	case err == nil && st.Mode()&os.ModeSymlink == 0 && !st.Mode().IsRegular():
-		if err := ownedByCaller(path, st); err != nil {
-			return err
-		}
-		return writeInto(path, data, syscall.O_NOFOLLOW)
-	case err != nil && !errors.Is(err, os.ErrNotExist):
-		return err
+	dir, name := filepath.Dir(path), filepath.Base(path)
+	// "out/" would otherwise name out/out: Base drops the slash.
+	if strings.HasSuffix(path, string(filepath.Separator)) {
+		return &fs.PathError{Op: "write", Path: path, Err: syscall.EISDIR}
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*")
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name()) // no-op after a successful rename
+	defer root.Close()
+	st, err := root.Lstat(name)
+	switch {
+	case err == nil && st.Mode()&os.ModeSymlink == 0 && !st.Mode().IsRegular():
+		return writeSpecial(root, name, path, st, data)
+	case err != nil && !errors.Is(err, os.ErrNotExist):
+		return withPath(err, dir)
+	}
+	if uid, _, ok := sudoUser(); ok {
+		dirSt, err := root.Stat(".")
+		if err != nil {
+			return withPath(err, dir)
+		}
+		if err := sudoMayWrite(path, st, dirSt, uid); err != nil {
+			return err
+		}
+	}
+	afterChecks()
+	tmpName := "." + name + "." + rand.Text()
+	tmp, err := root.OpenFile(tmpName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return withPath(err, dir)
+	}
+	defer func() { _ = root.Remove(tmpName) }() // no-op after a successful rename
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		return err
@@ -248,10 +275,91 @@ func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
 			return err
 		}
 	}
+	// On disk before the rename, so a power loss can't leave an empty file
+	// in place of the old one.
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), path)
+	return withPath(root.Rename(tmpName, name), dir)
+}
+
+// withPath gives an error from an os.Root, which names only the path
+// inside the root, the directory the user named.
+func withPath(err error, dir string) error {
+	if pe, ok := errors.AsType[*fs.PathError](err); ok {
+		pe.Path = filepath.Join(dir, pe.Path)
+	}
+	return err
+}
+
+// sudoMayWrite decides whether a root process started by sudo may write
+// path for the user who ran sudo (uid), only where that user could have
+// written it themselves: never replacing a file they don't own (a typo
+// such as -o /etc/hosts would otherwise hand a system file to them), and
+// only in a directory they own, or a sticky world-writable one such as
+// /tmp. existing is path's Lstat, or nil when it doesn't exist; dir is
+// the Stat of the directory as opened.
+func sudoMayWrite(path string, existing, dir os.FileInfo, uid int) error {
+	const way = "run hwspec without sudo, or write into a directory of your own"
+	if existing != nil {
+		if sys, ok := existing.Sys().(*syscall.Stat_t); !ok || int(sys.Uid) != uid {
+			return fmt.Errorf("%s isn't yours: as root under sudo, hwspec won't replace it (%s)", path, way)
+		}
+	}
+	if !userMayCreateIn(dir, uid) {
+		return fmt.Errorf("%s isn't your directory: as root under sudo, hwspec won't write %s there (%s)", filepath.Dir(path), filepath.Base(path), way)
+	}
+	return nil
+}
+
+// userMayCreateIn is true for a directory the user owns, or a sticky
+// world-writable one (/tmp), where they could create the file themselves.
+func userMayCreateIn(dir os.FileInfo, uid int) bool {
+	if sys, ok := dir.Sys().(*syscall.Stat_t); ok && int(sys.Uid) == uid {
+		return true
+	}
+	return dir.Mode()&os.ModeSticky != 0 && dir.Mode().Perm()&0o002 != 0
+}
+
+// writeSpecial writes into a device or pipe the caller owns, never
+// replacing it. The owner is checked on st (path's Lstat) before opening,
+// since opening someone else's device can have effects of its own (a
+// watchdog arms, a tape rewinds) and their pipe could block forever. It
+// is opened as name inside root, the directory already opened: a symlink
+// swapped in can't lead outside it (os.Root refuses), and the opened file
+// must be the one checked, so a swap inside it is refused too. The open
+// blocks only for the caller's own pipe with no reader yet.
+func writeSpecial(root *os.Root, name, path string, st os.FileInfo, data []byte) error {
+	if err := ownedByCaller(path, st); err != nil {
+		return err
+	}
+	f, err := root.OpenFile(name, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+	if errors.Is(err, syscall.ENXIO) {
+		f, err = root.OpenFile(name, os.O_WRONLY, 0)
+	}
+	if err != nil {
+		return withPath(err, filepath.Dir(path))
+	}
+	opened, err := f.Stat()
+	if err == nil && !os.SameFile(st, opened) {
+		err = fmt.Errorf("%s changed while hwspec was writing to it; refusing to write the capture into it", path)
+	}
+	if err == nil {
+		err = syscall.SetNonblock(int(f.Fd()), false)
+	}
+	if err != nil {
+		f.Close()
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // ownStream reports whether path names one of this process's own output
