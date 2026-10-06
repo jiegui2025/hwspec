@@ -55,3 +55,12 @@ jobs:
           fi
           gh release create "$TAG" build/hwspec-*.tar.gz build/SHA256SUMS \
             --title "hwspec $TAG" --generate-notes --verify-tag "${channel[@]}"
+
+  verify:
+    needs: release
+    permissions:
+      contents: read
+      attestations: read
+    uses: ./.github/workflows/verify.yml
+    with:
+      tag: ${{ github.ref_name }}

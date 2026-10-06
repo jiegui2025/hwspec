@@ -1,0 +1,109 @@
+name: Verify release
+
+# Checks what was actually published, as a user would get it: checksums,
+# provenance attestations (signed by this repository's release or edge
+# workflow, on GitHub-hosted runners), and the binaries themselves on the
+# target distros, amd64 and arm64. Runs after every publish; run it by hand
+# for any tag from the Actions tab.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to verify (vX.Y.Z, vX.Y.Z-rc.N or edge)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  attestations: read # gh attestation verify reads them through the API
+
+jobs:
+  integrity:
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.check.outputs.commit }}
+    steps:
+      - name: Download, check checksums and attestations
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          [[ "$TAG" =~ ^(edge|v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)$ ]] || { echo "::error::'$TAG' is not edge or vX.Y.Z[-pre]"; exit 1; }
+          if [ "$TAG" = edge ]; then
+            signer="$REPO/.github/workflows/edge.yml"; ref=refs/heads/main
+          else
+            signer="$REPO/.github/workflows/release.yml"; ref="refs/tags/$TAG"
+          fi
+          # The commit the tag names now: every tarball must have been built
+          # from it, not from some earlier commit the same workflow signed.
+          commit=$(gh api "repos/$REPO/commits/refs/tags/$TAG" --jq .sha)
+          echo "Verifying $TAG at $commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          gh release download "$TAG" --repo "$REPO" --dir dist
+          (cd dist && sha256sum -c SHA256SUMS)
+          for f in dist/hwspec-*.tar.gz; do
+            gh attestation verify "$f" --repo "$REPO" --signer-workflow "$signer@$ref" --source-ref "$ref" --source-digest "$commit" \
+              --deny-self-hosted-runners
+          done
+          for arch in amd64 arm64; do
+            mkdir -p "bin/$arch"
+            tar -C "bin/$arch" -xzf dist/hwspec-*-linux-$arch.tar.gz hwspec
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-binaries
+          path: bin/
+          retention-days: 7
+
+  distros:
+    needs: integrity
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+        image:
+          - docker.io/library/ubuntu:24.04
+          - docker.io/library/debian:12
+          - registry.fedoraproject.org/fedora:latest
+          - docker.io/library/archlinux:latest
+          - docker.io/library/alpine:latest
+          - docker.io/nixos/nix:latest
+        exclude:
+          - runner: ubuntu-24.04-arm # no arm64 image
+            image: docker.io/library/archlinux:latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: verified-binaries
+      - name: Run the published binary in ${{ matrix.image }}
+        env:
+          IMAGE: ${{ matrix.image }}
+          TAG: ${{ inputs.tag }}
+          COMMIT: ${{ needs.integrity.outputs.commit }}
+        run: |
+          arch=amd64; [ "$(uname -m)" = aarch64 ] && arch=arm64
+          bin="$PWD/$arch/hwspec"; chmod +x "$bin"
+          run() { docker run --rm --network=none -v "$bin:/hwspec:ro" "$IMAGE" /hwspec "$@"; }
+          version=$(run version)
+          echo "$version"
+          want="hwspec $TAG"; [ "$TAG" = edge ] && want="hwspec edge-${COMMIT:0:7}"
+          [ "$version" = "$want" ] || { echo "::error::version '$version' isn't '$want'"; exit 1; }
+          run capture -f json > out.json
+          jq '{schema: (.schema_version == 1), container: (.os.virtualization == "container"),
+               arch: .os.arch, cpu_model: ((.cpu.identity.model // "") != ""), memory: (.memory.total_bytes > 0),
+               os: .os.pretty_name, warnings: .warnings}' out.json | tee checks.json
+          # arm64 server CPUs often report no model name, so x86_64 only.
+          jq -e --arg m "$(uname -m)" '[.schema, .container, .memory, (.arch == $m), (.arch != "x86_64" or .cpu_model)] | all' checks.json
+          for q in "pci 8086" "usb 046d" "jedec 80CE"; do
+            read -ra lookup <<<"$q"
+            run ids lookup "${lookup[@]}"
+          done
