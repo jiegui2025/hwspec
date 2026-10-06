@@ -248,14 +248,27 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 
 | # | Item | Priority | Size |
 |---|---|---|---|
-| [#5](https://github.com/jiegui2025/hwspec/issues/5) | research(advisor): advisor design (ADR 0009) | P1 | M |
-| [#26](https://github.com/jiegui2025/hwspec/issues/26) | research(capture): feature parity with Defenestra Chassis | P2 | S |
+| [#81](https://github.com/jiegui2025/hwspec/issues/81) | feat(ids): ship the advisor knowledge base in the signed bundle | P1 | S |
 | [#7](https://github.com/jiegui2025/hwspec/issues/7) | feat(advisor): needs-attention list for devices without drivers or firmware | P1 | L |
 | [#25](https://github.com/jiegui2025/hwspec/issues/25) | data(advisor): reference database of replacement and upgrade part numbers | P1 | L |
-| [#43](https://github.com/jiegui2025/hwspec/issues/43) | feat(capture): remaining firmware sources (amdgpu blocks, Intel GuC/HuC, Bluetooth HCI revision) and missing SPD EEPROMs | P2 | L |
-| [#10](https://github.com/jiegui2025/hwspec/issues/10) | feat(advisor): firmware versions and update paths | P2 | L |
+| [#103](https://github.com/jiegui2025/hwspec/issues/103) | feat(capture): tell soldered from socketed for memory, Wi-Fi, SSD, GPU (and CPU) | P1 | L |
+| [#114](https://github.com/jiegui2025/hwspec/issues/114) | feat(capture): firmware for every component that has it (CSME, EC, TPM, codecs), never silently absent | P1 | M |
+| [#43](https://github.com/jiegui2025/hwspec/issues/43) | feat(capture): remaining firmware sources (amdgpu blocks, Intel GuC/HuC, Bluetooth HCI revision) and missing SPD EEPROMs | P1 | L |
+| [#107](https://github.com/jiegui2025/hwspec/issues/107) | feat(advisor): memory upgrade answers: slots, population rules, speed range | P1 | L |
+| [#10](https://github.com/jiegui2025/hwspec/issues/10) | feat(advisor): firmware versions and update paths | P1 | L |
+| [#83](https://github.com/jiegui2025/hwspec/issues/83) | feat(schema): publish the advice document's JSON Schema | P2 | S |
+| [#5](https://github.com/jiegui2025/hwspec/issues/5) | research(advisor): advisor design (ADR 0009) | P1 | M |
+| [#101](https://github.com/jiegui2025/hwspec/issues/101) | feat(cli): Markdown report with tables and Mermaid diagrams (-f md) | P2 | M |
+| [#105](https://github.com/jiegui2025/hwspec/issues/105) | feat(capture): power adapter rating vs what the system draws | P2 | M |
+| [#115](https://github.com/jiegui2025/hwspec/issues/115) | feat(capture): which USB-C ports can charge the machine, with their PD capabilities and location | P2 | S |
+| [#111](https://github.com/jiegui2025/hwspec/issues/111) | feat(capture): Wi-Fi radio generation, bands and chains from nl80211 | P2 | M |
+| [#112](https://github.com/jiegui2025/hwspec/issues/112) | feat(capture): best mode offered on each connected display output | P2 | S |
+| [#113](https://github.com/jiegui2025/hwspec/issues/113) | feat(capture): RTC coin-cell status and voltage | P2 | S |
+| [#108](https://github.com/jiegui2025/hwspec/issues/108) | feat(advisor): storage upgrade answers: bus stack, slot interface, path max rate | P2 | M |
+| [#109](https://github.com/jiegui2025/hwspec/issues/109) | feat(advisor): display answers: GPU output maximum vs the installed display | P2 | M |
+| [#110](https://github.com/jiegui2025/hwspec/issues/110) | feat(advisor): Wi-Fi upgrade answers: generation, chains, antennas, what fits | P2 | M |
 | [#8](https://github.com/jiegui2025/hwspec/issues/8) | feat(advisor): driver and configuration alternatives for better performance | P2 | L |
-| [#9](https://github.com/jiegui2025/hwspec/issues/9) | feat(advisor): upgrade and replacement options for key components | P2 | M |
+| [#9](https://github.com/jiegui2025/hwspec/issues/9) | feat(advisor): upgrade and replacement options for key components (tracking: #107–#110) | P2 | M |
 | [#11](https://github.com/jiegui2025/hwspec/issues/11) | feat(advisor): maintenance reminders | P2 | L |
 | [#18](https://github.com/jiegui2025/hwspec/issues/18) | feat(capture): SATA and USB (SAT) drive health without smartctl | P2 | L |
 | [#12](https://github.com/jiegui2025/hwspec/issues/12) | feat(cli): hwspec diff to compare captures | P3 | M |
@@ -266,7 +279,10 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 | # | Item | Priority | Size |
 |---|---|---|---|
 | [#13](https://github.com/jiegui2025/hwspec/issues/13) | research(ui): desktop app spike: memory, large lists, Flatpak host access and --full (ADR 0007) | P2 | L |
+| [#87](https://github.com/jiegui2025/hwspec/issues/87) | feat(capture): sensors-only capture for live views | P2 | S |
 | [#14](https://github.com/jiegui2025/hwspec/issues/14) | feat(ui): desktop app to review, compare and export captures (tracking) | P2 | XL |
+| [#102](https://github.com/jiegui2025/hwspec/issues/102) | research(render): preview and PDF export of the Markdown report, outside the core binary (ADR 0011) | P3 | M |
+| [#98](https://github.com/jiegui2025/hwspec/issues/98) | feat(cli): visual Markdown report with Mermaid diagrams, a renderer and PDF export (tracking: #101, #102) | P2 | L |
 
 ### Unscheduled: when capacity allows; deferred items are marked
 
@@ -274,6 +290,12 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 |---|---|---|---|
 | [#17](https://github.com/jiegui2025/hwspec/issues/17) | chore(ids): refresh the embedded ID databases automatically, and refuse stale ones at release | P2 | S |
 | [#20](https://github.com/jiegui2025/hwspec/issues/20) | feat(packaging): .deb, .rpm and AUR hwspec-bin from the release workflow | P2 | M |
+| [#96](https://github.com/jiegui2025/hwspec/issues/96) | feat(capture): peripheral and UPS batteries, from the kernel and read-only D-Bus | P3 | M |
+| [#91](https://github.com/jiegui2025/hwspec/issues/91) | feat(capture): PCI IRQs and resources, and an IOMMU group listing | P3 | S |
+| [#100](https://github.com/jiegui2025/hwspec/issues/100) | fix(capture): warn when a sysfs directory cannot be listed | P3 | S |
+| [#99](https://github.com/jiegui2025/hwspec/issues/99) | feat(capture): GPU clocks for Intel xe and NVIDIA | P3 | M |
+| [#86](https://github.com/jiegui2025/hwspec/issues/86) | ci: check PR bodies and sidebar fields automatically | P3 | S |
+| [#89](https://github.com/jiegui2025/hwspec/issues/89) | feat(ids): device roles from USB interface classes and a sourced ID list | P3 | M |
 | [#15](https://github.com/jiegui2025/hwspec/issues/15) | ci: update the Nix vendorHash automatically on Dependabot Go module PRs | P3 | S |
 | [#16](https://github.com/jiegui2025/hwspec/issues/16) | chore: keep the committed genids binary in history, and block new build artifacts in CI | P3 | XS |
 | [#30](https://github.com/jiegui2025/hwspec/issues/30) | ci: automate the independent Claude Code review on every PR *(deferred)* | P3 | M |
