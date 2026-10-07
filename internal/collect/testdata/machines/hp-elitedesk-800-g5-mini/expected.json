@@ -741,9 +741,10 @@
       "label": "Onboard IGD",
       "label_source": "smbios",
       "mounting": {
-        "kind": "onboard",
+        "kind": "cpu",
         "confidence": "high",
         "evidence": [
+          "the processor (family 6, model 158, stepping 10: Coffee Lake) has its graphics at PCI bus 0, device 2, function 0 (Intel 337345-002 (8th and 9th Generation Core, formerly Coffee Lake), datasheet vol. 2, §2.2)",
           "the kernel's label \"Onboard IGD\" comes from SMBIOS type 41"
         ]
       },

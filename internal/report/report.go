@@ -270,6 +270,7 @@ var Vocabularies = map[string][]string{
 	"ModuleIndex.Status":     {ModulesFound, ModulesOtherRelease, ModulesNone},
 	"BlacklistedModule.Kind": {BlacklistAlias, BlacklistKernel, BlacklistInstall},
 	"RTC.BattStatus":         {RTCBattOkay, RTCBattDead},
+	"Mounting.Kind":          {MountedOnboard, MountedSocket, MountedSlot, MountedInCPU, MountedUnknown},
 }
 
 // --- Devices ---
@@ -824,16 +825,29 @@ const (
 	ModulesNone         = "none"
 )
 
+// Mounting.Kind values.
+const (
+	MountedOnboard = "onboard"
+	MountedSocket  = "socket"
+	MountedSlot    = "slot"
+	MountedInCPU   = "cpu"
+	MountedUnknown = "unknown"
+)
+
 // Mounting is whether a part is soldered on or removable, with what
 // showed it.
 type Mounting struct {
-	// Kind is onboard (soldered), socket, slot, or unknown.
+	// Kind is onboard (soldered), socket, slot, cpu (part of the processor:
+	// it changes only with the CPU), or unknown.
 	Kind string `json:"kind"`
 	// Slot names the slot as the firmware does ("Slot2 / M2 WLAN/BT");
 	// SlotType is its type ("PCI Express Gen 3 x1"). When several slots
 	// could hold the part, SlotType is set and Slot isn't.
 	Slot     string `json:"slot,omitempty"`
 	SlotType string `json:"slot_type,omitempty"` // see slot
+	// Package is, for kind cpu, the processor's package as the firmware
+	// names it ("Socket LGA1151", root only).
+	Package string `json:"package,omitempty"`
 	// Confidence is high (the evidence names this part), medium (it
 	// fits only one way, but the firmware's own link is broken or the
 	// type is ambiguous), or absent for unknown.

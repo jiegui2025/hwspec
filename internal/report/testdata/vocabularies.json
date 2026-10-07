@@ -68,6 +68,13 @@
     "other_release",
     "none"
   ],
+  "Mounting.Kind": [
+    "onboard",
+    "socket",
+    "slot",
+    "cpu",
+    "unknown"
+  ],
   "RTC.BattStatus": [
     "okay",
     "dead"

@@ -1294,7 +1294,14 @@
                 "properties": {
                   "kind": {
                     "type": "string",
-                    "description": "Kind is onboard (soldered), socket, slot, or unknown."
+                    "description": "Kind is onboard (soldered), socket, slot, cpu (part of the processor: it changes only with the CPU), or unknown.",
+                    "examples": [
+                      "onboard",
+                      "socket",
+                      "slot",
+                      "cpu",
+                      "unknown"
+                    ]
                   },
                   "slot": {
                     "type": "string",
@@ -1303,6 +1310,10 @@
                   "slot_type": {
                     "type": "string",
                     "description": "see slot"
+                  },
+                  "package": {
+                    "type": "string",
+                    "description": "Package is, for kind cpu, the processor's package as the firmware names it (\"Socket LGA1151\", root only)."
                   },
                   "confidence": {
                     "type": "string",
@@ -1713,7 +1724,14 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "description": "Kind is onboard (soldered), socket, slot, or unknown."
+                "description": "Kind is onboard (soldered), socket, slot, cpu (part of the processor: it changes only with the CPU), or unknown.",
+                "examples": [
+                  "onboard",
+                  "socket",
+                  "slot",
+                  "cpu",
+                  "unknown"
+                ]
               },
               "slot": {
                 "type": "string",
@@ -1722,6 +1740,10 @@
               "slot_type": {
                 "type": "string",
                 "description": "see slot"
+              },
+              "package": {
+                "type": "string",
+                "description": "Package is, for kind cpu, the processor's package as the firmware names it (\"Socket LGA1151\", root only)."
               },
               "confidence": {
                 "type": "string",
@@ -3381,7 +3403,14 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "description": "Kind is onboard (soldered), socket, slot, or unknown."
+                "description": "Kind is onboard (soldered), socket, slot, cpu (part of the processor: it changes only with the CPU), or unknown.",
+                "examples": [
+                  "onboard",
+                  "socket",
+                  "slot",
+                  "cpu",
+                  "unknown"
+                ]
               },
               "slot": {
                 "type": "string",
@@ -3390,6 +3419,10 @@
               "slot_type": {
                 "type": "string",
                 "description": "see slot"
+              },
+              "package": {
+                "type": "string",
+                "description": "Package is, for kind cpu, the processor's package as the firmware names it (\"Socket LGA1151\", root only)."
               },
               "confidence": {
                 "type": "string",

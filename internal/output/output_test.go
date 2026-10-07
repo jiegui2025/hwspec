@@ -695,6 +695,18 @@ func TestTextRTC(t *testing.T) {
 	}
 }
 
+// A part of the CPU is said so, with the package when known (#137).
+func TestMountingTextInCPU(t *testing.T) {
+	for m, want := range map[*report.Mounting]string{
+		{Kind: report.MountedInCPU, Package: "Socket LGA1151"}: "part of the CPU (Socket LGA1151): it changes only with the processor",
+		{Kind: report.MountedInCPU}:                            "part of the CPU: it changes only with the processor",
+	} {
+		if got := mountingText(m); got != want {
+			t.Errorf("%+v: %q", m, got)
+		}
+	}
+}
+
 // The display line names what its output offers (#112).
 func TestTextDisplayModes(t *testing.T) {
 	r := sample()
