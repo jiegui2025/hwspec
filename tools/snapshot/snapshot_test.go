@@ -167,10 +167,11 @@ func TestReplicateKeepsSymlinks(t *testing.T) {
 // The real test of a recording: capturing it gives the same result as
 // capturing the machine, apart from identifiers and readings that change
 // by the second.
-func TestARecordingReproducesThisMachine(t *testing.T) {
-	if testing.Short() || os.Getenv("HWSPEC_SKIP_HOST_TESTS") != "" {
+func TestHostRecordingReproducesThisMachine(t *testing.T) {
+	if testing.Short() {
 		t.Skip("records the whole machine")
 	}
+	hostTest(t)
 	if os.Geteuid() == 0 {
 		t.Skip("as root the recording reads files a user capture can't")
 	}
@@ -631,5 +632,18 @@ func TestModuleIndexIsTrimmed(t *testing.T) {
 	}
 	if got := read(t, filepath.Join(dir, "modules.dep")); got != "kept as is\n" {
 		t.Errorf("modules.dep = %q", got)
+	}
+}
+
+// hostTest skips a test that depends on this machine when
+// HWSPEC_SKIP_HOST_TESTS is set (CI's coverage run), and requires its name
+// to start with TestHost: CI runs those separately by that prefix.
+func hostTest(t *testing.T) {
+	t.Helper()
+	if !strings.HasPrefix(t.Name(), "TestHost") {
+		t.Fatalf("%s depends on this machine, so it must be named TestHost*: CI runs host tests by that prefix (-run '^TestHost')", t.Name())
+	}
+	if os.Getenv("HWSPEC_SKIP_HOST_TESTS") != "" {
+		t.Skip("records the whole machine (HWSPEC_SKIP_HOST_TESTS is set)")
 	}
 }

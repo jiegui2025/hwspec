@@ -40,7 +40,7 @@ func TestCommandsRunWithATimeLimit(t *testing.T) {
 }
 
 // ethtool answers for real network drivers; the loopback has none.
-func TestEthtoolAsksTheNetworkDriver(t *testing.T) {
+func TestHostEthtoolAsksTheNetworkDriver(t *testing.T) {
 	hostTest(t)
 	if _, err := ethtoolDrvinfo("lo"); err == nil {
 		t.Log("the loopback answered ethtool (some kernels do)")
@@ -75,7 +75,7 @@ func TestCStringStopsAtNUL(t *testing.T) {
 // The Bluetooth management socket answers for a controller, refuses one
 // that doesn't exist, or isn't there at all (no Bluetooth in the kernel, a
 // sandbox without the socket family).
-func TestBluetoothManagementSocket(t *testing.T) {
+func TestHostBluetoothManagementSocket(t *testing.T) {
 	hostTest(t)
 	info, err := mgmtReadInfo(0)
 	switch {
@@ -132,6 +132,9 @@ func TestPathsListsWhatACaptureReads(t *testing.T) {
 // step runs them.
 func hostTest(t *testing.T) {
 	t.Helper()
+	if !strings.HasPrefix(t.Name(), "TestHost") {
+		t.Fatalf("%s depends on this machine, so it must be named TestHost*: CI runs host tests by that prefix (-run '^TestHost')", t.Name())
+	}
 	if os.Getenv("HWSPEC_SKIP_HOST_TESTS") != "" {
 		t.Skip("depends on this machine's hardware (HWSPEC_SKIP_HOST_TESTS is set)")
 	}

@@ -140,7 +140,9 @@ jobs:
           HWSPEC_SKIP_HOST_TESTS: "1"
         run: go test -count=1 ./...
       - name: Host tests (this runner's kernel and hardware)
-        run: go test -count=1 -run 'Ethtool|BluetoothManagementSocket|SystemFiles|StickyWritable|FUSE|RecordingReproduces' ./...
+        # Every test that calls hostTest must be named TestHost* (the helper
+        # fails it otherwise), so a new one can't be left out of this step.
+        run: go test -count=1 -run '^TestHost' ./...
       - name: Coverage gate
         if: matrix.go == 'stable'
         run: scripts/coverage.sh coverage.out "$COVERAGE_MIN" >> "$GITHUB_STEP_SUMMARY"
