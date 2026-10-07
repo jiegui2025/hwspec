@@ -292,7 +292,10 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := Advise(Input{Report: r, KB: k, Now: noon})
-	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules) || a.RulesSkipped != 0 {
+	// Firmware load failures need the root-only kernel log (#213): an
+	// unprivileged capture can't be evaluated for them, and says so.
+	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules)-1 || a.RulesSkipped != 1 ||
+		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") {
 		t.Errorf("findings %+v, warnings %q", a.Findings, a.Warnings)
 	}
 }

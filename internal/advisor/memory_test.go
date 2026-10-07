@@ -171,7 +171,7 @@ func TestMemoryAnswersWithoutFull(t *testing.T) {
 		t.Errorf("a slot count without the slot table: %q", got["slots"].Text)
 	}
 	for _, w := range a.Warnings {
-		if !strings.HasPrefix(w, "capture: ") {
+		if !strings.HasPrefix(w, "capture: ") && !strings.HasPrefix(w, "rule firmware.load-failed ") {
 			t.Errorf("HP gives no minimum, so the speeds aren't needed: %q", w)
 		}
 	}
