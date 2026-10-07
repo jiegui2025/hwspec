@@ -94,12 +94,12 @@ func cpuFor(k *kb.KB, r *report.Report) *kb.CPU {
 // model (its vendor, and one of the listed products, its family or its
 // board): those whose BIOS range covers its version, and, apart, those
 // whose range can't be judged (no version, or one the vendor's comparator
-// can't read or compare). A check says "can't tell" for the latter,
-// never "no policy".
-func allowlistsFor(k *kb.KB, r *report.Report) (applies, undetermined []*kb.Allowlist) {
+// can't read or compare), and those whose range doesn't cover it. A check
+// says "can't tell" for the undetermined, never "no policy".
+func allowlistsFor(k *kb.KB, r *report.Report) (applies, undetermined, otherBIOS []*kb.Allowlist) {
 	id := r.System.Identity
 	if id == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	board, bios := "", ""
 	if r.Board.Identity != nil {
@@ -121,14 +121,16 @@ func allowlistsFor(k *kb.KB, r *report.Report) (applies, undetermined []*kb.Allo
 			in, err := m.BIOSVersion.Contains(m.SysVendor, bios)
 			if err != nil {
 				undetermined = append(undetermined, a)
+				continue
 			}
-			if err != nil || !in {
+			if !in {
+				otherBIOS = append(otherBIOS, a)
 				continue
 			}
 		}
 		applies = append(applies, a)
 	}
-	return applies, undetermined
+	return applies, undetermined, otherBIOS
 }
 
 func contains(list []string, s string) bool {

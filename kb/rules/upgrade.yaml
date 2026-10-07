@@ -3,7 +3,39 @@
 # data from kb/models; a model without an entry gets the capture's facts
 # and "unknown" for the rest, with the reason.
 
+sources:
+  kernel-pcie-bandwidth:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/pci/pci.h?h=v6.17
+    title: drivers/pci/pci.h (Linux kernel)
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: >-
+      #define PCIE_SPEED2MBS_ENC(speed)
+      ((speed) == PCIE_SPEED_64_0GT ? 64000*1/1 :
+      (speed) == PCIE_SPEED_32_0GT ? 32000*128/130 :
+      (speed) == PCIE_SPEED_16_0GT ? 16000*128/130 :
+      (speed) == PCIE_SPEED_8_0GT  ?  8000*128/130 :
+      (speed) == PCIE_SPEED_5_0GT  ?  5000*8/10 :
+      (speed) == PCIE_SPEED_2_5GT  ?  2500*8/10 :
+      0)
+
 rules:
+  - id: storage.upgrade
+    check: storage-upgrade
+    category: upgrade
+    severity: info
+    title: "Storage: bus, slots and what a faster drive gains"
+    detail: >-
+      Each NVMe drive's PCIe path comes from the capture, up to its root
+      port: each link allows the lower speed and width of its two ends,
+      and the path the least any link carries, counted as the kernel
+      counts a lane after encoding (pcie_bandwidth_available). A link
+      beyond the root port, such as a chipset's to the CPU, isn't in the
+      capture and is said so. The model's M.2
+      slots come from its documents, every claim with its source; which
+      slot holds a drive comes from the firmware's slot table (--full).
+    src: [capture, kernel-pcie-bandwidth]
   - id: memory.below-minimum
     check: memory-below-minimum
     category: upgrade

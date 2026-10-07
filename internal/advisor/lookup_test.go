@@ -130,26 +130,27 @@ func TestAllowlistsFor(t *testing.T) {
 		}
 		return out
 	}
-	applies, undetermined := allowlistsFor(k, reference())
-	if want := []string{"by-family", "by-product", "by-board", "in-range"}; !slices.Equal(ids(applies), want) || undetermined != nil {
-		t.Errorf("applies %q, want %q; undetermined %q", ids(applies), want, ids(undetermined))
+	applies, undetermined, otherBIOS := allowlistsFor(k, reference())
+	if want := []string{"by-family", "by-product", "by-board", "in-range"}; !slices.Equal(ids(applies), want) || undetermined != nil ||
+		!slices.Equal(ids(otherBIOS), []string{"lifted"}) {
+		t.Errorf("applies %q, want %q; undetermined %q; other BIOS %q", ids(applies), want, ids(undetermined), ids(otherBIOS))
 	}
 	// Without a BIOS version (or another family's), a range can't be
 	// judged: those entries come back apart, never as "no policy".
 	r := reference()
 	r.System.Firmware = nil
 	r.Board.Identity = nil
-	applies, undetermined = allowlistsFor(k, r)
-	if want := []string{"by-family", "by-product"}; !slices.Equal(ids(applies), want) || !slices.Equal(ids(undetermined), []string{"in-range", "lifted"}) {
+	applies, undetermined, otherBIOS = allowlistsFor(k, r)
+	if want := []string{"by-family", "by-product"}; !slices.Equal(ids(applies), want) || !slices.Equal(ids(undetermined), []string{"in-range", "lifted"}) || otherBIOS != nil {
 		t.Errorf("without a BIOS version or board: applies %q, undetermined %q", ids(applies), ids(undetermined))
 	}
 	r = reference()
 	r.System.Firmware = &report.Firmware{Version: "Q21 Ver. 02.27.00"}
-	if _, undetermined = allowlistsFor(k, r); !slices.Equal(ids(undetermined), []string{"in-range", "lifted"}) {
+	if _, undetermined, _ = allowlistsFor(k, r); !slices.Equal(ids(undetermined), []string{"in-range", "lifted"}) {
 		t.Errorf("another firmware family: undetermined %q", ids(undetermined))
 	}
-	if applies, undetermined := allowlistsFor(k, &report.Report{}); applies != nil || undetermined != nil {
-		t.Errorf("no identity: %+v %+v", applies, undetermined)
+	if applies, undetermined, otherBIOS := allowlistsFor(k, &report.Report{}); applies != nil || undetermined != nil || otherBIOS != nil {
+		t.Errorf("no identity: %+v %+v %+v", applies, undetermined, otherBIOS)
 	}
 }
 
