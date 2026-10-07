@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "generated_at": "2026-10-06T07:05:57Z",
+  "generated_at": "2026-10-07T13:39:58Z",
   "files": {
     "amdgpu.ids.gz": {
       "sha256": "d87986bd9279d53d10357a7f1f39970c8f92c4c5734176bba849648043279acb",
@@ -27,16 +27,16 @@
       "entries": 1527
     },
     "oui.ids.gz": {
-      "sha256": "13502b447321580c22caed2a9b1b434f326dbfae3a0e3b262a0b310f42990072",
-      "size": 386838,
-      "date": "2026-10-06",
-      "entries": 40301
+      "sha256": "677e45fce2429b71506b4351f6db2e2e722c66960092cc285ffcda7769d77309",
+      "size": 386898,
+      "date": "2026-10-07",
+      "entries": 40308
     },
     "pci.ids.gz": {
-      "sha256": "e401a55306596c594ae8b35c8c4cf3328d6acb73d032d125a14d77ed579001fe",
-      "size": 369655,
-      "date": "2026-10-01",
-      "entries": 42452
+      "sha256": "ce5353fd06220bd87e56654d11707ba798a36c422d6ccf2eff731f0e4e58d16f",
+      "size": 369690,
+      "date": "2026-10-07",
+      "entries": 42459
     },
     "pnp.ids.gz": {
       "sha256": "8b77fa474fb5e6433e70e08e1e0afbb023cb07eca953c764e22284fb39b12dba",
