@@ -399,6 +399,7 @@ func (c *collector) usb() {
 		}
 		class := readStr(d + "bDeviceClass")
 		seenDrv := map[string]bool{}
+		dev.Interfaces = []report.USBInterface{}
 		for _, iface := range list(d) {
 			if !strings.HasPrefix(iface, n+":") {
 				continue
@@ -406,10 +407,18 @@ func (c *collector) usb() {
 			if class == "00" || class == "" {
 				class = readStr(d + iface + "/bInterfaceClass")
 			}
-			if drv := c.driverAt(d + iface); drv != nil && !seenDrv[drv.Name] {
+			drv := c.driverAt(d + iface)
+			if drv != nil && !seenDrv[drv.Name] {
 				seenDrv[drv.Name] = true
 				dev.Drivers = append(dev.Drivers, *drv)
 			}
+			dev.Interfaces = append(dev.Interfaces, report.USBInterface{
+				Name: iface,
+				ClassCode: strings.ToLower(readStr(d+iface+"/bInterfaceClass") + readStr(d+iface+"/bInterfaceSubClass") +
+					readStr(d+iface+"/bInterfaceProtocol")),
+				Modalias: readStr(d + iface + "/modalias"),
+				Driver:   drv,
+			})
 		}
 		dev.ClassCode = class
 		c.r.USB = append(c.r.USB, dev)

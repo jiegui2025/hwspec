@@ -127,17 +127,9 @@ func (c *collector) kernelModules() {
 	case idx.Status != report.ModulesFound:
 		return // no index for this kernel: candidates stay unknown
 	}
-	dir := idx.Dir
-	b, err := readFile(dir + "/modules.alias")
-	if err != nil {
-		c.warn("kernel modules: %v", err)
+	aliases, ok := c.moduleAliases()
+	if !ok {
 		return
-	}
-	aliases := parseModulesAlias(b)
-	// Kernels before 5.2 have no modules.builtin.modinfo: no built-in
-	// candidates, then.
-	if b, err := readFile(dir + "/modules.builtin.modinfo"); err == nil {
-		aliases = append(aliases, parseBuiltinModinfo(b)...)
 	}
 	for _, i := range driverless {
 		d := &c.r.PCI[i]
@@ -145,10 +137,66 @@ func (c *collector) kernelModules() {
 		if modalias == "" {
 			continue // nothing to match: candidates stay unknown
 		}
-		cands := moduleCandidates(aliases, modalias)
-		for j := range cands {
-			cands[j].Loaded = cands[j].Builtin || readStr("/sys/module/"+cands[j].Module+"/initstate") == "live"
+		d.ModuleCandidates = loadedCandidates(aliases, modalias)
+	}
+}
+
+// moduleAliases reads the running kernel's module aliases once: those of
+// its modules and of its built-in ones. ok is false when there is no index
+// for this kernel, or it can't be read (a warning, once).
+func (c *collector) moduleAliases() ([]moduleAlias, bool) {
+	if c.aliases != nil {
+		return *c.aliases, len(*c.aliases) > 0
+	}
+	c.aliases = &[]moduleAlias{}
+	idx := c.r.Kernel.ModuleIndex
+	if idx.Status != report.ModulesFound {
+		return nil, false
+	}
+	b, err := readFile(idx.Dir + "/modules.alias")
+	if err != nil {
+		c.warn("kernel modules: %v", err)
+		return nil, false
+	}
+	aliases := parseModulesAlias(b)
+	// Kernels before 5.2 have no modules.builtin.modinfo: no built-in
+	// candidates, then.
+	if b, err := readFile(idx.Dir + "/modules.builtin.modinfo"); err == nil {
+		aliases = append(aliases, parseBuiltinModinfo(b)...)
+	}
+	*c.aliases = aliases
+	return aliases, len(aliases) > 0
+}
+
+// loadedCandidates are the modules claiming a modalias, each with whether
+// it's loaded.
+func loadedCandidates(aliases []moduleAlias, modalias string) []report.ModuleCandidate {
+	cands := moduleCandidates(aliases, modalias)
+	for j := range cands {
+		cands[j].Loaded = cands[j].Builtin || readStr("/sys/module/"+cands[j].Module+"/initstate") == "live"
+	}
+	return cands
+}
+
+// usbCandidates gives each USB interface without a driver the modules
+// that claim it (#216), as kernelModules does for PCI devices. Without an
+// index for the running kernel, they stay unknown; kernelModules has
+// already said why when it matters.
+func (c *collector) usbCandidates() {
+	if c.r.Kernel == nil || c.r.Kernel.ModuleIndex == nil {
+		return
+	}
+	for i := range c.r.USB {
+		for j := range c.r.USB[i].Interfaces {
+			in := &c.r.USB[i].Interfaces[j]
+			if in.Driver != nil || in.Modalias == "" {
+				continue
+			}
+			aliases, ok := c.moduleAliases()
+			if !ok {
+				return
+			}
+			in.ModuleCandidates = loadedCandidates(aliases, in.Modalias)
 		}
-		d.ModuleCandidates = cands
 	}
 }

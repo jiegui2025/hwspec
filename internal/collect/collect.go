@@ -22,6 +22,7 @@ type collector struct {
 	moduleSigning bool
 	cpuinfo       map[string]string // lazily read by cpuinfoField
 	smbios        *smbiosTable      // lazily read by smbiosStructures
+	aliases       *[]moduleAlias    // lazily read by moduleAliases: nil until tried
 }
 
 func moduleSigningSupported() bool {
@@ -95,6 +96,7 @@ func collectNow(version string) *report.Report {
 	c.audio()
 	c.batteries()
 	c.usb()
+	c.usbCandidates() // after usb and kernelModules
 
 	<-sensorsDone
 	idsLoaded()

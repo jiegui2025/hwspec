@@ -142,6 +142,7 @@ func TestValidateNamesEveryProblem(t *testing.T) {
 		{"bidi", func(k *KB) { k.Sources[1].Quote = "abc\u202edef" }, "quote has control or formatting characters"},
 		{"command", func(k *KB) { k.Rules[0].Actions[0].Commands[0] = "rm\r-rf" }, "command 1 has control"},
 		{"class", func(k *KB) { k.Rules[0].Match.PCIClass = []string{"0C03"} }, `pci_class "0C03"`},
+		{"usb class", func(k *KB) { k.Rules[0].Match.USBClass = []string{"3"} }, `usb_class "3" isn't 2, 4 or 6 lower-case hex digits`},
 		{"action", func(k *KB) { k.Rules[0].Actions = []Action{{Commands: []string{"x"}}} }, "action 1 has no text"},
 		{"uncited rule", func(k *KB) { k.Rules[0].Src = nil }, "no src"},
 		{"unknown src", func(k *KB) { k.Rules[0].Src = []string{"blog"} }, `src "blog" isn't in sources`},

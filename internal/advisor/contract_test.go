@@ -75,7 +75,7 @@ func TestRulesMustFitTheirCheck(t *testing.T) {
 		{fwKey, `data: json: unknown field "latestt"`},
 		{fwNone, "data: no data"},
 		{badCommand, `command "modprobe {modallias}" uses {modallias}, which check "pci-without-driver" doesn't fill (it fills: modalias)`},
-		{unknown, `unknown check "magic" (have firmware-load-failed, firmware-test, kernel-modules-missing, memory-below-minimum, memory-upgrade, pci-driver-blacklisted, pci-driver-did-not-bind, pci-driver-not-loaded, pci-without-driver)`},
+		{unknown, `unknown check "magic" (have firmware-load-failed, firmware-test, kernel-modules-missing, memory-below-minimum, memory-upgrade, pci-driver-blacklisted, pci-driver-did-not-bind, pci-driver-not-loaded, pci-without-driver, usb-driver-blacklisted, usb-driver-did-not-bind, usb-driver-not-loaded, usb-without-driver)`},
 	}
 	for _, c := range cases {
 		errs := ValidateRule(&c.rule)
