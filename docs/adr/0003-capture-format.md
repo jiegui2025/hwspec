@@ -1,6 +1,6 @@
 # 3. JSON capture format with raw IDs, additive schema
 
-**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged · amended 2026-10-06: published JSON Schema (#37) · amended 2026-10-07: the advice document follows the same rules (#83)
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged · amended 2026-10-06: published JSON Schema (#37) · amended 2026-10-07: the advice document follows the same rules (#83) · amended 2026-10-07: annotations excepted, descriptions and vocabularies (#154)
 
 ## Context
 
@@ -37,8 +37,10 @@ The structs stay the specification; a JSON Schema generated from them is publish
 | Schema | `schema/capture-vN.json` (draft 2020-12), generated from `internal/report` by `tools/genschema`; `hwspec schema` prints the current one |
 | `$id` and `$schema` | the schema's `$id` is its raw file on `main` (`https://raw.githubusercontent.com/jiegui2025/hwspec/main/schema/capture-v1.json`): a vN file only ever grows, so `main` is stable. Captures name it in a `$schema` key (an added field; captures from before it lack the key and still validate) |
 | What the schema allows | unknown properties everywhere (newer vN builds add fields); only `schema_version`, `tool` and `tool.name` required; `null` for slices, maps and pointers, as Go writes them |
-| Breaking, within a version | anything but adding a property or dropping a requirement: a removed property, a changed type set (adding `null` included), a newly required property, or any other keyword added, removed or changed. `genschema check` fails the PR on these |
+| Breaking, within a version | anything but adding a property, dropping a requirement, or changing an annotation (`description`, `examples`, `deprecated`, `default`, `readOnly`, `writeOnly`, `$comment`, `title`), which constrains nothing: a removed property, a changed type set (adding `null` included), a newly required property, or any other keyword added, removed or changed. `genschema check` fails the PR on these |
 | Not visible in a schema | a field that "changes meaning": still a review item |
 | Freeze | bumping `SchemaVersion` to N adds `capture-vN.json`; every older file is frozen from then on (CI fails if one changes or disappears) |
 
 **Amendment (2026-10-07, #83):** the advice document `hwspec advise -f json` writes (ADR 0009) is a public interface under the same rules. Its schema is `schema/advice-vN.json`, generated from `internal/advisor` by `tools/genschema` and printed by `hwspec schema advice`. The document names it in `$schema`, and `advice_version` is its version. `genschema check` compares each format's files on its own. One difference: the fields Go always writes stay required, since the document is never hand-made; a requirement may still be dropped, never added. Evidence is pinned as exactly `{path, value}` or `{path, absent: true}`, with the path in the capture's JSON grammar (`pci[16].class_code`). `category`, `severity` and `confidence` are open strings: newer builds may add values, which readers rank last.
+
+**Amendment (2026-10-07, #154):** annotations are excepted from the compatibility check, so a field can be described, given examples, or marked `deprecated` before a new version removes it. Every capture property's `description` is its Go field's doc comment (`tools/genschema`), and a `Deprecated:` paragraph marks it deprecated. The values readers branch on (health statuses and sources, metric names, firmware sources, module index statuses, blacklist kinds) are constants listed in `report.Vocabularies`, published as each field's `examples` (for metrics, the keys' `propertyNames.examples`), not as `enum`, which would make a new value breaking. A published value is part of the format like a field name: renaming or removing one needs a new version, and `TestVocabulariesOnlyGrow` holds the list to that.

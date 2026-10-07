@@ -7,6 +7,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -201,6 +203,17 @@ func TestCompat(t *testing.T) {
 		"unknown keyword added":  {strings.Replace(old, `"c": {"type": "string"}`, `"c": {"type": "string", "x-new": true}`, 1), "$.b[].c: x-new added"},
 		"no more unknown fields": {strings.Replace(old, `"type": "object", "title"`, `"type": "object", "additionalProperties": false, "title"`, 1), "$: additionalProperties added (false)"},
 		"items became a boolean": {strings.Replace(old, `"items": {"type": "object", "properties": {"c": {"type": "string"}}}`, `"items": false`, 1), "$.b: items changed"},
+		// #154: annotations a field can gain on its way out, or to explain it.
+		"deprecated, with examples": {strings.Replace(old, `"a": {"type": "integer", "minimum": 0}`,
+			`"a": {"type": "integer", "minimum": 0, "deprecated": true, "examples": [1], "$comment": "x", "default": 0, "readOnly": true, "writeOnly": false}`, 1), ""},
+		"map keys given examples": {strings.Replace(old, `"additionalProperties": {"type": "number"}`,
+			`"additionalProperties": {"type": "number"}, "propertyNames": {"examples": ["k"], "description": "x"}`, 1), ""},
+		"map keys constrained": {strings.Replace(old, `"additionalProperties": {"type": "number"}`,
+			`"additionalProperties": {"type": "number"}, "propertyNames": {"pattern": "^k"}`, 1), "$.m{key}: pattern added"},
+		"map keys typed": {strings.Replace(old, `"additionalProperties": {"type": "number"}`,
+			`"additionalProperties": {"type": "number"}, "propertyNames": {"type": "string"}`, 1), "$.m{key}: type any is now string"},
+		"items given only a description": {strings.Replace(old, `"a": {"type": "integer", "minimum": 0}`,
+			`"a": {"type": "integer", "minimum": 0, "items": {"description": "x"}}`, 1), ""},
 	} {
 		p := compat(parse(t, old), parse(t, c.cur))
 		switch {
@@ -208,6 +221,195 @@ func TestCompat(t *testing.T) {
 			t.Errorf("%s: %v", name, p)
 		case c.want != "" && (len(p) != 1 || !strings.Contains(p[0], c.want)):
 			t.Errorf("%s: problems %v, want one containing %q", name, p, c.want)
+		}
+	}
+}
+
+// #154's acceptance: marking a field of the committed capture schema
+// deprecated passes genschema check.
+func TestDeprecatingAFieldPassesCheck(t *testing.T) {
+	deprecated := strings.Replace(string(schema.JSON), `"hostname": {`, `"hostname": {"deprecated": true,`, 1)
+	if deprecated == string(schema.JSON) {
+		t.Fatal("no hostname property to deprecate")
+	}
+	base := writeSchemas(t, map[int]string{1: string(schema.JSON), 11: string(schema.AdviceJSON)})
+	head := writeSchemas(t, map[int]string{1: deprecated, 11: string(schema.AdviceJSON)})
+	if err := check(&bytes.Buffer{}, base, head); err != nil {
+		t.Error(err)
+	}
+}
+
+// undescribed lists the properties below s without a description.
+func undescribed(s *jsonschema.Schema, path string) []string {
+	if s == nil {
+		return nil
+	}
+	var out []string
+	for _, k := range sortedKeys(s.Properties) {
+		if s.Properties[k].Description == "" {
+			out = append(out, path+"."+k)
+		}
+		out = append(out, undescribed(s.Properties[k], path+"."+k)...)
+	}
+	out = append(out, undescribed(s.Items, path+"[]")...)
+	return append(out, undescribed(s.AdditionalProperties, path+"{}")...)
+}
+
+// Every capture property has a description, from its Go field's doc
+// comment or its type's (#154): a new field needs a doc comment.
+func TestEveryCapturePropertyIsDescribed(t *testing.T) {
+	var s jsonschema.Schema
+	if err := json.Unmarshal(schema.JSON, &s); err != nil {
+		t.Fatal(err)
+	}
+	if p := undescribed(&s, "$"); len(p) > 0 {
+		t.Errorf("give these fields a doc comment in internal/report:\n  %s", strings.Join(p, "\n  "))
+	}
+	if d := s.Properties["system"].Properties["identity"].Description; !strings.Contains(d, "part_number the SKU") {
+		t.Errorf("system.identity has %q, not its field's comment", d)
+	}
+	if d := s.Properties["board"].Properties["identity"].Description; d != "Identity names one physical part." {
+		t.Errorf("board.identity has %q, not its type's doc comment", d)
+	}
+}
+
+// A field's doc and line comments make its description; a type's doc
+// comment is kept for fields without their own; a "Deprecated:"
+// paragraph, Go's mark, makes the field deprecated.
+func TestParseDocs(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "p.go")
+	src := `package p
+
+// T is a thing.
+type T struct {
+	// A is first.
+	A int // in bytes
+	B, C string // both
+	// D was a mistake.
+	//
+	// Deprecated: read A.
+	D int
+	// E mentions Deprecated: in passing.
+	E int
+	F int
+}
+
+type (
+	// U is grouped.
+	U int
+	V int
+)
+`
+	if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, err := parseDocs([]string{file})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]fieldDoc{
+		"A": {"A is first. in bytes", false},
+		"B": {"both", false},
+		"C": {"both", false},
+		"D": {"D was a mistake. Deprecated: read A.", true},
+		"E": {"E mentions Deprecated: in passing.", false},
+		"F": {},
+	}
+	if got := p.fields["T"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("fields %+v, want %+v", got, want)
+	}
+	if p.types["T"] != "T is a thing." || p.types["U"] != "U is grouped." || p.types["V"] != "" {
+		t.Errorf("types %q", p.types)
+	}
+	if _, err := parseDocs([]string{filepath.Join(t.TempDir(), "missing.go")}); err == nil {
+		t.Error("a missing file parsed")
+	}
+}
+
+// A deprecated field is marked so in the schema, and keeps its
+// description.
+func TestDescribeMarksDeprecatedFields(t *testing.T) {
+	s, err := jsonschema.For[report.OS](nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := docs{reflect.TypeFor[report.OS]().PkgPath(): {
+		types:  map[string]string{},
+		fields: map[string]map[string]fieldDoc{"OS": {"Init": {"Init was process 1. Deprecated: gone.", true}}},
+	}}
+	if err := d.describe(s, reflect.TypeFor[report.OS]()); err != nil {
+		t.Fatal(err)
+	}
+	if p := s.Properties["init"]; !p.Deprecated || p.Description != "Init was process 1. Deprecated: gone." {
+		t.Errorf("init: %+v", p)
+	}
+	if p := s.Properties["kernel"]; p.Deprecated {
+		t.Errorf("kernel: %+v", p)
+	}
+}
+
+// A vocabulary on a field that isn't a string or a map, or a package
+// whose source can't be found, fails generation instead of being skipped.
+func TestDescribeFails(t *testing.T) {
+	report.Vocabularies["CPU.Cores"] = []string{"x"}
+	defer delete(report.Vocabularies, "CPU.Cores")
+	if _, err := generate(); err == nil || !strings.Contains(err.Error(), "CPU.Cores: a vocabulary is for a string") {
+		t.Errorf("vocabulary on an int: %v", err)
+	}
+	if _, err := (docs{}).pkg(module + "no/such/package"); err == nil {
+		t.Error("a missing package's docs read")
+	}
+}
+
+// Each vocabulary is published as its field's examples, wherever the
+// field appears, and names a field the capture has.
+func TestVocabulariesArePublished(t *testing.T) {
+	var s jsonschema.Schema
+	if err := json.Unmarshal(schema.JSON, &s); err != nil {
+		t.Fatal(err)
+	}
+	examples := func(sc *jsonschema.Schema) []string {
+		var out []string
+		for _, e := range sc.Examples {
+			out = append(out, e.(string))
+		}
+		return out
+	}
+	disk := s.Properties["storage"].Items
+	health := disk.Properties["health"]
+	for what, c := range map[string]struct {
+		got  []string
+		want string
+	}{
+		"health.status":   {examples(health.Properties["status"]), "Health.Status"},
+		"health.source":   {examples(health.Properties["source"]), "Health.Source"},
+		"health.metrics":  {examples(health.Properties["metrics"].PropertyNames), "Health.Metrics"},
+		"firmware.source": {examples(disk.Properties["firmware"].Properties["source"]), "Firmware.Source"},
+		"cpu firmware":    {examples(s.Properties["cpu"].Properties["firmware"].Properties["source"]), "Firmware.Source"},
+	} {
+		if !slices.Equal(c.got, report.Vocabularies[c.want]) {
+			t.Errorf("%s: examples %v, want %s", what, c.got, c.want)
+		}
+	}
+	fields := map[string]reflect.Kind{}
+	var visit func(t reflect.Type)
+	visit = func(t reflect.Type) {
+		for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice || t.Kind() == reflect.Map {
+			t = t.Elem()
+		}
+		if t.Kind() != reflect.Struct || fields[t.Name()] != reflect.Invalid {
+			return
+		}
+		fields[t.Name()] = reflect.Struct
+		for f := range t.Fields() {
+			fields[t.Name()+"."+f.Name] = f.Type.Kind()
+			visit(f.Type)
+		}
+	}
+	visit(reflect.TypeFor[report.Report]())
+	for key := range report.Vocabularies {
+		if k := fields[key]; k != reflect.String && k != reflect.Map {
+			t.Errorf("report.Vocabularies[%q]: no string or map field of that name in a capture", key)
 		}
 	}
 }
