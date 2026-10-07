@@ -2293,6 +2293,26 @@
               }
             }
           }
+        },
+        "module_blacklist": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "module": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },
