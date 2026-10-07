@@ -141,6 +141,8 @@ var (
 	perlString = regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`)
 )
 
+const jedecBank = 126
+
 // jedec extracts the @vendors array of arrays from decode-dimms (one array
 // per JEP106 bank, 126 names each) into "BANK ID<TAB>Name" lines, with the
 // bank 1-based in decimal and the ID in hex without the parity bit.
@@ -158,8 +160,16 @@ func jedec(src []byte) ([]byte, error) {
 	s = s[:end]
 	var b strings.Builder
 	b.WriteString("# JEDEC JEP106 manufacturer IDs, from i2c-tools decode-dimms\n")
-	for bank, page := range perlPage.FindAllStringSubmatch(s, -1) {
-		for i, m := range perlString.FindAllStringSubmatch(page[1], -1) {
+	pages := perlPage.FindAllStringSubmatch(s, -1)
+	for bank, page := range pages {
+		names := perlString.FindAllStringSubmatch(page[1], -1)
+		// JEP106 banks hold 126 IDs; only the last can be partly filled. A
+		// short bank means the table was misread (a "]" in a name ends
+		// the bank early), and every ID after it would shift.
+		if len(names) == 0 || len(names) > jedecBank || bank < len(pages)-1 && len(names) != jedecBank {
+			return nil, fmt.Errorf("@vendors bank %d has %d names, want %d (the last may have fewer): the table was misread", bank+1, len(names), jedecBank)
+		}
+		for i, m := range names {
 			fmt.Fprintf(&b, "%d %02X\t%s\n", bank+1, i+1, ids.CleanName(strings.ReplaceAll(m[1], `\"`, `"`)))
 		}
 	}
@@ -405,6 +415,9 @@ func verify(stdout io.Writer, dir, prevPath string) error {
 		}
 		n, err := validate(kind, content)
 		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		if err := checkKnownAnswers(kind, content); err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
 		if n != f.Entries {

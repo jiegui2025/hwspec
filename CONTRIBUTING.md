@@ -206,7 +206,7 @@ Dependabot opens weekly update PRs; they follow the same flow (review, then reba
 ```mermaid
 flowchart LR
   up["Upstream sources (HTTPS only)"] --> build["build job: no secrets, read-only token"]
-  build -->|"validate, refuse >5% shrink or future dates"| art[Bundle artifact]
+  build -->|"validate, refuse >5% shrink, future dates or a wrong known answer"| art[Bundle artifact]
   art --> pub["publish job: ids-signing environment (main only)"]
   pub -->|"re-verify, then sign"| rel["ids-latest + dated ids-YYYY.MM.DD releases"]
 ```
@@ -216,6 +216,7 @@ flowchart LR
 | Signing key (private) | `HWSPEC_IDS_SIGNING_KEY` secret in the `ids-signing` environment, usable only from `main` |
 | Public key | `internal/ids/key.go` (`SigningPublicKey`), trusted through `trustedKeys` in `internal/ids/manifest.go` |
 | Key rotation | add the new public key to `trustedKeys`, release, then replace the environment secret; remove the old key in a later release |
+| A known answer fails | `genids verify` checks a few settled entries in every database (`knownAnswers` in `tools/genids/known.go`: Intel's PCI ID, Samsung's JEDEC code, Alder Lake's CPU signature…), because counts can't catch a parser that misreads upstream. A failure names the entry, what the bundle says and what was expected. Find the entry in the upstream source the error's database comes from (Makefile `fetch-ids`). If upstream really changed it, update the table in a PR, and the next run publishes. If upstream still says the expected name, genids misread a changed layout: fix the parser (`tools/genids/main.go`, `cpu.go`) with a test. A JEDEC bank of other than 126 names fails earlier, in `genids jedec` |
 | Expected shrink of a database | after checking the upstream change, run the ids workflow by hand (Actions → ID databases → Run workflow) with **allow_shrink** ticked; scheduled runs never allow it |
 | The advisor knowledge base | the bundle also carries every committed `internal/kb/data/advisor-v*.json.gz`, as committed (CI checks it against `kb/`), dated by its `version` (the UTC time its content last changed) and counted by its rules. Before signing, the publish job checks it is the committed file byte for byte. A week where neither it nor upstream changed publishes nothing. `hwspec ids update` installs the format this build reads, with the same signature checks, if its version and rule count are the manifest's; `hwspec advise` uses the newer of it and the built-in copy and falls back to the built-in one, with a warning, if the synced copy doesn't parse or doesn't match the manifest. A rule count more than 5% below the previous bundle's needs the **allow_shrink** input, as for a database |
 

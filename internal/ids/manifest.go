@@ -86,15 +86,25 @@ var minEntries = map[Kind]int{
 	BT: 2000, CPU: 300,
 }
 
-// Validate parses an uncompressed database and checks it is plausibly
-// complete. It returns the number of entries.
-func Validate(k Kind, content []byte) (int, error) {
+// Names parses an uncompressed database into its names by the keys
+// lookups use ("8086", "6:77", "amd:19:21").
+func Names(k Kind, content []byte) (map[string]string, error) {
 	s, ok := specs[k]
 	if !ok {
-		return 0, fmt.Errorf("unknown database %q", k)
+		return nil, fmt.Errorf("unknown database %q", k)
 	}
 	m := map[string]string{}
 	if err := s.parse(bytes.NewReader(content), m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Validate parses an uncompressed database and checks it is plausibly
+// complete. It returns the number of entries.
+func Validate(k Kind, content []byte) (int, error) {
+	m, err := Names(k, content)
+	if err != nil {
 		return 0, err
 	}
 	if len(m) < minEntries[k] {

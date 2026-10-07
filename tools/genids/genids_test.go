@@ -76,12 +76,13 @@ func TestUsageAndUnknownCommands(t *testing.T) {
 func TestConvertersProduceIDFiles(t *testing.T) {
 	dir := t.TempDir()
 	jedecSrc := write(t, filepath.Join(dir, "decode-dimms"), `my @vendors = (
-["AMD", "AMI", "Fairchild"],
+["AMD", "AMI", "Fairchild", `+fillers(123)+`],
 ["Cdk \"quoted\"", "Hynix"]);
 `)
 	out := filepath.Join(dir, "jedec.ids.gz")
 	runOK(t, "jedec", jedecSrc, out)
-	if got := gunzip(t, out); !strings.Contains(got, "1 01\tAMD\n1 02\tAMI\n1 03\tFairchild\n2 01\tCdk \"quoted\"\n2 02\tHynix\n") {
+	if got := gunzip(t, out); !strings.Contains(got, "1 01\tAMD\n1 02\tAMI\n1 03\tFairchild\n1 04\tMaker 0\n") ||
+		!strings.Contains(got, "1 7E\tMaker 122\n2 01\tCdk \"quoted\"\n2 02\tHynix\n") {
 		t.Errorf("jedec:\n%s", got)
 	}
 	first, _ := os.ReadFile(out)
@@ -107,7 +108,12 @@ func TestConvertersProduceIDFiles(t *testing.T) {
 		t.Error("gzip changed the content")
 	}
 
-	for name, src := range map[string]string{"jedec, no table": "nothing", "jedec, unterminated": "@vendors = ([\"A\"]", "bluetooth, not yaml": "{"} {
+	for name, src := range map[string]string{"jedec, no table": "nothing", "jedec, unterminated": "@vendors = ([\"A\"]", "bluetooth, not yaml": "{",
+		// a "]" in a name ends bank 1 early, shifting every later ID
+		"jedec, short bank": `@vendors = (["A", "B [x]", ` + fillers(124) + `], ["C"]);`,
+		"jedec, long bank":  `@vendors = ([` + fillers(127) + `]);`,
+		"jedec, empty bank": `@vendors = ([` + fillers(126) + `], []);`,
+	} {
 		path := write(t, filepath.Join(dir, "bad"), src)
 		kind, _, _ := strings.Cut(name, ",")
 		if code := run([]string{kind, path, filepath.Join(dir, "x.gz")}, io.Discard, io.Discard); code != 1 {
@@ -758,5 +764,60 @@ func TestVerifyComparesTheKnowledgeBaseWithTheCommittedOne(t *testing.T) {
 	}
 	if err := sameAsCommitted(committed, unreadable); err == nil {
 		t.Error("an unreadable committed file passed")
+	}
+}
+
+// fillers is n quoted JEDEC names, for full banks.
+func fillers(n int) string {
+	names := make([]string, n)
+	for i := range names {
+		names[i] = fmt.Sprintf("%q", fmt.Sprintf("Maker %d", i))
+	}
+	return strings.Join(names, ", ")
+}
+
+// Every database has known answers, today's pass, and a bundle whose
+// parser misread upstream fails verify (#155): a JEDEC bank shifted by
+// one, AMD's Zen generations swapped.
+func TestKnownAnswers(t *testing.T) {
+	for _, k := range ids.Kinds {
+		if len(knownAnswers[k]) == 0 {
+			t.Errorf("%s has no known answers", k)
+		}
+	}
+	for name, c := range map[string]struct {
+		file   string
+		tamper func(string) string
+		want   string
+	}{
+		"JEDEC bank 6 shifted": {"jedec.ids.gz", func(s string) string {
+			var out []string
+			for line := range strings.SplitSeq(s, "\n") {
+				var id int
+				if k, v, ok := strings.Cut(line, "\t"); ok && strings.HasPrefix(k, "6 ") {
+					if _, err := fmt.Sscanf(k, "6 %x", &id); err == nil {
+						line = fmt.Sprintf("6 %02X\t%s", id+1, v)
+					}
+				}
+				out = append(out, line)
+			}
+			return strings.Join(out, "\n")
+		}, `known answer jedec 6:77 is "InterDigital Communications", want "Avant Technology"`},
+		"Zen 3 and Zen 4 swapped": {"cpu.ids.gz", func(s string) string {
+			return strings.NewReplacer("\tZen 3\n", "\tZen 4\n", "\tZen 4\n", "\tZen 3\n").Replace(s)
+		}, `known answer cpu amd:19:22 is "\tZen 4", want "\tZen 3"`},
+	} {
+		dir := bundle(t)
+		path := filepath.Join(dir, c.file)
+		write(t, path, gz(t, c.tamper(gunzip(t, path))))
+		if err := manifest(io.Discard, dir, ""); err != nil {
+			t.Fatalf("%s: manifest: %v", name, err)
+		}
+		if err := verify(io.Discard, dir, ""); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: verify: %v", name, err)
+		}
+	}
+	if err := checkKnownAnswers("nope", nil); err == nil {
+		t.Error("an unknown kind passed")
 	}
 }
