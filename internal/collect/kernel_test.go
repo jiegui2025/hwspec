@@ -95,6 +95,28 @@ func TestHostBluetoothManagementSocket(t *testing.T) {
 	}
 }
 
+// A raw HCI socket answers Read Local Version for a controller without
+// privilege (#202), or the controller is down, missing, or the socket
+// family isn't there at all.
+func TestHostBluetoothHCISocket(t *testing.T) {
+	hostTest(t)
+	v, err := hciReadLocalVersion(0)
+	switch {
+	case err == nil:
+		if v.hciVersion == 0 && v.lmpSubver == 0 && v.hciRevision == 0 {
+			t.Errorf("hci0 answered %+v", v)
+		}
+	case errors.Is(err, unix.EAFNOSUPPORT), errors.Is(err, unix.EPROTONOSUPPORT), errors.Is(err, unix.ENODEV),
+		errors.Is(err, unix.ENETDOWN), errors.Is(err, unix.EPERM), errors.Is(err, unix.EACCES):
+		t.Logf("no usable controller 0 here: %v", err)
+	default:
+		t.Errorf("unexpected error: %v", err)
+	}
+	if _, err := hciReadLocalVersion(0xFFFE); err == nil {
+		t.Error("a missing controller answered")
+	}
+}
+
 // Reading the NVMe health log needs the device node, and root.
 func TestNVMeHealthNeedsTheDevice(t *testing.T) {
 	if _, err := nvmeHealth("/dev/no-such-nvme"); !errors.Is(err, os.ErrNotExist) {

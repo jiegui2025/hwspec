@@ -83,7 +83,9 @@ type Firmware struct {
 	// Source says where the version was read: dmi, microcode, nvme, scsi
 	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the
 	// NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's
-	// tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2).
+	// tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), hci
+	// (a Bluetooth controller: version is the LMP subversion, release the HCI
+	// revision).
 	Source string `json:"source,omitempty"`
 	Status string `json:"status,omitempty"` // "unknown" when Version couldn't be read
 	Reason string `json:"reason,omitempty"` // why it's unknown, e.g. "needs --full"

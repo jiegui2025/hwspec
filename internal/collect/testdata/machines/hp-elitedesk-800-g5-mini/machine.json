@@ -10,7 +10,11 @@
       "version": "5.2",
       "manufacturer_id": 2,
       "powered": true,
-      "name": "fixture"
+      "name": "fixture",
+      "firmware": {
+        "hci_revision": 8641,
+        "lmp_subversion": 8641
+      }
     }
   },
   "empty_dirs": [

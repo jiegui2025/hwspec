@@ -210,8 +210,17 @@ func answers(m *collect.Machine) error {
 			return fmt.Errorf("bluetooth %s: version %q is unknown to this hwspec; teach btVersion first", b.Name, b.Version)
 		}
 		// The local name usually is the hostname.
-		m.Bluetooth[b.Name] = collect.MachineBT{Address: addr, Version: b.Version, ManufacturerID: b.ManufacturerID,
+		mb := collect.MachineBT{Address: addr, Version: b.Version, ManufacturerID: b.ManufacturerID,
 			Powered: b.Powered != nil && *b.Powered, Name: "fixture"}
+		if fw := b.Firmware; fw.Known() && fw.Source == "hci" {
+			rev, errR := strconv.ParseUint(fw.Release, 0, 16)
+			sub, errS := strconv.ParseUint(fw.Version, 0, 16)
+			if errR != nil || errS != nil {
+				return fmt.Errorf("bluetooth %s: firmware %q/%q isn't two 16-bit numbers", b.Name, fw.Version, fw.Release)
+			}
+			mb.Firmware = &collect.MachineBTFirmware{HCIRevision: uint16(rev), LMPSubversion: uint16(sub)}
+		}
+		m.Bluetooth[b.Name] = mb
 	}
 	return nil
 }

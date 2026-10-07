@@ -14,11 +14,11 @@ func saveHooks() (restore func()) {
 	r, eu, hn, un := root, geteuid, hostname, uname
 	et, bt, om, nv := ethtoolDrvinfo, readBTInfo, openMgmt, nvmeHealthFn
 	fs, rc, dn, tr := findSmartctl, runCommand, unreadable, traceRead
-	tt := tpmTransmit
+	tt, bv, oh := tpmTransmit, readBTVersion, openHCI
 	return func() {
 		root, geteuid, hostname, uname = r, eu, hn, un
 		ethtoolDrvinfo, readBTInfo, openMgmt, nvmeHealthFn = et, bt, om, nv
 		findSmartctl, runCommand, unreadable, traceRead = fs, rc, dn, tr
-		tpmTransmit = tt
+		tpmTransmit, readBTVersion, openHCI = tt, bv, oh
 	}
 }
