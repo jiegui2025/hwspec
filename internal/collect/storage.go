@@ -79,8 +79,9 @@ func (c *collector) storage() {
 			})
 		}
 		switch {
-		case disk.Type == "optical":
-			// no SMART on optical drives
+		case disk.Type == "optical" || disk.Type == "virtual" || disk.Transport == "mmc":
+			// no SMART on optical drives, virtual (virtio, Xen) disks or
+			// eMMC/SD cards, as root or not (diskHealth)
 		case c.privileged:
 			disk.Health = c.diskHealth(name, disk.Transport)
 		default:

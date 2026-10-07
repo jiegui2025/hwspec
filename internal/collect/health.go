@@ -33,7 +33,7 @@ func (c *collector) diskHealth(name, transport string) *report.Health {
 		}
 		return h
 	}
-	if transport == "mmc" || transport == "virtio" {
+	if transport == "mmc" || transport == "virtio" || transport == "xen" {
 		return nil // no SMART
 	}
 	h, err := smartctlHealth("/dev/" + name)

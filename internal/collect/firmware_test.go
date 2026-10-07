@@ -134,3 +134,112 @@ func TestDiskFirmware(t *testing.T) {
 		t.Errorf("an eMMC without fwrev: %+v", fw)
 	}
 }
+
+// Virtual (virtio, Xen) disks and eMMC/SD cards have no SMART, as root or not, so they
+// don't ask for --full (#143); a SATA disk does.
+func TestNoNeedsRootWarningForDisksWithoutSMART(t *testing.T) {
+	for _, c := range []struct {
+		name, target string
+		warn         bool
+	}{
+		{"vda", "../devices/pci0000:00/0000:00:04.0/virtio1/block/vda", false},
+		{"mmcblk0", "../devices/platform/sdhci/mmc_host/mmc0/mmc0:0001/block/mmcblk0", false},
+		{"xvda", "../devices/vbd-51712/block/xvda", false},
+		{"sda", "../devices/pci0000:00/0000:00:17.0/ata1/host0/target0:0:0/0:0:0:0/block/sda", true},
+	} {
+		file, link := fakeRoot(t)
+		asMachine(t, "x86_64", 1000)
+		dev := "/sys/" + strings.TrimPrefix(c.target, "../")
+		file(dev+"/size", "2000")
+		link("/sys/block/"+c.name, c.target)
+		link(dev+"/device", "../..")
+		col := &collector{r: &report.Report{}}
+		col.storage()
+		if got := hasWarning(col.r, "drive health (SMART): needs root"); got != c.warn {
+			t.Errorf("%s: needs-root warning %v, want %v (%q)", c.name, got, c.warn, col.r.Warnings)
+		}
+	}
+}
+
+// An NVMe drive's unset temperature limits (0xFFFF K, 65261.85 °C) aren't
+// limits (#143); real ones, and other kinds' limits, are kept.
+func TestUnsetTemperatureLimits(t *testing.T) {
+	file, link := fakeRoot(t)
+	hw := "/sys/devices/pci0000:00/0000:00:1b.0/0000:01:00.0/nvme/nvme0/hwmon1"
+	link("/sys/class/hwmon/hwmon1", "../../devices/pci0000:00/0000:00:1b.0/0000:01:00.0/nvme/nvme0/hwmon1")
+	file(hw+"/name", "nvme")
+	file(hw+"/temp1_input", "38850")
+	file(hw+"/temp1_max", "84850")
+	file(hw+"/temp1_crit", "84850")
+	file(hw+"/temp2_input", "38850")
+	file(hw+"/temp2_max", "65261850")
+	file(hw+"/temp2_crit", "65261850")
+	file(hw+"/temp3_input", "38850")
+	file(hw+"/temp3_max", "65261849")
+	file(hw+"/power1_input", "5000000")
+	file(hw+"/power1_max", "65261850000") // 65261.85 kW is a power limit, if an odd one
+	c := &collector{r: &report.Report{}}
+	c.sensors()
+	if len(c.r.Sensors) != 1 {
+		t.Fatalf("sensors %+v", c.r.Sensors)
+	}
+	got := map[string]report.SensorReading{}
+	for _, r := range c.r.Sensors[0].Readings {
+		got[r.Label] = r
+	}
+	if r := got["temp1"]; r.Max != 84.85 || r.Crit != 84.85 {
+		t.Errorf("set limits: %+v", r)
+	}
+	if r := got["temp2"]; r.Max != 0 || r.Crit != 0 {
+		t.Errorf("unset limits: %+v", r)
+	}
+	if r := got["temp3"]; r.Max != 65261.849 {
+		t.Errorf("just below the unset value: %+v", r)
+	}
+	if r := got["power1"]; r.Max != 65261.85 {
+		t.Errorf("not a temperature: %+v", r)
+	}
+}
+
+// A monitor whose EDID fails its checksum keeps only the vendor and
+// product block, with a warning (#143).
+func TestMonitorWithACorruptEDID(t *testing.T) {
+	file, _ := fakeRoot(t)
+	b := make([]byte, 128)
+	copy(b, []byte{0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0})
+	b[8], b[9] = 0x10, 0xAC // DEL
+	b[10], b[11] = 0x98, 0xA1
+	b[16], b[17], b[18], b[19], b[21], b[22] = 38, 30, 1, 4, 60, 34
+	b[127] = 1 // the checksum doesn't add up
+	file("/sys/class/drm/card0-DP-1/status", "connected")
+	file("/sys/class/drm/card0-DP-1/edid", string(b))
+	c := &collector{r: &report.Report{}}
+	c.displays()
+	d := c.r.Displays[0]
+	if d.ManufacturerID != "DEL" || d.Identity == nil || d.Identity.PartNumber != "A198" || d.Identity.ManufactureDate != "2020-W38" ||
+		d.WidthMM != 0 || d.DiagonalIn != 0 || !hasWarning(c.r, "display card0-DP-1: edid: checksum mismatch") {
+		t.Errorf("display %+v (identity %+v), warnings %q", d, d.Identity, c.r.Warnings)
+	}
+}
+
+// Any EDID it can't read is said, not dropped silently (#143): here a
+// manufacturer ID with a letter outside A-Z.
+func TestMonitorWithAnUnreadableEDID(t *testing.T) {
+	file, _ := fakeRoot(t)
+	b := make([]byte, 128)
+	copy(b, []byte{0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0})
+	b[8], b[9] = 0x7C, 0x21 // a first letter of 31
+	var sum byte
+	for _, v := range b[:127] {
+		sum += v
+	}
+	b[127] = -sum
+	file("/sys/class/drm/card0-DP-1/status", "connected")
+	file("/sys/class/drm/card0-DP-1/edid", string(b))
+	c := &collector{r: &report.Report{}}
+	c.displays()
+	if d := c.r.Displays[0]; d.ManufacturerID != "" || d.Identity != nil ||
+		!hasWarning(c.r, "display card0-DP-1: edid: manufacturer ID 0x7c21 isn't three letters") {
+		t.Errorf("display %+v, warnings %q", d, c.r.Warnings)
+	}
+}

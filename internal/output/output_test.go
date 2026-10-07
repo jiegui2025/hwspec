@@ -532,3 +532,19 @@ func TestTextShowsUnknownFirmwareWithTheReason(t *testing.T) {
 		t.Errorf("an unknown version shown as empty:\n%s", out)
 	}
 }
+
+// A capture without its time or OS fields says "unknown", not a zero date
+// or empty commas (#143).
+func TestTextUnknownTimeAndOS(t *testing.T) {
+	r := sample()
+	r.CapturedAt = time.Time{}
+	r.OS.PrettyName, r.OS.Kernel, r.OS.Arch = "", "", ""
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "captured unknown") || strings.Contains(out, "0001-01-01") || !strings.Contains(out, "unknown, kernel unknown (unknown, ") {
+		t.Errorf("%s", out)
+	}
+}

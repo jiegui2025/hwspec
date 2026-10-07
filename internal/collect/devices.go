@@ -310,6 +310,16 @@ func round(v float64, places int) float64 {
 
 var hwmonInput = regexp.MustCompile(`^(temp|fan|in|power|curr)(\d+)_(input|average)$`)
 
+// nvmeUnsetMilliC is an NVMe temperature threshold the drive leaves unset:
+// 0xFFFF K, which the kernel's nvme hwmon driver reports as 65261.85 °C
+// (drivers/nvme/host/hwmon.c converts kelvin to millidegrees).
+const nvmeUnsetMilliC = (0xFFFF*100 - 27315) * 10
+
+// unsetThreshold says a temperature limit is "not set", not a limit.
+func unsetThreshold(kind string, v int64) bool {
+	return kind == "temp" && v >= nvmeUnsetMilliC
+}
+
 // sensors takes one reading of every hwmon sensor.
 func (c *collector) sensors() {
 	c.r.Sensors = []report.Sensor{}
@@ -348,10 +358,10 @@ func (c *collector) sensors() {
 				r.Kind, r.Unit, scale = "current", "A", 1000
 			}
 			r.Value = round(float64(raw)/scale, 3)
-			if v, ok := readInt(prefix + "max"); ok {
+			if v, ok := readInt(prefix + "max"); ok && !unsetThreshold(m[1], v) {
 				r.Max = round(float64(v)/scale, 3)
 			}
-			if v, ok := readInt(prefix + "crit"); ok {
+			if v, ok := readInt(prefix + "crit"); ok && !unsetThreshold(m[1], v) {
 				r.Crit = round(float64(v)/scale, 3)
 			}
 			s.Readings = append(s.Readings, r)

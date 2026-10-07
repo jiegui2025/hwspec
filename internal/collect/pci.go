@@ -336,7 +336,11 @@ func (c *collector) displays() {
 		disp := report.Display{Connector: conn}
 		raw, err := readFile("/sys/class/drm/" + conn + "/edid")
 		if err == nil && len(raw) > 0 {
-			if e, err := edid.Parse(raw); err == nil {
+			e, err := edid.Parse(raw)
+			if err != nil { // with ErrChecksum, e is the vendor and product block
+				c.warn("display %s: %v", conn, err)
+			}
+			if e != nil {
 				disp.ManufacturerID = e.ManufacturerID
 				id := &report.Identity{
 					Model:      e.Name,
@@ -358,8 +362,6 @@ func (c *collector) displays() {
 				disp.NativeWidth, disp.NativeHeight = e.NativeWidth, e.NativeHeight
 				disp.NativeRefreshHz = e.NativeRefreshHz
 				disp.EDIDVersion = e.Version
-			} else {
-				c.warn("display %s: %v", conn, err)
 			}
 		}
 		c.r.Displays = append(c.r.Displays, disp)

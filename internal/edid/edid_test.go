@@ -1,6 +1,10 @@
 package edid
 
-import "testing"
+import (
+	"errors"
+	"strings"
+	"testing"
+)
 
 // testEDID builds a base block for a 27" 3840x2160@60 Dell monitor.
 func testEDID() []byte {
@@ -26,6 +30,16 @@ func testEDID() []byte {
 	serial := b[90:108]
 	serial[3] = 0xFF
 	copy(serial[5:], "ABC1234\n     ")
+	return withChecksum(b)
+}
+
+// withChecksum sets the last byte so the block sums to zero.
+func withChecksum(b []byte) []byte {
+	var sum byte
+	for _, v := range b[:127] {
+		sum += v
+	}
+	b[127] = -sum
 	return b
 }
 
@@ -71,5 +85,25 @@ func TestParseRejectsGarbage(t *testing.T) {
 func TestNoSizeMeansNoDiagonal(t *testing.T) {
 	if d := (&Info{WidthMM: 0, HeightMM: 340}).DiagonalInches(); d != 0 {
 		t.Errorf("diagonal = %v", d)
+	}
+}
+
+// A block that fails its checksum gives only the vendor and product
+// block, and ErrChecksum; a manufacturer ID that isn't three letters is
+// refused (#143).
+func TestParseChecksumAndManufacturer(t *testing.T) {
+	b := testEDID()
+	b[127]++
+	info, err := Parse(b)
+	if !errors.Is(err, ErrChecksum) || info == nil || info.ManufacturerID != "DEL" || info.ProductCode != 0xA198 || info.Year != 2020 ||
+		info.Version != "1.4" || info.Name != "" || info.WidthMM != 0 || info.NativeWidth != 0 || info.SerialText != "" {
+		t.Errorf("%+v, %v", info, err)
+	}
+	for _, id := range []uint16{0x0000, 0x7C00 | 1<<5 | 1, 1<<10 | 0x1B<<5 | 1, 1<<10 | 1<<5 | 0x1F} {
+		b := testEDID()
+		b[8], b[9] = byte(id>>8), byte(id)
+		if _, err := Parse(withChecksum(b)); err == nil || !strings.Contains(err.Error(), "isn't three letters") {
+			t.Errorf("%#04x: %v", id, err)
+		}
 	}
 }
