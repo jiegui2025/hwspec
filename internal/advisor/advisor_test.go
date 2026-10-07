@@ -293,10 +293,20 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 	}
 	a := Advise(Input{Report: r, KB: k, Now: noon})
 	// Firmware load failures need the root-only kernel log (#213): an
-	// unprivileged capture can't be evaluated for them, and says so.
-	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules)-1 || a.RulesSkipped != 1 ||
-		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") {
+	// unprivileged capture can't be evaluated for them, and says so. The
+	// linux-firmware comparisons need the firmware index (#225).
+	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules)-3 || a.RulesSkipped != 3 ||
+		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") ||
+		!slices.Contains(a.Warnings, firmwareIndexMissing) {
 		t.Errorf("findings %+v, warnings %q", a.Findings, a.Warnings)
+	}
+	// Against linux-firmware 20260916, whose WHENCE lists the AX200's
+	// iwlwifi-cc-a0-77.ucode as 74.8dbafb52.0, the loaded 77.8dbafb52.0 is
+	// that build (#225).
+	lf := &LinuxFirmware{Tag: "20260916", FetchedAt: noon, Versions: map[string]string{"iwlwifi-cc-a0-77.ucode": "74.8dbafb52.0"}}
+	a = Advise(Input{Report: r, KB: k, Now: noon, LinuxFirmware: lf})
+	if len(a.Findings) != 2 || a.Findings[1].ID != "firmware.linux-firmware-matches" || a.Findings[1].Device.Key != "0000:02:00.0" || a.RulesSkipped != 1 {
+		t.Errorf("with the index: findings %+v", a.Findings)
 	}
 }
 

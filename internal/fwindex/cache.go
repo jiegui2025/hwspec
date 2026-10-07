@@ -77,6 +77,32 @@ func ReadManifest(dir string) (*Manifest, error) {
 	return &m, nil
 }
 
+// ReadWhence reads linux-firmware's WHENCE from the cache in dir, with
+// its manifest entry: nil without an error when none has been fetched.
+// WHENCE comes over TLS without a signature (ADR 0012), so the check here
+// is that the file is the one the update installed.
+func ReadWhence(dir string) (*Whence, *Source, error) {
+	if dir == "" {
+		return nil, nil, nil // no home directory, so no cache
+	}
+	m, err := ReadManifest(dir)
+	if err != nil || m == nil || m.LinuxFirmware == nil {
+		return nil, nil, err
+	}
+	b, err := os.ReadFile(filepath.Join(dir, WhenceName))
+	if err != nil {
+		return nil, nil, err
+	}
+	if sha(b) != m.LinuxFirmware.Files[WhenceName] {
+		return nil, nil, fmt.Errorf("%s isn't the file the last update installed", WhenceName)
+	}
+	w, err := ParseWhence(b)
+	if err != nil {
+		return nil, nil, err
+	}
+	return w, m.LinuxFirmware, nil
+}
+
 // intact reports whether every file s lists is in dir with its checksum.
 func (s *Source) intact(dir string) bool {
 	if s == nil || len(s.Files) == 0 {

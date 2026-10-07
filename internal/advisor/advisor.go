@@ -191,6 +191,18 @@ type Input struct {
 	State  *State // nil unless Live
 	Live   bool
 	Now    time.Time
+	// LinuxFirmware is linux-firmware's WHENCE at its latest release, from
+	// `hwspec firmware update`'s cache (ADR 0012); nil without one.
+	LinuxFirmware *LinuxFirmware
+}
+
+// LinuxFirmware is what linux-firmware's WHENCE says at one release.
+type LinuxFirmware struct {
+	Tag       string    // the release tag, e.g. "20260916"
+	FetchedAt time.Time // when hwspec last checked it
+	// Versions maps a firmware file, by its path in linux-firmware or a
+	// link's, to the Version WHENCE gives it ("74.8dbafb52.0").
+	Versions map[string]string
 }
 
 // A hit is what a check found about one device: Advise adds the rule's ID,
@@ -219,6 +231,10 @@ type check struct {
 	// check that needs a field only when the machine's entry has data.
 	needs     []string
 	available func(in *Input) bool
+	// unavailable is the warning when available is false, for an input
+	// that isn't the capture's (the firmware index); several rules
+	// needing it give it once.
+	unavailable string
 	// provides names the {placeholders} the check can fill in a rule's
 	// commands.
 	provides []string
@@ -234,6 +250,9 @@ type check struct {
 	// sources and model entries the example needs, if any.
 	example     func() (kb.Rule, *report.Report)
 	exampleData func() ([]kb.Source, []kb.Model)
+	// exampleInput adds what the example needs besides the capture and
+	// the knowledge base (the firmware index).
+	exampleInput func(*Input)
 }
 
 var checks = map[string]check{}
@@ -351,7 +370,12 @@ func Advise(in Input) Advice {
 			a.RulesSkipped++
 			continue
 		case c.available != nil && !c.available(&in):
-			a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s can't evaluate this capture: it needs %s, which the capture doesn't have", rule.ID, strings.Join(c.needs, ", ")))
+			switch {
+			case c.unavailable == "":
+				a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s can't evaluate this capture: it needs %s, which the capture doesn't have", rule.ID, strings.Join(c.needs, ", ")))
+			case !slices.Contains(a.Warnings, c.unavailable):
+				a.Warnings = append(a.Warnings, c.unavailable)
+			}
 			a.RulesSkipped++
 			continue
 		}

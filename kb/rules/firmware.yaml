@@ -1,0 +1,55 @@
+# Firmware (#10): the firmware a machine runs, compared with what its
+# publishers list. Format: ADR 0009, ADR 0012 and kb/README.md. The
+# comparisons need the firmware index `hwspec firmware update` keeps;
+# without it they are skipped with one warning.
+
+sources:
+  linux-firmware-whence:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/tree/WHENCE
+    title: WHENCE (linux-firmware)
+    retrieved: "2026-10-07"
+    licence: "linux-firmware: no licence stated for WHENCE"
+    confidence: upstream-doc
+    link_only: true
+    locator: "each firmware's File:, Link: and Version: lines"
+  kernel-iwlwifi-fw-version:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/intel/iwlwifi/iwl-drv.c?h=v6.17
+    title: iwl-drv.c (Linux kernel, iwlwifi)
+    retrieved: "2026-10-07"
+    licence: GPL-2.0 OR BSD-3-Clause
+    confidence: upstream-doc
+    quote: >-
+      "%u.%08x.%u %s", pieces->major, minor, local_comp,
+      iwl_reduced_fw_name(drv));
+
+rules:
+  - id: firmware.linux-firmware-matches
+    check: linux-firmware-matches
+    category: firmware
+    severity: info
+    title: Firmware is linux-firmware's latest release
+    detail: >-
+      The firmware file the driver loaded is the build linux-firmware's
+      latest release lists for it. Only the build (the eight hex digits)
+      is compared: WHENCE's first number isn't the one the kernel shows.
+    src: [linux-firmware-whence, kernel-iwlwifi-fw-version]
+  - id: firmware.linux-firmware-differs
+    check: linux-firmware-differs
+    category: firmware
+    severity: info
+    title: Firmware differs from linux-firmware's latest release
+    detail: >-
+      The firmware file the driver loaded isn't the build linux-firmware's
+      latest release lists for it. Builds aren't ordered, so this doesn't
+      say which is newer: a distribution package from another release, or
+      a file installed by hand, gives this.
+    actions:
+      - text: >-
+          Distributions package linux-firmware releases: updating the
+          system brings the release your distribution ships, which a
+          reboot (or reloading the driver) puts into use. If it's already
+          current, your distribution ships another release.
+      - distro: arch
+        text: Update the system, then reboot.
+        commands: ["sudo pacman -Syu"]
+    src: [linux-firmware-whence, kernel-iwlwifi-fw-version]

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jiegui2025/hwspec/internal/advisor"
+	"github.com/jiegui2025/hwspec/internal/fwindex"
 	"github.com/jiegui2025/hwspec/internal/ids"
 	"github.com/jiegui2025/hwspec/internal/kb"
 	"github.com/jiegui2025/hwspec/internal/output"
@@ -84,6 +85,10 @@ func (c cli) advise(args []string) error {
 		in.Report = collectReport(fullVersion())
 	}
 	c.warnIDSources()
+	var warn string
+	if in.LinuxFirmware, warn = linuxFirmwareIndex(); warn != "" {
+		warnings = append(warnings, warn)
+	}
 	if file == "" {
 		in.Live = true
 		var warn string
@@ -123,6 +128,32 @@ func (c cli) advise(args []string) error {
 	}
 	fmt.Fprintf(c.stderr, "hwspec: wrote %s (%s, %s, %s)\n", outPath, format, count(len(a.Findings), "finding"), count(len(a.Warnings), "warning"))
 	return nil
+}
+
+// linuxFirmwareIndex is linux-firmware's WHENCE from `hwspec firmware
+// update`'s cache, as the advisor takes it: each file's and link's
+// version. Without one, the advisor says how to get it; one that can't be
+// used gets a warning saying why.
+func linuxFirmwareIndex() (*advisor.LinuxFirmware, string) {
+	w, src, err := fwindex.ReadWhence(fwindex.CacheDir())
+	if err != nil {
+		return nil, fmt.Sprintf("the firmware index can't be used (%v); run `hwspec firmware update` (with --allow-older if it asks)", err)
+	}
+	if w == nil {
+		return nil, ""
+	}
+	versions := map[string]string{}
+	for path, f := range w.Files {
+		if f.Version != "" {
+			versions[path] = f.Version
+		}
+	}
+	for link, target := range w.Links {
+		if v := w.Files[target].Version; v != "" {
+			versions[link] = v
+		}
+	}
+	return &advisor.LinuxFirmware{Tag: src.Tag, FetchedAt: src.FetchedAt, Versions: versions}, ""
 }
 
 // count says "1 finding", "2 findings".

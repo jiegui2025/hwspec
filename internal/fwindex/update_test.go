@@ -2,6 +2,7 @@ package fwindex
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -581,5 +582,49 @@ func TestUpdateJudgesTheCatalogueBySigningTime(t *testing.T) {
 	res, err = Update(context.Background(), frozen)
 	if err != nil || res[0].Status != Unchanged || !strings.Contains(res[0].Warning, "10 days ago") || !res[0].Date.Equal(testNow.Add(-time.Hour)) {
 		t.Errorf("a CDN answering 304 for 10 days: %+v, %v", res[0], err)
+	}
+}
+
+// The cached WHENCE is read back only as the last update installed it.
+func TestReadWhence(t *testing.T) {
+	dir := t.TempDir()
+	// Without a home there is no cache, not one in the working directory.
+	t.Chdir(dir)
+	write(t, manifestName, []byte("{"))
+	if w, s, err := ReadWhence(""); w != nil || s != nil || err != nil {
+		t.Errorf("no cache directory: %v %v %v", w, s, err)
+	}
+	dir = t.TempDir()
+	if w, _, err := ReadWhence(dir); w != nil || err != nil {
+		t.Errorf("nothing cached: %v %v", w, err)
+	}
+	m := newMirror(t)
+	if _, err := Update(context.Background(), m.options(dir)); err != nil {
+		t.Fatal(err)
+	}
+	w, src, err := ReadWhence(dir)
+	if err != nil || src.Tag != "20260916" || w.Files["intel/fw-1199.bin"].Version != "77.563a6e92.0" {
+		t.Fatalf("cached: %v, %+v, %v", w != nil, src, err)
+	}
+	write(t, filepath.Join(dir, WhenceName), whenceText(1201))
+	if _, _, err := ReadWhence(dir); !contains(err, "isn't the file the last update installed") {
+		t.Errorf("edited: %v", err)
+	}
+	short := whenceText(5)
+	write(t, filepath.Join(dir, WhenceName), short)
+	man, _ := ReadManifest(dir)
+	man.LinuxFirmware.Files[WhenceName] = sha(short)
+	js, _ := json.Marshal(man)
+	write(t, filepath.Join(dir, manifestName), js)
+	if _, _, err := ReadWhence(dir); !contains(err, "lists 5 files") {
+		t.Errorf("unparsable: %v", err)
+	}
+	os.Remove(filepath.Join(dir, WhenceName))
+	if _, _, err := ReadWhence(dir); err == nil {
+		t.Error("missing file: no error")
+	}
+	write(t, filepath.Join(dir, manifestName), []byte("{"))
+	if _, _, err := ReadWhence(dir); err == nil {
+		t.Error("unreadable manifest: no error")
 	}
 }
