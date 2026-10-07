@@ -201,7 +201,7 @@ Dependabot opens weekly update PRs; they follow the same flow (review, then reba
 
 ## ID databases
 
-`make update-ids` refreshes the copies embedded in the binary (do this before a release). The weekly [ids workflow](.github/workflows/ids.yml) publishes the signed bundle that `hwspec ids update` installs:
+`make update-ids` refreshes the copies embedded in the binary (do this before a release: the release workflow refuses embedded databases whose manifest `generated_at` is more than 45 days old, and an unchanged upstream still moves that date, recording the check). The weekly [ids workflow](.github/workflows/ids.yml) publishes the signed bundle that `hwspec ids update` installs:
 
 ```mermaid
 flowchart LR
@@ -232,7 +232,7 @@ flowchart LR
 
 | Step | Detail |
 |---|---|
-| Refresh the ID databases | `make update-ids`, then merge through a PR |
+| Refresh the ID databases | `make update-ids`, then merge through a PR. The release's `checks` job runs `genids fresh internal/ids/data 45` and fails, before asking for approval, if they're older than 45 days |
 | Release candidate first | tag `vX.Y.Z-rc.N` on `main`; tags with a `-` publish as **pre-releases**, never as Latest |
 | Checks before approval | a `checks` job without write permissions refuses a tag that isn't on `main`, or whose commit has no passing `ci-ok`, and runs govulncheck. Tag after `main`'s CI run for that commit has finished: a tag pushed earlier fails `checks` (safe; re-run the job once `ci-ok` is green). The release job then builds, signs and publishes without running the tests, which CI ran on that commit, and without keeping git credentials |
 | Approve | the release job runs in the `production` environment: it waits until the owner approves it in the run's page; only `v*` tags may deploy there |

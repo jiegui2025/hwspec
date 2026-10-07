@@ -55,6 +55,10 @@ jobs:
           go-version: stable
           cache: false
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      # A release mustn't ship months-old offline ID data (#17): make
+      # update-ids refreshes it. 45 days allows for a missed refresh.
+      - name: The embedded ID databases are recent
+        run: go run ./tools/genids fresh internal/ids/data 45
 
   release:
     needs: checks
