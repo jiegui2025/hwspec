@@ -135,8 +135,14 @@ func TestIntelUCFirmware(t *testing.T) {
 		col := &collector{r: &report.Report{}, privileged: true}
 		g := gpu("0000:00:02.0", "i915")
 		col.intelUCFirmware(g)
+		if g.FirmwareComponents != nil || strings.Join(col.r.Warnings, "\n") != "gpu 0000:00:02.0: debugfs isn't mounted (/sys/kernel/debug/dri/ is missing): GuC and HuC can't be read" {
+			t.Errorf("not mounted: %+v, warnings %q", g.FirmwareComponents, col.r.Warnings)
+		}
+		file("/sys/kernel/debug/dri/0000:00:02.0/name", "i915") // mounted, but no gt*/uc
+		col = &collector{r: &report.Report{}, privileged: true}
+		col.intelUCFirmware(g)
 		if g.FirmwareComponents != nil || !strings.Contains(strings.Join(col.r.Warnings, "\n"), "has no gt*/uc: GuC and HuC can't be read") {
-			t.Errorf("%+v, warnings %q", g.FirmwareComponents, col.r.Warnings)
+			t.Errorf("mounted: %+v, warnings %q", g.FirmwareComponents, col.r.Warnings)
 		}
 		file("/sys/kernel/debug/dri/0000:00:02.0/gt0/uc/guc_info/x", "") // a directory: can't be read
 		file("/sys/kernel/debug/dri/0000:00:02.0/gt0/uc/huc_info", i915HuC)
