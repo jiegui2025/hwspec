@@ -136,6 +136,7 @@ func CollectRecorded(dir, version string) (*report.Report, error) {
 		return nil, errors.New("not recorded")
 	}
 	nvmeHealthFn = func(string) (*report.Health, error) { return nil, errors.New("not recorded") }
+	tpmTransmit = func(string, []byte) ([]byte, error) { return nil, errors.New("not recorded") }
 	findSmartctl = func() string { return "" }
 	return collectNow(version), nil
 }

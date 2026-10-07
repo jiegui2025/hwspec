@@ -1,7 +1,10 @@
 package collect
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,6 +17,7 @@ import (
 
 	"github.com/jiegui2025/hwspec/internal/report"
 	"github.com/jiegui2025/hwspec/internal/spd"
+	"github.com/jiegui2025/hwspec/internal/tpm"
 )
 
 // fakeRoot points the collectors at an empty temporary tree and returns
@@ -798,45 +802,72 @@ func TestTPMSpecVersion(t *testing.T) {
 	}
 }
 
-// A TPM 2.0's firmware version is in udev's tpm2_id record (readable by
-// anyone), a TPM 1.2's in the kernel's caps file; without them, the block
+// recordedTPMReply is the reference machine's TPM's reply to tpm.Command
+// (internal/tpm's test explains it).
+const recordedTPMReply = "800100000053000000000100000006000000080000010549465800000001065" +
+	"34c423900000107363730000000010800000000000001090000000000000" +
+	"10a000000000000010b000700550000010c0011cb00"
+
+// A TPM 2.0's firmware version comes from the TPM itself under --full,
+// and otherwise from udev's tpm2_id record (readable by anyone), written
+// alike; a TPM 1.2's from the kernel's caps file. Without them, the block
 // says why.
 func TestTPMFirmware(t *testing.T) {
+	reply, _ := hex.DecodeString(recordedTPMReply)
+	answers := func(node string, cmd []byte) ([]byte, error) {
+		if node != "/dev/tpmrm0" || !bytes.Equal(cmd, tpm.Command()) {
+			return nil, fmt.Errorf("asked %s % x", node, cmd)
+		}
+		return reply, nil
+	}
+	fails := func(string, []byte) ([]byte, error) { return nil, os.ErrPermission }
+	record := func(f func(string, string)) {
+		f("/sys/class/tpm/tpm0/tpm_version_major", "2")
+		f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
+		f("/run/udev/data/c252:65536", "E:ID_TPM2_VENDOR_STRING=SLB9670\nE:ID_TPM2_MODALIAS=fi2.0:lv0:rv1.38:sy2018:sd8:mfIFX:vsSLB9670:ty0:fw7.85.1166080:\n")
+	}
+	noRecord := func(f func(string, string)) {
+		f("/sys/class/tpm/tpm0/tpm_version_major", "2")
+		f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
+	}
 	for _, c := range []struct {
-		name  string
-		setup func(file func(string, string))
-		want  string
+		name       string
+		setup      func(file func(string, string))
+		privileged bool
+		transmit   func(string, []byte) ([]byte, error)
+		want, warn string
 	}{
-		{"tpm2 from udev", func(f func(string, string)) {
-			f("/sys/class/tpm/tpm0/tpm_version_major", "2")
-			f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
-			f("/run/udev/data/c252:65536", "E:ID_TPM2_VENDOR_STRING=SLB9670\nE:ID_TPM2_MODALIAS=fi2.0:lv0:rv1.38:sy2018:sd8:mfIFX:vsSLB9670:ty0:fw7.85.1166080:\n")
-		}, "IFX 7.85.1166080 udev"},
-		{"tpm2 without the record", func(f func(string, string)) {
-			f("/sys/class/tpm/tpm0/tpm_version_major", "2")
-			f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
-		}, "unknown: udev didn't record it, and hwspec doesn't query the TPM yet"},
-		{"tpm2 record without fw", func(f func(string, string)) {
-			f("/sys/class/tpm/tpm0/tpm_version_major", "2")
-			f("/sys/class/tpmrm/tpmrm0/dev", "252:65536")
+		{name: "tpm2 asked under --full", setup: noRecord, privileged: true, transmit: answers, want: "IFX 7.85.1166080 tpm"},
+		{name: "tpm2 asked, and udev agrees", setup: record, privileged: true, transmit: answers, want: "IFX 7.85.1166080 tpm"},
+		{name: "tpm2 doesn't answer: udev", setup: record, privileged: true, transmit: fails, want: "IFX 7.85.1166080 udev",
+			warn: "tpm: asking /dev/tpmrm0 for its firmware version: permission denied"},
+		{name: "tpm2 answers badly, no record", setup: noRecord, privileged: true,
+			transmit: func(string, []byte) ([]byte, error) { return reply[:20], nil },
+			want:     "unknown: the TPM didn't give it, and udev didn't record it", warn: "reply says 83 bytes, has 20"},
+		{name: "tpm2 from udev", setup: record, transmit: answers, want: "IFX 7.85.1166080 udev"},
+		{name: "tpm2 without the record", setup: noRecord, transmit: answers, want: "unknown: udev didn't record it; asking the TPM needs --full"},
+		{name: "tpm2 record without fw", setup: func(f func(string, string)) {
+			noRecord(f)
 			f("/run/udev/data/c252:65536", "E:ID_TPM2_MODALIAS=fi2.0:mfIFX:\n")
-		}, "unknown: udev didn't record it, and hwspec doesn't query the TPM yet"},
-		{"tpm1.2 caps", func(f func(string, string)) {
+		}, want: "unknown: udev didn't record it; asking the TPM needs --full"},
+		{name: "tpm1.2 caps", setup: func(f func(string, string)) {
 			f("/sys/class/tpm/tpm0/tpm_version_major", "1")
 			f("/sys/class/tpm/tpm0/caps", "Manufacturer: 0x53544d20\nTCG version: 1.2\nFirmware version: 13.12\n")
-		}, " 13.12 caps"},
-		{"tpm1.2 caps without it", func(f func(string, string)) {
+		}, privileged: true, transmit: fails, want: " 13.12 caps"},
+		{name: "tpm1.2 caps without it", setup: func(f func(string, string)) {
 			f("/sys/class/tpm/tpm0/tpm_version_major", "1")
 			f("/sys/class/tpm/tpm0/caps", "Manufacturer: 0x53544d20\nFirmware version: \n")
-		}, "unknown: the TPM 1.2 caps file gives no firmware version"},
-		{"tpm1.2 without caps", func(f func(string, string)) {
+		}, want: "unknown: the TPM 1.2 caps file gives no firmware version"},
+		{name: "tpm1.2 without caps", setup: func(f func(string, string)) {
 			f("/sys/class/tpm/tpm0/tpm_version_major", "1")
-		}, "unknown: the TPM 1.2 caps file can't be read"},
+		}, want: "unknown: the TPM 1.2 caps file can't be read"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			file, _ := fakeRoot(t)
 			c.setup(file)
-			col := &collector{r: &report.Report{}}
+			defer saveHooks()()
+			tpmTransmit = c.transmit
+			col := &collector{r: &report.Report{}, privileged: c.privileged}
 			col.platformFirmware()
 			got := ""
 			switch fw := col.r.TPM.Firmware; {
@@ -848,7 +879,29 @@ func TestTPMFirmware(t *testing.T) {
 			if got != c.want {
 				t.Errorf("tpm firmware %q, want %q", got, c.want)
 			}
+			if w := strings.Join(col.r.Warnings, "\n"); c.warn == "" && w != "" || !strings.Contains(w, c.warn) {
+				t.Errorf("warnings %q, want %q", w, c.warn)
+			}
 		})
+	}
+}
+
+// The real device seam: a node that isn't a TPM can't be asked.
+func TestTPMTransmitErrors(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := tpmTransmit(dir+"/missing", tpm.Command()); !os.IsNotExist(err) {
+		t.Errorf("missing node: %v", err)
+	}
+	if _, err := tpmTransmit(dir, tpm.Command()); err == nil {
+		t.Error("a directory answered")
+	}
+	empty := dir + "/empty"
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// A regular file takes the command, then reads back nothing: EOF.
+	if _, err := tpmTransmit(empty, tpm.Command()); err == nil {
+		t.Error("an empty file answered")
 	}
 }
 

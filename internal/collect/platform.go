@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/jiegui2025/hwspec/internal/report"
+	"github.com/jiegui2025/hwspec/internal/tpm"
 )
 
 // platformFirmware records the Intel Management Engine's firmware and the
@@ -86,18 +87,19 @@ func (c *collector) tpm() *report.TPM {
 			c.warn("tpm: unexpected tpm_version_major %q", text)
 			continue
 		}
-		return &report.TPM{SpecVersionMajor: major, Firmware: tpmFirmware(dev, major)}
+		return &report.TPM{SpecVersionMajor: major, Firmware: c.tpmFirmware(dev, major)}
 	}
 	return nil
 }
 
-// tpmFirmware reads a TPM's firmware version where the system already
-// recorded it for everyone to read: for TPM 2.0, udev's tpm2_id (systemd)
-// in the resource manager device's record, ID_TPM2_MODALIAS "…:mfIFX:…:
-// fw7.85.1166080:", as it gives it; for TPM 1.2, the kernel's caps file,
-// "Firmware version: 6.40". hwspec doesn't query the TPM itself yet
-// (#122).
-func tpmFirmware(dev string, major int) *report.Firmware {
+// tpmFirmware reads a TPM's manufacturer and firmware version. A TPM 2.0
+// is asked under --full (#122: one TPM2_GetCapability through the kernel's
+// resource manager, /dev/tpmrm0); otherwise, or if it doesn't answer,
+// udev's tpm2_id (systemd) record of the same answer is read, which
+// everyone can: ID_TPM2_MODALIAS "…:mfIFX:…:fw7.85.1166080:". Both write
+// the version alike (tpm.Info.FirmwareVersion). For a TPM 1.2, the
+// kernel's caps file: "Firmware version: 6.40".
+func (c *collector) tpmFirmware(dev string, major int) *report.Firmware {
 	if major == 1 {
 		caps, err := readStrErr("/sys/class/tpm/" + dev + "/caps")
 		if err != nil {
@@ -112,7 +114,15 @@ func tpmFirmware(dev string, major int) *report.Firmware {
 		}
 		return report.UnknownFirmware("the TPM 1.2 caps file gives no firmware version")
 	}
-	props := udevRecord("c", "/sys/class/tpmrm/"+strings.Replace(dev, "tpm", "tpmrm", 1))
+	rm := strings.Replace(dev, "tpm", "tpmrm", 1)
+	if c.privileged {
+		info, err := queryTPM("/dev/" + rm)
+		if err == nil {
+			return &report.Firmware{Vendor: info.Manufacturer, Version: info.FirmwareVersion(), Source: "tpm"}
+		}
+		c.warn("tpm: asking /dev/%s for its firmware version: %v", rm, err)
+	}
+	props := udevRecord("c", "/sys/class/tpmrm/"+rm)
 	var fw *report.Firmware
 	vendor := ""
 	for f := range strings.SplitSeq(props["ID_TPM2_MODALIAS"], ":") {
@@ -123,9 +133,41 @@ func tpmFirmware(dev string, major int) *report.Firmware {
 			vendor = v
 		}
 	}
-	if fw == nil {
-		return report.UnknownFirmware("udev didn't record it, and hwspec doesn't query the TPM yet")
+	switch {
+	case fw == nil && c.privileged:
+		return report.UnknownFirmware("the TPM didn't give it, and udev didn't record it")
+	case fw == nil:
+		return report.UnknownFirmware("udev didn't record it; asking the TPM needs --full")
 	}
 	fw.Vendor = vendor
 	return fw
+}
+
+// queryTPM asks a TPM 2.0 for its manufacturer and firmware version.
+func queryTPM(node string) (tpm.Info, error) {
+	reply, err := tpmTransmit(node, tpm.Command())
+	if err != nil {
+		return tpm.Info{}, err
+	}
+	return tpm.Parse(reply)
+}
+
+// tpmTransmit sends one command to a TPM device and returns its reply: a
+// seam, as the device needs root and a TPM. The kernel's TPM driver bounds
+// how long the read waits.
+var tpmTransmit = func(node string, cmd []byte) ([]byte, error) {
+	f, err := os.OpenFile(node, os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if _, err := f.Write(cmd); err != nil {
+		return nil, err
+	}
+	reply := make([]byte, 4096) // the kernel's TPM_BUFSIZE (include/linux/tpm_command.h): no reply is longer
+	n, err := f.Read(reply)
+	if err != nil {
+		return nil, err
+	}
+	return reply[:n], nil
 }
