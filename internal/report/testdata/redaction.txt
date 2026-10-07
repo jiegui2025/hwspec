@@ -252,6 +252,7 @@ displays[].identity.serial                        redacted
 displays[].identity.revision                      kept
 displays[].identity.manufacture_date              month
 displays[].identity.manufacture_date_source       kept
+displays[].best_mode                              kept
 network[].name                                    kept  # a name udev derives from the MAC (enx…, wlx…, wwx…) has its hex replaced
 network[].type                                    kept
 network[].mac                                     redacted

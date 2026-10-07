@@ -334,6 +334,7 @@ func (c *collector) displays() {
 			continue
 		}
 		disp := report.Display{Connector: conn}
+		c.displayModes(&disp)
 		raw, err := readFile("/sys/class/drm/" + conn + "/edid")
 		if err == nil && len(raw) > 0 {
 			e, err := edid.Parse(raw)
@@ -366,4 +367,45 @@ func (c *collector) displays() {
 		}
 		c.r.Displays = append(c.r.Displays, disp)
 	}
+}
+
+// displayModes records the largest mode the driver offers a connected
+// display, and how many it offers (#112). sysfs sorts them as the kernel's
+// drm_mode_compare does: the display's preferred mode first, then by area,
+// so the largest is found by area, not taken first. An empty or missing
+// list says nothing; a read error is a warning.
+func (c *collector) displayModes(d *report.Display) {
+	raw, err := readFile("/sys/class/drm/" + d.Connector + "/modes")
+	if errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	if err != nil {
+		c.warn("display %s: modes: %v", d.Connector, err)
+		return
+	}
+	modes := strings.Fields(string(raw))
+	best := 0
+	for _, m := range modes {
+		if a := modeArea(m); a > best {
+			d.BestMode, best = m, a
+		}
+	}
+	if best > 0 {
+		d.ModeCount = len(modes)
+	}
+}
+
+// modeArea is a sysfs mode's pixel area: "3840x2160" or the interlaced
+// "1920x1080i"; 0 for anything else.
+func modeArea(m string) int {
+	w, h, ok := strings.Cut(strings.TrimSuffix(m, "i"), "x")
+	if !ok {
+		return 0
+	}
+	x, err1 := strconv.Atoi(w)
+	y, err2 := strconv.Atoi(h)
+	if err1 != nil || err2 != nil || x <= 0 || y <= 0 {
+		return 0
+	}
+	return x * y
 }

@@ -2152,6 +2152,14 @@
             "type": "string",
             "description": "e.g. \"1.4\""
           },
+          "best_mode": {
+            "type": "string",
+            "description": "BestMode is the largest mode (by area) the driver offers this display on its connector, e.g. \"3840x2160\" (#112). sysfs lists the display's preferred mode first, which isn't always the largest."
+          },
+          "mode_count": {
+            "type": "integer",
+            "description": "ModeCount is how many modes the driver offers it: resolution and timing pairs, so one resolution at several refresh rates counts several times."
+          },
           "model_year": {
             "type": "integer",
             "description": "ModelYear is set instead of a manufacture date when the EDID gives the model year only."

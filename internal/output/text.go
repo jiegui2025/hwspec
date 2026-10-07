@@ -233,7 +233,11 @@ func writeText(w io.Writer, r *report.Report) error {
 			if d.Identity != nil && d.Identity.ManufactureDate != "" {
 				made = "made " + d.Identity.ManufactureDate
 			}
-			line("Display", "%s", withParts(s, made, d.Connector))
+			offers := ""
+			if d.BestMode != "" {
+				offers = fmt.Sprintf("output offers up to %s (%d modes)", strings.Replace(d.BestMode, "x", "×", 1), d.ModeCount)
+			}
+			line("Display", "%s", withParts(s, made, offers, d.Connector))
 		}
 	}
 

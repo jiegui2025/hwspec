@@ -940,3 +940,61 @@ func TestMemorySlotUsage(t *testing.T) {
 		})
 	}
 }
+
+// The best mode a connector offers its display, and how many (#112): read
+// only for connected displays; an empty or missing list says nothing; a
+// read error is a warning.
+func TestDisplayModes(t *testing.T) {
+	file, _ := fakeRoot(t)
+	file("/sys/class/drm/card0-DP-1/status", "connected")
+	// The preferred mode first, as drm_mode_compare sorts: not the largest.
+	file("/sys/class/drm/card0-DP-1/modes", "1920x1080\n3840x2160\n3840x2160\n2560x1440\n1920x1080i\nbogus\n")
+	file("/sys/class/drm/card0-DP-6/status", "connected")
+	file("/sys/class/drm/card0-DP-6/modes", "1920x1080i\n720x480\n")
+	// Equal areas: the first listed, which the kernel sorts as better.
+	file("/sys/class/drm/card0-DP-7/status", "connected")
+	file("/sys/class/drm/card0-DP-7/modes", "1920x1080\n1920x1080i\n")
+	file("/sys/class/drm/card0-DP-8/status", "connected")
+	file("/sys/class/drm/card0-DP-8/modes", "bogus\n")
+	file("/sys/class/drm/card0-DP-2/status", "connected")
+	file("/sys/class/drm/card0-DP-2/modes", "")
+	file("/sys/class/drm/card0-DP-3/status", "connected")
+	file("/sys/class/drm/card0-DP-4/status", "disconnected")
+	file("/sys/class/drm/card0-DP-4/modes", "1024x768\n")
+	file("/sys/class/drm/card0-DP-5/status", "connected")
+	unreadable = map[string]error{"/sys/class/drm/card0-DP-5/modes": syscall.EIO}
+	c := &collector{r: &report.Report{}}
+	c.displays()
+	got := map[string]report.Display{}
+	for _, d := range c.r.Displays {
+		got[d.Connector] = d
+	}
+	if d := got["card0-DP-1"]; d.BestMode != "3840x2160" || d.ModeCount != 6 {
+		t.Errorf("DP-1: %+v", d)
+	}
+	if d := got["card0-DP-6"]; d.BestMode != "1920x1080i" || d.ModeCount != 2 {
+		t.Errorf("DP-6, interlaced the largest: %+v", d)
+	}
+	if d := got["card0-DP-7"]; d.BestMode != "1920x1080" {
+		t.Errorf("DP-7, equal areas: %+v", d)
+	}
+	for _, conn := range []string{"card0-DP-2", "card0-DP-3", "card0-DP-5", "card0-DP-8"} {
+		if d := got[conn]; d.BestMode != "" || d.ModeCount != 0 {
+			t.Errorf("%s: %+v", conn, d)
+		}
+	}
+	if _, ok := got["card0-DP-4"]; ok {
+		t.Error("a disconnected connector is listed")
+	}
+	if len(c.r.Warnings) != 1 || !hasWarning(c.r, "display card0-DP-5: modes: ") {
+		t.Errorf("warnings %q", c.r.Warnings)
+	}
+}
+
+func TestModeArea(t *testing.T) {
+	for m, want := range map[string]int{"3840x2160": 8294400, "1920x1080i": 2073600, "x1080": 0, "1920x": 0, "0x10": 0, "-1x10": 0, "1920": 0, "": 0} {
+		if got := modeArea(m); got != want {
+			t.Errorf("modeArea(%q) = %d, want %d", m, got, want)
+		}
+	}
+}
