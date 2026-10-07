@@ -26,7 +26,6 @@ import (
 	"github.com/jiegui2025/hwspec/internal/kb"
 	"github.com/jiegui2025/hwspec/internal/output"
 	"github.com/jiegui2025/hwspec/internal/report"
-	"github.com/jiegui2025/hwspec/internal/resolve"
 )
 
 // Seams for tests.
@@ -64,12 +63,8 @@ func (c cli) advise(args []string) error {
 	in := advisor.Input{KB: k, Now: now()}
 	switch {
 	case file != "":
-		data, err := c.readInput(file)
-		if err != nil {
+		if in.Report, _, err = c.loadCapture(file); err != nil {
 			return err
-		}
-		if in.Report, err = output.Read(data); err != nil {
-			return fmt.Errorf("%s: %w", file, err)
 		}
 		// A newer format may have renamed what the checks read: advice
 		// from it could be wrong, not just incomplete.
@@ -78,13 +73,10 @@ func (c cli) advise(args []string) error {
 				file, in.Report.SchemaVersion, report.SchemaVersion)
 		}
 		warnings = append(warnings, "advice about a saved capture doesn't use a maintenance record: that belongs to the machine running advise")
-	case full && geteuid() != 0:
-		if in.Report, err = c.captureAsRoot("advise"); err != nil {
+	default:
+		if in.Report, err = c.liveReport(full, "advise"); err != nil {
 			return err
 		}
-		resolve.Names(in.Report)
-	default:
-		in.Report = collectReport(fullVersion())
 	}
 	c.warnIDSources()
 	var warn string
@@ -124,18 +116,14 @@ func (c cli) advise(args []string) error {
 	if err != nil {
 		return err
 	}
-	if outPath == "" || outPath == "-" {
-		_, err = c.stdout.Write(buf.Bytes())
-		return err
-	}
 	// Advice names the machine's devices: as private as an unredacted
 	// capture, even when redacted (the umask can only tighten this).
-	if err := writeFileAtomic(outPath, buf.Bytes(), 0o600); err != nil {
-		return err
-	}
-	fmt.Fprintf(c.stderr, "hwspec: wrote %s (%s, %s, %s)\n", outPath, format, count(len(a.Findings), "finding"), count(len(a.Warnings), "warning"))
-	return nil
+	return c.emit(buf.Bytes(), outPath, 0o600, fmt.Sprintf("%s, %s, %s", format, count(len(a.Findings), "finding"), count(len(a.Warnings), "warning")))
 }
+
+// adviceFormats are the formats advice can be written in; a capture-only
+// format (a future Markdown report, #101) must not silently become text.
+var adviceFormats = []string{"text", "json", "yaml"}
 
 // linuxFirmwareIndex is linux-firmware's WHENCE from `hwspec firmware
 // update`'s cache, as the advisor takes it: each file's and link's
@@ -512,7 +500,3 @@ func knowledgeBase() (k *kb.KB, source string, warnings []string, err error) {
 	}
 	return k, "embedded", nil, nil
 }
-
-// adviceFormats are the formats advice can be written in; a capture-only
-// format (a future Markdown report, #101) must not silently become text.
-var adviceFormats = []string{"text", "json", "yaml"}

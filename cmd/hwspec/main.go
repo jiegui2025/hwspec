@@ -224,21 +224,58 @@ func (c cli) writeReport(r *report.Report, outPath, format string) error {
 	if err := output.Write(&buf, r, format); err != nil {
 		return err
 	}
-	if outPath == "" || outPath == "-" {
-		_, err := c.stdout.Write(buf.Bytes())
-		return err
-	}
 	// Captures hold serial numbers, MAC addresses and the hostname: private
 	// unless redacted for sharing. The umask can only tighten this.
 	mode := os.FileMode(0o600)
 	if r.Redacted {
 		mode = 0o644
 	}
-	if err := writeFileAtomic(outPath, buf.Bytes(), mode); err != nil {
+	return c.emit(buf.Bytes(), outPath, mode, fmt.Sprintf("%s, %d warnings", format, len(r.Warnings)))
+}
+
+// emit writes a command's output to stdout, or to outPath (atomically, with
+// mode) and says on stderr what it wrote.
+func (c cli) emit(data []byte, outPath string, mode os.FileMode, summary string) error {
+	if outPath == "" || outPath == "-" {
+		_, err := c.stdout.Write(data)
 		return err
 	}
-	fmt.Fprintf(c.stderr, "hwspec: wrote %s (%s, %d warnings)\n", outPath, format, len(r.Warnings))
+	if err := writeFileAtomic(outPath, data, mode); err != nil {
+		return err
+	}
+	fmt.Fprintf(c.stderr, "hwspec: wrote %s (%s)\n", outPath, summary)
 	return nil
+}
+
+// liveReport captures this machine. With full as a user, hwspec re-runs
+// itself as root through pkexec (cmd tells the child which command asked)
+// and names the devices again with this user's overrides; the root child
+// used root's.
+func (c cli) liveReport(full bool, cmd string) (*report.Report, error) {
+	if full && geteuid() != 0 {
+		r, err := c.captureAsRoot(cmd)
+		if err != nil {
+			return nil, err
+		}
+		resolve.Names(r)
+		return r, nil
+	}
+	return collectReport(fullVersion()), nil
+}
+
+// loadCapture reads and decodes a saved capture ("-" is stdin) and returns
+// the raw input too. A newer schema is each caller's call: show warns,
+// advise refuses.
+func (c cli) loadCapture(file string) (*report.Report, []byte, error) {
+	data, err := c.readInput(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	r, err := output.Read(data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", file, err)
+	}
+	return r, data, nil
 }
 
 // writeFileAtomic writes to a temporary file next to path and renames it
@@ -493,17 +530,9 @@ func (c cli) capture(args []string) error {
 	if err != nil {
 		return err
 	}
-
-	var r *report.Report
-	if full && geteuid() != 0 {
-		if r, err = c.captureAsRoot("capture"); err != nil {
-			return err
-		}
-		// The root child named devices with root's overrides (if any);
-		// redo it with this user's.
-		resolve.Names(r)
-	} else {
-		r = collectReport(fullVersion())
+	r, err := c.liveReport(full, "capture")
+	if err != nil {
+		return err
 	}
 	c.warnIDSources()
 	if redact {
@@ -573,13 +602,9 @@ func (c cli) show(args []string) error {
 	if err != nil {
 		return err
 	}
-	data, err := c.readInput(file)
+	r, data, err := c.loadCapture(file)
 	if err != nil {
 		return err
-	}
-	r, err := output.Read(data)
-	if err != nil {
-		return fmt.Errorf("%s: %w", file, err)
 	}
 	if r.SchemaVersion > report.SchemaVersion {
 		fmt.Fprintf(c.stderr, "hwspec: %s uses schema %d, newer than this build understands (%d); some fields may be missing\n",
