@@ -132,6 +132,7 @@ func (c *collector) gpus() {
 			g.Identity = &report.Identity{Revision: dev.Identity.Revision}
 		}
 		c.intelUCFirmware(&g)
+		c.amdgpuFirmware(&g)
 		g.VRAMBytes = readUint(pciDir + dev.Address + "/mem_info_vram_total") // amdgpu
 		// Sorted, and the first card only: two cards on one device would
 		// otherwise overwrite each other in map order.
