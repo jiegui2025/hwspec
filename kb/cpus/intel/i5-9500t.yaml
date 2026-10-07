@@ -1,0 +1,30 @@
+# Intel Core i5-9500T, the reference machine's processor: the most its
+# integrated GPU (UHD Graphics 630) drives on each output type (#261, part
+# 4 of #25). Intel publishes these per processor, so they live on the
+# processor's entry: another processor with the same GPU gets its own
+# entry and citation. Intel's pages carry no reuse licence that was
+# found, so they are linked, never quoted.
+
+sources:
+  intel-ark-191052-graphics:
+    url: https://www.intel.com/content/www/us/en/products/sku/191052/intel-core-i59500t-processor-9m-cache-up-to-3-70-ghz/specifications.html
+    title: Intel Core i5-9500T Processor (9M Cache, up to 3.70 GHz) specifications
+    doc: "191052"
+    retrieved: "2026-10-07"
+    licence: "Intel: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "Processor Graphics: Processor Graphics (Intel UHD Graphics 630), Max Resolution (HDMI), Max Resolution (DP), Max Resolution (eDP - Integrated Flat Panel), # of Displays Supported"
+
+cpus:
+  intel.i5-9500t:
+    match: {vendor: intel, processor: i5-9500T}
+    data:
+      display_outputs:
+        outputs:
+          - value:
+              - {type: hdmi, width: 4096, height: 2304, refresh_hz: 24}
+              - {type: dp, width: 4096, height: 2304, refresh_hz: 60}
+              - {type: edp, width: 4096, height: 2304, refresh_hz: 60}
+            src: intel-ark-191052-graphics
+        max_displays: [{value: 3, src: intel-ark-191052-graphics}]

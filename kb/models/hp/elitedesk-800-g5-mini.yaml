@@ -1,5 +1,6 @@
 # HP EliteDesk 800 G5 Desktop Mini (the reference machine): memory (#129,
-# part 2 of #25) and its BIOS, which isn't on LVFS (#227, part 6 of #10).
+# part 2 of #25), its storage, WLAN and display (parts 3 and 4), and its
+# BIOS, which isn't on LVFS (#227, part 6 of #10).
 # Every value cites the page it's on. HP's documents carry
 # no reuse licence that was found, so they are linked, never quoted. Where
 # two documents disagree, both claims are kept.
@@ -82,6 +83,17 @@ sources:
     confidence: oem-doc
     link_only: true
     locator: "p. 25, WLAN module: disconnect both antenna cables; p. 42, Internal WLAN antenna cables (to the front and rear connectors); p. 2, external antenna connector (optional)"
+  hp-ds-2019-12-display:
+    url: https://www8.hp.com/h20195/v2/GetDocument.aspx?docname=4AA7-5436EEAP
+    mirror: https://objects.icecat.biz/objects/mmo_73305915_1576357194_921_21430.pdf
+    title: HP EliteDesk 800 G5 Desktop Mini datasheet
+    doc: 4AA7-5436EEAP
+    published: "2019-12"
+    retrieved: "2026-10-07"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "p. 2, specifications table: Ports and Connectors (Rear: 2 DisplayPort 1.2; Optional: DisplayPort 1.2, HDMI 2.0, VGA, USB Type-C with DisplayPort)"
   hp-sp174287-notes:
     url: https://ftp.hp.com/pub/softpaq/sp174001-174500/sp174287.html
     title: HP BIOS and System Firmware (R21), SoftPaq release notes
@@ -149,6 +161,17 @@ models:
               - {name: "Intel Wi-Fi 6 AX200", generation: "Wi-Fi 6", chains: "2x2"}
               - {name: "Realtek RTL8822BE-CG", generation: "Wi-Fi 5", chains: "2x2"}
             src: hp-ds-2019-12-wlan
+      # The rear ports are fitted; the optional ones are factory options,
+      # so a machine may have none of them.
+      display_ports:
+        ports:
+          - value:
+              - {type: dp, version: "1.2", count: 2}
+              - {type: dp, version: "1.2", count: 1, optional: true}
+              - {type: hdmi, version: "2.0", count: 1, optional: true}
+              - {type: vga, count: 1, optional: true}
+              - {type: usb-c, count: 1, optional: true}
+            src: hp-ds-2019-12-display
       # The latest BIOS HP lists, as read on the retrieved date: HP
       # publishes it only on its own site (not on LVFS, #10), so a newer
       # one may exist; the finding says to check.

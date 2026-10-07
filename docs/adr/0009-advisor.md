@@ -229,7 +229,7 @@ The data #25 needs (what fits a model, a device's maxima, a CPU's limits, vendor
 |---|---|---|---|
 | `models` | system model | `sys_vendor` + `product_name`, optionally `board_name` and `sku` (DMI, as the kernel gives them) | `allowlist`, `chipset`, `cpu_support`, `display_ports`, `form_factor`, `gpu_slot`, `launch`, `memory`, `overclocking`, `parts`, `power`, `rtc_battery`, `storage_slots`, `wlan_slot` |
 | `devices` | PCI or USB device | `bus` + `vendor:device[:subvendor:subdevice]` (lower-case hex) | `display_outputs`, `rated`, `wifi` |
-| `cpus` | CPU model | `vendor` + `processor` (the processor number above) | `launch`, `memory_channels`, `memory_max_gb`, `memory_max_mts`, `memory_types`, `package`, `socket`, `tdp_w`, `unlocked` |
+| `cpus` | CPU model | `vendor` + `processor` (the processor number above) | `display_outputs` (its integrated GPU's, #264), `launch`, `memory_channels`, `memory_max_gb`, `memory_max_mts`, `memory_types`, `package`, `socket`, `tdp_w`, `unlocked` |
 | `allowlists` | vendor firmware policy | `sys_vendor` + any of `product_name` (a list), `family`, `board_name` (a list), optionally `bios_version: {from, to}` (from included, to excluded) | `approved`, `behaviour`, `checks`, `error_text`, `restricted`, `restricts`, `soft` |
 
 | Rule | Detail |

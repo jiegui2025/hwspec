@@ -270,7 +270,7 @@ devices:
   %s.gpu:
     match: {bus: pci, id: "8086:3e92"}
     data:
-      display_outputs: [{value: [{type: dp, max_width: 4096}], src: hp-ds-%s}]
+      display_outputs: {outputs: [{value: [{type: dp, width: 4096, height: 2304, refresh_hz: 60}], src: hp-ds-%s}]}
 cpus:
   %s.cpu:
     match: {vendor: intel, processor: i5-9500T}
@@ -350,6 +350,9 @@ func TestSectionsCompile(t *testing.T) {
 			`data.vendor_firmware: system_bios.latest: version 02.27.00 needs its release date as YYYY-MM-DD (got "")`},
 		"a vendor release without its source": {map[string]string{"m.yaml": strings.Replace(m, "      chipset:", vendorFirmware(`{version: "02.27.00", date: "2026-08-11"}`, "")+"      chipset:", 1)},
 			`vendor_firmware.system_bios.latest: a claim is {value, src}`},
+		// The display check reads a GPU's outputs strictly (#261).
+		"a misspelt GPU output leaf": {map[string]string{"m.yaml": strings.Replace(m, "refresh_hz: 60", "refresh: 60", 1)},
+			`devices entry "hp.mini.gpu": data.display_outputs: json: unknown field "refresh"`},
 		"a vendor family of another form": {map[string]string{"m.yaml": strings.Replace(strings.Replace(m, "      chipset:", vendorFirmware(`{version: "02.27.00", date: "2026-08-11"}`, "hp-ds-hp.mini")+"      chipset:", 1), "value: R21", "value: r21", 1)},
 			`system_bios.family: "r21" isn't a family such as R21`},
 	} {
