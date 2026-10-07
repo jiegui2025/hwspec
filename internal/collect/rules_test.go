@@ -228,3 +228,113 @@ func TestSendsPacketsFindsEachWay(t *testing.T) {
 		}
 	}
 }
+
+// seams lists collect's package-level variables that hold a function (a
+// func literal or type, a package function, or another package's): the
+// hooks tests replace.
+func seams(t *testing.T) []string {
+	t.Helper()
+	fset := token.NewFileSet()
+	names, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files []*ast.File
+	funcs := map[string]bool{}
+	for _, n := range names {
+		if strings.HasSuffix(n, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, n, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files = append(files, f)
+		for _, d := range f.Decls {
+			if fd, ok := d.(*ast.FuncDecl); ok && fd.Recv == nil {
+				funcs[fd.Name.Name] = true
+			}
+		}
+	}
+	var out []string
+	for _, f := range files {
+		imported := map[string]bool{}
+		for _, im := range f.Imports {
+			p, _ := strconv.Unquote(im.Path.Value)
+			name := p[strings.LastIndex(p, "/")+1:]
+			if im.Name != nil {
+				name = im.Name.Name
+			}
+			imported[name] = true
+		}
+		for _, d := range f.Decls {
+			g, ok := d.(*ast.GenDecl)
+			if !ok || g.Tok != token.VAR {
+				continue
+			}
+			for _, s := range g.Specs {
+				vs := s.(*ast.ValueSpec)
+				for i, name := range vs.Names {
+					_, seam := vs.Type.(*ast.FuncType)
+					if i < len(vs.Values) {
+						switch v := vs.Values[i].(type) {
+						case *ast.FuncLit:
+							seam = true
+						case *ast.Ident:
+							seam = funcs[v.Name]
+						case *ast.SelectorExpr:
+							x, ok := v.X.(*ast.Ident)
+							seam = ok && imported[x.Name]
+						}
+					}
+					if seam {
+						out = append(out, name.Name)
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// Every hook a test can replace is saved and restored by saveHooks
+// (#149), so nothing a test or a recording changed leaks into the next
+// capture: a new seam fails here until it's added there.
+func TestSaveHooksCoversEverySeam(t *testing.T) {
+	f, err := parser.ParseFile(token.NewFileSet(), "hooks.go", nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, restored := map[string]bool{}, map[string]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		fd, ok := n.(*ast.FuncDecl)
+		if !ok || fd.Name.Name != "saveHooks" {
+			return true
+		}
+		ast.Inspect(fd.Body, func(n ast.Node) bool {
+			switch n := n.(type) {
+			case *ast.AssignStmt:
+				side, into := n.Rhs, saved // r, eu := root, geteuid
+				if n.Tok == token.ASSIGN {
+					side, into = n.Lhs, restored // root, geteuid = r, eu
+				}
+				for _, e := range side {
+					if id, ok := e.(*ast.Ident); ok {
+						into[id.Name] = true
+					}
+				}
+			}
+			return true
+		})
+		return false
+	})
+	found := seams(t)
+	if len(found) < 10 {
+		t.Fatalf("found only %d seams (%q): the search is broken", len(found), found)
+	}
+	for _, s := range found {
+		if !saved[s] || !restored[s] {
+			t.Errorf("seam %s isn't saved and restored by saveHooks (hooks.go)", s)
+		}
+	}
+}
