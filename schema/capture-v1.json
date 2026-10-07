@@ -3147,6 +3147,202 @@
       },
       "description": "Battery is one of the machine's own batteries (power_supply); peripherals' batteries are left out."
     },
+    "usb_c_ports": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "the kernel's name, e.g. port0"
+          },
+          "location": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "panel": {
+                "type": "string",
+                "description": "top, bottom, left, right, front, back"
+              },
+              "horizontal": {
+                "type": "string",
+                "description": "left, center, right"
+              },
+              "vertical": {
+                "type": "string",
+                "description": "upper, center, lower"
+              },
+              "dock": {
+                "type": "boolean",
+                "description": "on a docking station"
+              },
+              "lid": {
+                "type": "boolean",
+                "description": "on the lid"
+              }
+            },
+            "description": "PortLocation is where a port is on the machine, from the firmware's ACPI _PLD as the kernel gives it (physical_location)."
+          },
+          "power_roles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "PowerRoles are the roles the port supports: source (it powers what's plugged in), sink (it takes power, so it can charge the machine)."
+          },
+          "power_role": {
+            "type": "string",
+            "description": "the role it's in now",
+            "examples": [
+              "source",
+              "sink"
+            ]
+          },
+          "can_charge": {
+            "type": "boolean",
+            "description": "CanCharge is whether the port can take power: it supports sink."
+          },
+          "max_charge_w": {
+            "type": "number",
+            "description": "MaxChargeW is the most power its sink PDOs accept, in watts; absent when it can't charge or the kernel lists no sink PDOs."
+          },
+          "pd_revision": {
+            "type": "string",
+            "description": "USB Power Delivery, e.g. 3.0"
+          },
+          "typec_revision": {
+            "type": "string",
+            "description": "USB Type-C, e.g. 1.3"
+          },
+          "source_pdos": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Type is fixed, variable, battery, pps (programmable) or avs (adjustable voltage).",
+                  "examples": [
+                    "fixed",
+                    "variable",
+                    "battery",
+                    "pps",
+                    "avs"
+                  ]
+                },
+                "min_voltage_mv": {
+                  "type": "integer",
+                  "description": "for a range; a fixed supply's is its voltage"
+                },
+                "max_voltage_mv": {
+                  "type": "integer",
+                  "description": "the highest voltage, in mV; a fixed supply's voltage"
+                },
+                "current_ma": {
+                  "type": "integer",
+                  "description": "CurrentMA is the most current a source offers, or the operating current a sink draws."
+                },
+                "power_mw": {
+                  "type": "integer",
+                  "description": "PowerMW is the power: a battery PDO's own, else voltage × current."
+                }
+              }
+            },
+            "description": "SourcePDOs are what the port offers when it powers a device."
+          },
+          "sink_pdos": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Type is fixed, variable, battery, pps (programmable) or avs (adjustable voltage).",
+                  "examples": [
+                    "fixed",
+                    "variable",
+                    "battery",
+                    "pps",
+                    "avs"
+                  ]
+                },
+                "min_voltage_mv": {
+                  "type": "integer",
+                  "description": "for a range; a fixed supply's is its voltage"
+                },
+                "max_voltage_mv": {
+                  "type": "integer",
+                  "description": "the highest voltage, in mV; a fixed supply's voltage"
+                },
+                "current_ma": {
+                  "type": "integer",
+                  "description": "CurrentMA is the most current a source offers, or the operating current a sink draws."
+                },
+                "power_mw": {
+                  "type": "integer",
+                  "description": "PowerMW is the power: a battery PDO's own, else voltage × current."
+                }
+              }
+            },
+            "description": "SinkPDOs are what the port accepts when it takes power."
+          },
+          "partner_source_pdos": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "description": "Type is fixed, variable, battery, pps (programmable) or avs (adjustable voltage).",
+                  "examples": [
+                    "fixed",
+                    "variable",
+                    "battery",
+                    "pps",
+                    "avs"
+                  ]
+                },
+                "min_voltage_mv": {
+                  "type": "integer",
+                  "description": "for a range; a fixed supply's is its voltage"
+                },
+                "max_voltage_mv": {
+                  "type": "integer",
+                  "description": "the highest voltage, in mV; a fixed supply's voltage"
+                },
+                "current_ma": {
+                  "type": "integer",
+                  "description": "CurrentMA is the most current a source offers, or the operating current a sink draws."
+                },
+                "power_mw": {
+                  "type": "integer",
+                  "description": "PowerMW is the power: a battery PDO's own, else voltage × current."
+                }
+              }
+            },
+            "description": "PartnerSourcePDOs are what a connected charger offers."
+          }
+        }
+      },
+      "description": "USBCPort is a USB Type-C port the kernel's Type-C class manages (a UCSI or TCPM port controller), and whether it can charge the machine (#115). A Type-C connector without a PD controller the kernel sees isn't listed, so there may be more on the chassis."
+    },
     "tpm": {
       "type": [
         "null",

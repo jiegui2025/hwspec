@@ -564,6 +564,32 @@
     }
   ],
   "batteries": [],
+  "usb_c_ports": [
+    {
+      "name": "port0",
+      "location": {
+        "panel": "top",
+        "horizontal": "left",
+        "vertical": "upper"
+      },
+      "power_roles": [
+        "source"
+      ],
+      "power_role": "source",
+      "can_charge": false,
+      "pd_revision": "3.0",
+      "typec_revision": "1.3",
+      "source_pdos": [
+        {
+          "type": "fixed",
+          "min_voltage_mv": 5000,
+          "max_voltage_mv": 5000,
+          "current_ma": 3000,
+          "power_mw": 15000
+        }
+      ]
+    }
+  ],
   "tpm": {
     "spec_version_major": 2,
     "firmware": {

@@ -95,6 +95,7 @@ flowchart LR
 | Network, Wi-Fi, Bluetooth | model, MAC and its vendor; a Wi-Fi radio's generation (Wi-Fi 4 to 7, 6E), bands, antenna chains and spatial streams (nl80211) | via ethtool; Bluetooth: HCI revision and LMP subversion | ✅ | error and drop rates |
 | Audio | card, codec chips | — | ✅ | — |
 | Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |
+| USB-C ports | where each is (ACPI _PLD), its power roles and USB PD / Type-C revisions: **whether it can charge the machine**, and up to how many watts | — | — | what it offers and accepts (PD objects), and what a connected charger offers |
 | PCI and USB devices | IDs, names, serial, revision; the bridge each PCI device sits behind (absent on a root bus); each USB interface's class and modalias | USB device release | ✅ per interface, and the modules that could drive one without a driver | — |
 | Soldered or removable | for memory modules, storage, network, display, audio and wireless devices: onboard, socket or slot (which one when it can tell), or part of the CPU (Intel processor graphics, with the processor's package¹), with the evidence and how sure; the firmware's slot table needs root¹, onboard labels don't | — | — | — |
 

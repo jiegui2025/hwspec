@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -312,6 +313,13 @@ func writeText(w io.Writer, r *report.Report) error {
 			}
 			line(bt.Name, "%s", withParts(s, healthText(bt.Health)))
 			watch("battery "+bt.Name, bt.Health)
+		}
+	}
+
+	if len(r.USBC) > 0 {
+		section("USB-C charging")
+		for _, p := range r.USBC {
+			line(portName(p), "%s", chargeText(p))
 		}
 	}
 
@@ -638,6 +646,42 @@ func mountingText(m *report.Mounting) string {
 	}
 	if m.Confidence == "medium" && m.Reason != "" {
 		s += " (medium confidence; " + m.Reason + ")"
+	}
+	return s
+}
+
+// portName is where a USB-C port is ("top-left", from its location), or
+// its kernel name.
+func portName(p report.USBCPort) string {
+	if l := p.Location; l != nil && l.Panel != "" {
+		where := l.Panel
+		if l.Horizontal != "" && l.Horizontal != "center" {
+			where += "-" + l.Horizontal
+		}
+		return where
+	}
+	return p.Name
+}
+
+// chargeText says whether a USB-C port can charge the machine, and up to
+// how much; and what a connected charger offers.
+func chargeText(p report.USBCPort) string {
+	var s string
+	switch {
+	case p.CanCharge && p.MaxChargeW > 0:
+		s = "charges this machine up to " + trimFloat(p.MaxChargeW) + " W"
+	case p.CanCharge:
+		s = "charges this machine (the kernel lists no limit)"
+	case slices.Contains(p.PowerRoles, report.PowerSource):
+		s = "power out only, can't charge"
+	default:
+		s = "can't charge"
+	}
+	if most := 0; len(p.PartnerSourcePDOs) > 0 {
+		for _, o := range p.PartnerSourcePDOs {
+			most = max(most, o.PowerMW)
+		}
+		s += "; the connected charger offers up to " + trimFloat(float64(most)/1000) + " W"
 	}
 	return s
 }
