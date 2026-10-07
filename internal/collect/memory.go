@@ -133,11 +133,13 @@ func (c *collector) spdModules() {
 	m := &c.r.Memory
 	var found []*spd.Info
 	var where []string
+	exposed := 0
 	for _, drv := range spdDrivers {
 		for _, dev := range list("/sys/bus/i2c/drivers/" + drv) {
 			if !strings.Contains(dev, "-") {
 				continue // bind, unbind, module, uevent
 			}
+			exposed++
 			raw, err := readSPD("/sys/bus/i2c/drivers/" + drv + "/" + dev + "/eeprom")
 			if err != nil {
 				c.warnRead("memory module SPD "+dev, err)
@@ -175,7 +177,50 @@ func (c *collector) spdModules() {
 		used[i] = true
 		applySPD(&m.Modules[i], info)
 	}
+	c.missingSPD(exposed, m.Modules[:smbiosCount], found)
 }
+
+// missingSPD says when the kernel exposed SPD EEPROMs for some modules but
+// not all (#203). The likely cause: it registers them only at 0x50 + n
+// for n below the firmware's slot count, and stops at as many modules as
+// the firmware lists (drivers/i2c/i2c-smbus.c, i2c_register_spd), so a
+// module elsewhere on the bus has no EEPROM device and its maker and
+// manufacture date are missing. With the firmware's module list (--full)
+// the modules that can have an SPD are counted: soldered memory has none.
+// Without it, the SPD modules' total is compared with the usable memory,
+// unless an SPD's size couldn't be decoded. No EEPROM at all says
+// nothing: many platforms expose none.
+func (c *collector) missingSPD(exposed int, firmware []report.MemoryModule, found []*spd.Info) {
+	const why = "a likely cause: the kernel registers SPD EEPROMs only at 0x50 + slot index"
+	switch {
+	case exposed == 0:
+	case len(firmware) > 0:
+		socketed := 0
+		for i := range firmware {
+			if moduleMounting(&firmware[i]).Kind != smbios.MountOnboard {
+				socketed++
+			}
+		}
+		if exposed < socketed {
+			c.warn("memory: the kernel exposed SPD for %d of the %d modules that can have one (%s); the others' manufacture date and DRAM maker are left out", exposed, socketed, why)
+		}
+	case len(found) == exposed:
+		var total uint64
+		for _, info := range found {
+			if info.SizeBytes == 0 {
+				return // a size the SPD didn't give can't be compared
+			}
+			total += info.SizeBytes
+		}
+		if total < c.r.Memory.TotalBytes {
+			c.warn("memory: SPD modules total %s, less than the %s usable: some modules' SPD isn't exposed (%s), so they aren't listed; --full lists every module",
+				gib(total), gib(c.r.Memory.TotalBytes), why)
+		}
+	}
+}
+
+// gib writes a byte count in GiB with one decimal.
+func gib(n uint64) string { return strconv.FormatFloat(float64(n)/(1<<30), 'f', 1, 64) + " GiB" }
 
 // matchModule finds the SMBIOS module an SPD describes: by serial, then by
 // part number when that is unambiguous.
