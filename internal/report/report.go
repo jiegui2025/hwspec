@@ -93,6 +93,17 @@ type Firmware struct {
 	Source string `json:"source,omitempty"`
 	Status string `json:"status,omitempty"` // "unknown" when Version couldn't be read
 	Reason string `json:"reason,omitempty"` // why it's unknown, e.g. "needs --full"
+	// InstanceIDs are the IDs fwupd knows this part by, each with the GUID
+	// LVFS releases name it with (ADR 0012): derived from the part's own
+	// IDs, so a capture can be compared with a firmware catalogue offline.
+	InstanceIDs []InstanceID `json:"instance_ids,omitempty"`
+}
+
+// InstanceID is an fwupd instance ID ("NVME\VEN_144D&DEV_A808") and its
+// GUID: UUID version 5 in the DNS namespace over the ID's text.
+type InstanceID struct {
+	ID   string `json:"id"`
+	GUID string `json:"guid"`
 }
 
 // FirmwareUnknown is Firmware.Status for a version that couldn't be read.
@@ -211,6 +222,28 @@ type System struct {
 	// their own firmware.
 	MEFirmware *Firmware `json:"me_firmware,omitempty"`
 	ECFirmware *Firmware `json:"ec_firmware,omitempty"`
+	// ESRT is the UEFI firmware's EFI System Resource Table: the firmware
+	// it can update by capsule, each by the GUID LVFS releases name.
+	// Absent without UEFI or an ESRT.
+	ESRT *ESRT `json:"esrt,omitempty"`
+}
+
+// ESRT lists the firmware a UEFI machine can update by capsule. Its
+// entries are root-only: without root, Status is "unknown" and Reason says
+// so.
+type ESRT struct {
+	Entries []ESRTEntry `json:"entries,omitempty"`
+	Status  string      `json:"status,omitempty"` // "unknown" when the entries couldn't be read
+	Reason  string      `json:"reason,omitempty"`
+}
+
+// ESRTEntry is one updatable firmware. Versions are the 32-bit numbers the
+// firmware reports, before any vendor format is applied.
+type ESRTEntry struct {
+	FWClass                  string `json:"fw_class"` // the GUID an update names
+	FWType                   string `json:"fw_type"`  // system, device, uefi-driver, unknown
+	FWVersion                uint32 `json:"fw_version"`
+	LowestSupportedFWVersion uint32 `json:"lowest_supported_fw_version"`
 }
 
 // TPM is the machine's Trusted Platform Module.

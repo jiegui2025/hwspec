@@ -159,6 +159,23 @@
             },
             "reason": {
               "type": "string"
+            },
+            "instance_ids": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "guid": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
@@ -191,6 +208,23 @@
             },
             "reason": {
               "type": "string"
+            },
+            "instance_ids": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "guid": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
@@ -217,6 +251,64 @@
             },
             "source": {
               "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "instance_ids": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "guid": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "esrt": {
+          "type": [
+            "null",
+            "object"
+          ],
+          "properties": {
+            "entries": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "fw_class": {
+                    "type": "string"
+                  },
+                  "fw_type": {
+                    "type": "string"
+                  },
+                  "fw_version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "lowest_supported_fw_version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                }
+              }
             },
             "status": {
               "type": "string"
@@ -493,6 +585,23 @@
             },
             "reason": {
               "type": "string"
+            },
+            "instance_ids": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "guid": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         },
@@ -964,6 +1073,23 @@
               },
               "reason": {
                 "type": "string"
+              },
+              "instance_ids": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "guid": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },
@@ -1250,6 +1376,23 @@
               },
               "reason": {
                 "type": "string"
+              },
+              "instance_ids": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "guid": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },
@@ -1284,6 +1427,23 @@
                 },
                 "reason": {
                   "type": "string"
+                },
+                "instance_ids": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "guid": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1498,6 +1658,23 @@
               },
               "reason": {
                 "type": "string"
+              },
+              "instance_ids": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "guid": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },
@@ -1708,6 +1885,23 @@
               },
               "reason": {
                 "type": "string"
+              },
+              "instance_ids": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "guid": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },
@@ -2022,6 +2216,23 @@
             },
             "reason": {
               "type": "string"
+            },
+            "instance_ids": {
+              "type": [
+                "null",
+                "array"
+              ],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "guid": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         }
@@ -2432,6 +2643,23 @@
               },
               "reason": {
                 "type": "string"
+              },
+              "instance_ids": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "guid": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },

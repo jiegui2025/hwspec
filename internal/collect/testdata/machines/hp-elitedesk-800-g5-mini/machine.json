@@ -46,6 +46,7 @@
     "/sys/devices/system/edac/mc",
     "/sys/devices/virtual/net/lo",
     "/sys/firmware/dmi",
+    "/sys/firmware/efi/esrt/entries/entry0",
     "/sys/module/8250_pci",
     "/sys/module/pcieportdrv",
     "/sys/module/usbcore",
@@ -59,6 +60,7 @@
     "/sys/class/dmi/id/product_uuid": 13,
     "/sys/class/hwmon/hwmon6/temp1_input": 61,
     "/sys/class/net/wlan0/speed": 22,
-    "/sys/firmware/dmi/tables/DMI": 13
+    "/sys/firmware/dmi/tables/DMI": 13,
+    "/sys/firmware/efi/esrt/entries/entry0/fw_class": 13
   }
 }

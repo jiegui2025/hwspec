@@ -14,6 +14,7 @@ import (
 // TPM's specification version: both readable without root.
 func (c *collector) platformFirmware() {
 	c.r.System.MEFirmware = c.meFirmware()
+	c.r.System.ESRT = c.esrt()
 	c.r.TPM = c.tpm()
 }
 

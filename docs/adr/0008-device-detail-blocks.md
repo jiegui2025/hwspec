@@ -1,6 +1,6 @@
 # 8. Identity, firmware, driver and health blocks on every device
 
-**Status:** Accepted (2026-10-05) · Issue [#24](https://github.com/jiegui2025/hwspec/issues/24) · amended 2026-10-06: firmware is never silently absent ([#123](https://github.com/jiegui2025/hwspec/issues/123))
+**Status:** Accepted (2026-10-05) · Issue [#24](https://github.com/jiegui2025/hwspec/issues/24) · amended 2026-10-06: firmware is never silently absent ([#123](https://github.com/jiegui2025/hwspec/issues/123)); 2026-10-07: the keys firmware catalogues match a part by ([#224](https://github.com/jiegui2025/hwspec/issues/224))
 
 ## Context
 
@@ -122,3 +122,13 @@ A GPU runs firmware besides its video BIOS: Intel's GuC and HuC microcontrollers
 | Meaning | `gpu.firmware` stays the video BIOS. A component is one microcontroller or block: `{name: "GuC", version: "70.1.1", source: "debugfs"}`; a second GT's is named after it, "GuC (gt1)" |
 | Absent vs unknown | `firmware_components` absent: none were read (no such firmware, or not read: the warnings say why). A listed component without a version says why, like any firmware block |
 | Text output | the components on the GPU's line: "firmware GuC 70.1.1, HuC 4.0.0"; an Intel GPU's "no video BIOS" reason is left out there |
+
+## Amendment (2026-10-07): the keys firmware catalogues match a part by
+
+Comparing installed firmware with LVFS ([ADR 0012](0012-firmware-index.md), [#224](https://github.com/jiegui2025/hwspec/issues/224)) needs the IDs fwupd knows a part by. They are derived from the part's own IDs, so they belong to its firmware block.
+
+| Aspect | Rule |
+|---|---|
+| Fields | `firmware.instance_ids`: a list of `{id, guid}`, fwupd's instance ID and its GUID (UUID version 5 in the DNS namespace over the ID). `system.esrt`: the UEFI ESRT's `entries` (`fw_class`, `fw_type`, `fw_version`, `lowest_supported_fw_version`), or `status: "unknown"` with a `reason` ("needs --full": the entries are root-only); absent without an ESRT. Fields only added (ADR 0003) |
+| Which parts | NVMe drives on PCI first, as fwupd's nvme plugin names them: `NVME\VEN_xxxx&DEV_xxxx`, the same with `&SUBSYS_`, and the model number. fwupd adds the model number only when the drive holds no vendor GUID, which needs root to read: listing it always can only add a match. Other plugins' formats follow one at a time, each with evidence (#10) |
+| Text output | neither: they are keys for `hwspec advise`, not facts to read |
