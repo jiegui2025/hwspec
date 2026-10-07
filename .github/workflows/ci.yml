@@ -369,6 +369,24 @@ jobs:
         run: |
           scripts/check-pinned-actions_test.sh
           scripts/check-pinned-actions.sh
+      # actionlint lints the scripts inside workflows, not scripts/ (#192).
+      - name: The CI scripts pass shellcheck (the one bundled with actionlint)
+        run: docker run --rm --entrypoint shellcheck -v "$PWD:/repo" -w /repo docker.io/rhysd/actionlint:1.7.12@sha256:9d36088643581e728c969f35141f88139fec77280b2be23c1f66f8e40e1025e7 scripts/*.sh
+      # A job left out of ci-ok's needs would run but never gate (#192).
+      - name: ci-ok needs every other job
+        run: |
+          jobs=$(awk '/^jobs:/ { j = 1; next } j && /^  [a-z0-9-]+:$/ { sub(/:$/, ""); print $1 }' .github/workflows/ci.yml | grep -vx ci-ok | sort)
+          needs=$(awk '/^  ci-ok:$/ { c = 1 } c && /^    needs:/ { gsub(/.*\[|\].*/, ""); gsub(/, */, "\n"); print; exit }' .github/workflows/ci.yml | sort)
+          missing=$(comm -23 <(echo "$jobs") <(echo "$needs"))
+          [ -z "$missing" ] || { echo "::error::ci-ok doesn't need: $missing"; exit 1; }
+          echo "ci-ok needs all $(echo "$jobs" | wc -l) jobs"
+      # Only a commit can make these disagree, so it's checked on the commit,
+      # not weekly (#192).
+      - name: vms.yml boots every image vm-run.sh pins
+        run: |
+          matrix=$(sed -n 's/^ *image: \[\(.*\)\]$/\1/p' .github/workflows/vms.yml | tr -d ' ' | tr ',' '\n' | sort)
+          [ "$matrix" = "$(scripts/vm-run.sh --list | sort)" ] ||
+            { echo "::error::vms.yml's matrix and scripts/vm-run.sh --list differ"; exit 1; }
 
   # A PR that changes verify.yml or its scripts must still catch tampering,
   # on local copies of the live edge release's assets. PRs only: on main it

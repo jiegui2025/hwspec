@@ -164,8 +164,9 @@ Tests describe **behaviour**, not lines: "a laptop whose battery holds 80% of it
 | Recorded machines | `internal/collect/testdata/machines/<name>/` (record with `go run ./tools/snapshot internal/collect/testdata/machines/<name>/root`, then add facts in `machines_facts_test.go` and run `go test ./internal/collect -run RecordedMachines -update`) | new hardware you own; review the recording, `TestRecordingsHoldNoIdentifiers` checks it too |
 | Synthetic machines | `internal/collect/scenarios_test.go` | hardware you can describe but not record (root-only data, other architectures) |
 | Real kernel | `internal/collect/kernel_test.go` | thin wrappers around syscalls |
+| Fuzzing | `FuzzParse`/`FuzzValidate`/`FuzzRead` in `internal/{spd,edid,smbios,ids,output}` | a new parser of untrusted bytes; its seeds run in every `go test`, and the weekly [Fuzz workflow](.github/workflows/fuzz.yml) fuzzes it (add a failing input it uploads under the package's `testdata/fuzz/`) |
 
-Tests whose coverage depends on the machine's hardware call `hostTest(t)`; CI's coverage run sets `HWSPEC_SKIP_HOST_TESTS=1` so the gate measures the same code everywhere, and runs them in a separate step. CI fails below the coverage threshold in `.github/workflows/ci.yml`.
+Tests whose coverage depends on the machine's hardware are named `TestHost*` and call `hostTest(t)` (which fails a test named otherwise); CI's coverage run sets `HWSPEC_SKIP_HOST_TESTS=1` so the gate measures the same code everywhere, and runs them in a separate step. CI fails below the coverage threshold in `.github/workflows/ci.yml`.
 
 ## File format
 

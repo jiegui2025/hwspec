@@ -34,8 +34,3 @@ jobs:
             fi
           done
           exit "$gone"
-      - name: vms.yml boots every image vm-run.sh pins
-        run: |
-          matrix=$(sed -n 's/^ *image: \[\(.*\)\]$/\1/p' .github/workflows/vms.yml | tr -d ' ' | tr ',' '\n' | sort)
-          [ "$matrix" = "$(scripts/vm-run.sh --list | sort)" ] ||
-            { echo "::error::vms.yml's matrix and scripts/vm-run.sh --list differ"; exit 1; }
