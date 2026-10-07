@@ -57,6 +57,20 @@ models:
 | `cpus` | `vendor` (`intel`), `processor` (e.g. `i5-9500T`) | `launch`, `memory_channels`, `memory_max_gb`, `memory_max_mts`, `memory_types`, `package`, `socket`, `tdp_w`, `unlocked` |
 | `allowlists` | `sys_vendor`, and `product_name` (list), `family` or `board_name` (list); optionally `bios_version: {from, to}` (HP's `"R21 Ver. 02.27.00"` form, three parts; from included, to excluded) | `approved`, `behaviour`, `checks`, `error_text`, `restricted`, `restricts`, `soft` |
 
+A model's `memory` group is read by the `memory-upgrade` and `memory-below-minimum` checks (#107; rules in `rules/upgrade.yaml`), strictly: `genkb` refuses a leaf or code they don't read.
+
+| Leaf | Value |
+|---|---|
+| `slots` | how many memory slots (a positive number) |
+| `slot_map` | `[{locator, channel}]`: each slot by the locator the firmware gives it (SMBIOS type 17, e.g. `DIMM1`), and its channel (`A`, `B`) |
+| `type`, `module_form_factor` | e.g. `DDR4`, `SODIMM` |
+| `max_total_gb` | the largest total, in GB |
+| `speed_mts` | `max`, `min`: supported speeds in MT/s; `compliance`: the speed of the modules the vendor qualified, which isn't a minimum |
+| `speed_set_by` | `processor`: modules run at the speed the processor sets |
+| `speed_rule` | `slowest-module`: the slowest module sets the speed for all |
+| `population` | rule codes: `one-channel-single-mode`, `equal-capacity-dual-channel`, `unequal-capacity-flex-mode`, `larger-in-channel-a` |
+| `constraints` | `unbuffered`, `non-ecc`, `no-x4-sdram`, `1.2-volt`, `260-pin` |
+
 `genkb` refuses an unknown group or field, two entries with the same match, and a BIOS range it can't read. A "no" is a claim too (`restricted: [{value: false, src: …}]`): silence means unknown. An allow-list is shown as confirmed only when every claim cites an `oem-doc` source.
 
 | Rule | Why |

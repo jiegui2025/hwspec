@@ -117,7 +117,7 @@ Rules match raw IDs that captures hold (ADR 0003), never display names:
 | `device` | `{kind, key, name}`, e.g. `{"kind":"pci","key":"0000:02:00.0"}`; absent for machine-wide findings |
 | `evidence` | capture paths with their values, or `absent: true`. Never identity, serial, UUID, MAC or hostname fields |
 | `actions` | `{distro, text, commands, risk, undo}`: what to do, what can go wrong, how to go back. Commands are shown, never run |
-| `data` | typed per category, defined by the issue that adds it: #9's slots (installed, fits, max), #10's versions (installed, latest, date, security fixes) |
+| `answers` | an upgrade finding's answers (#9), one per question: `{topic, known, text, claims: [{value, src, published}]}`. `known: false` means the text says why it can't be told; `claims` are the knowledge-base values behind it, conflicting ones included (amended 2026-10-06 for #107, below; this row first named a typed `data` field). #10's versions will be added the same way |
 | `sources`, `confidence` | the sources used; confidence is the weakest of them |
 
 ```json
@@ -253,3 +253,15 @@ A date-only `version` let two `kb/` changes on one day share it, so "the later v
 | Choosing a copy | the later version wins; a tie is the same content. A synced copy is used only while its bytes match the signed manifest's size and SHA-256, and its `version` is the manifest's |
 | Older readers | none released: the format changed before v0.1.0, so no format bump was needed |
 
+## Amendment (2026-10-06): upgrade answers
+
+#107 adds the first upgrade answers (memory). They are sentences with the claims behind them, not a typed `data` field: what a person asks ("can I add a module, will it run dual-channel?") mixes facts from the capture with rules from documents that may disagree, and a typed field would have to merge them.
+
+| Aspect | Rule |
+|---|---|
+| Field | a finding's `answers`: `{topic, known, text, claims}`, added to the advice format (fields only added, ADR 0003). Text output prints one line per answer, labelled by topic |
+| Unknowns | every answer is given, `known: false` when it can't be told, with the reason: the capture lacks the field (`--full`), the firmware doesn't say (a slot's state, a slot table under root), the capture and the documents disagree (slot count, a slot's channel) or the documents disagree with each other (all claims shown), the knowledge base has no entry or no data for the model, or this build can't read it. An answer that rests on the documents alone (matched pairs) doesn't wait for the capture |
+| Model data | a check reads its model group strictly (`decodeData`), each claim's value strictly and its other keys as descriptive (*Older binaries* above); `genkb` refuses a group a check can't read (`advisor.ValidateModel`), and a binary that can't read a newer one answers "unknown" with the reason, never part of the data. A rule code a newer knowledge base adds makes the answers that read it `known: false`, "update hwspec", never applied in part |
+| Citations | an answer cites what it rests on and only that: the slot map behind a channel answer, the rule a case applies; a document that says otherwise is shown too (a module below one minimum and above another) |
+| Availability | a check's `available` sees the knowledge base too: `memory.below-minimum` needs module speeds only when the model's documents give a minimum, so a capture without them isn't flagged as unevaluable for a model that has none |
+| Sources | answers cite source IDs with their documents' dates, newest first; text output names each source's ID beside its URL |

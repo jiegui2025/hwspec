@@ -280,7 +280,8 @@ func TestFindingsAreOrderedMostSevereFirst(t *testing.T) {
 }
 
 // The recorded HP EliteDesk's two driverless PCI devices are a RAM
-// controller and an ISA bridge: nothing the shipped rules should flag.
+// controller and an ISA bridge: nothing the shipped rules should flag. Its
+// memory gets the upgrade answers.
 func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 	r, err := collect.CollectRecorded("../collect/testdata/machines/hp-elitedesk-800-g5-mini", "test")
 	if err != nil {
@@ -291,7 +292,7 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := Advise(Input{Report: r, KB: k, Now: noon})
-	if len(a.Findings) != 0 || a.RulesApplied != len(k.Rules) || a.RulesSkipped != 0 {
+	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules) || a.RulesSkipped != 0 {
 		t.Errorf("findings %+v, warnings %q", a.Findings, a.Warnings)
 	}
 }
@@ -338,7 +339,7 @@ func TestTextAdviceIsCompleteAndTerminalSafe(t *testing.T) {
 		"Risk       none",
 		"$ modprobe -R pci:v00008086d00002723sv00008086sd00000084bc02sc80i00",
 		"Undo       modprobe -r MODULE",
-		"Source     https://docs.kernel.org/x.html (upstream-doc, GPL-2.0-only, retrieved 2026-10-06)",
+		"Source     kernel  https://docs.kernel.org/x.html (upstream-doc, GPL-2.0-only, retrieved 2026-10-06)",
 		"Confidence upstream-doc",
 	} {
 		if !strings.Contains(out, want) {

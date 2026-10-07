@@ -49,16 +49,37 @@ type Advice struct {
 // Finding is one piece of advice about one device, or the whole machine. A
 // finding is identified by its rule ID and its device's kind and key.
 type Finding struct {
-	ID         string        `json:"id"` // the rule's ID
-	Category   kb.Category   `json:"category"`
-	Severity   kb.Severity   `json:"severity"`
-	Device     *DeviceRef    `json:"device,omitempty"`
-	Title      string        `json:"title"`
-	Detail     string        `json:"detail,omitempty"`
-	Evidence   []Evidence    `json:"evidence,omitempty"`
+	ID       string      `json:"id"` // the rule's ID
+	Category kb.Category `json:"category"`
+	Severity kb.Severity `json:"severity"`
+	Device   *DeviceRef  `json:"device,omitempty"`
+	Title    string      `json:"title"`
+	Detail   string      `json:"detail,omitempty"`
+	Evidence []Evidence  `json:"evidence,omitempty"`
+	// Answers are an upgrade finding's answers (#9): memory's are #107's.
+	Answers    []Answer      `json:"answers,omitempty"`
 	Actions    []Action      `json:"actions,omitempty"`
 	Sources    []Source      `json:"sources"`
 	Confidence kb.Confidence `json:"confidence"`
+}
+
+// Answer is one answer of an upgrade finding: what it is about (topic,
+// e.g. "slots"), the answer in words, whether it could be told, and the
+// knowledge base's claims it rests on, each with its source, conflicting
+// ones included. An answer that can't be told says why in Text.
+type Answer struct {
+	Topic  string        `json:"topic"`
+	Known  bool          `json:"known"`
+	Text   string        `json:"text"`
+	Claims []AnswerClaim `json:"claims,omitempty"`
+}
+
+// AnswerClaim is one source's value behind an answer, with the date of its
+// document.
+type AnswerClaim struct {
+	Value     any    `json:"value"`
+	Src       string `json:"src"`
+	Published string `json:"published,omitempty"`
 }
 
 // DeviceRef names a device by the key its kind uses in captures: a PCI
@@ -177,6 +198,7 @@ type Input struct {
 type hit struct {
 	device   *DeviceRef
 	evidence []Evidence
+	answers  []Answer
 	actions  []Action
 	used     []string // sources the check used beyond its rule's, e.g. a claim's
 	// vars are the values a rule's commands may name as {name}. A check
@@ -193,9 +215,10 @@ type check struct {
 	// needs names the capture fields the check reads, and available says
 	// whether a capture has them: one from before a field existed, or one
 	// whose collector couldn't read it, can't be evaluated, which is not
-	// the same as "nothing found".
+	// the same as "nothing found". It sees the knowledge base too, for a
+	// check that needs a field only when the machine's entry has data.
 	needs     []string
-	available func(r *report.Report) bool
+	available func(in *Input) bool
 	// provides names the {placeholders} the check can fill in a rule's
 	// commands.
 	provides []string
@@ -207,8 +230,10 @@ type check struct {
 	// decodes it the same way. nil means the check takes no data.
 	data func(raw json.RawMessage) error
 	// example is a rule and a capture on which the check finds something:
-	// the generic tests run every check on its own.
-	example func() (kb.Rule, *report.Report)
+	// the generic tests run every check on its own. exampleData adds the
+	// sources and model entries the example needs, if any.
+	example     func() (kb.Rule, *report.Report)
+	exampleData func() ([]kb.Source, []kb.Model)
 }
 
 var checks = map[string]check{}
@@ -325,7 +350,7 @@ func Advise(in Input) Advice {
 			a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s needs check %q, which this build of hwspec doesn't have; update hwspec", rule.ID, rule.Check))
 			a.RulesSkipped++
 			continue
-		case c.available != nil && !c.available(in.Report):
+		case c.available != nil && !c.available(&in):
 			a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s can't evaluate this capture: it needs %s, which the capture doesn't have", rule.ID, strings.Join(c.needs, ", ")))
 			a.RulesSkipped++
 			continue
@@ -362,7 +387,7 @@ func Advise(in Input) Advice {
 func finding(k *kb.KB, rule *kb.Rule, h hit, warn func(string)) Finding {
 	f := Finding{
 		ID: rule.ID, Category: rule.Category, Severity: rule.Severity,
-		Device: h.device, Title: rule.Title, Detail: rule.Detail, Evidence: h.evidence,
+		Device: h.device, Title: rule.Title, Detail: rule.Detail, Evidence: h.evidence, Answers: h.answers,
 	}
 	for _, act := range rule.Actions {
 		filled, missing := fill(Action(act), h.vars)

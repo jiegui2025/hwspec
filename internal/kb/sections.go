@@ -312,17 +312,23 @@ func (k *KB) Claims(leaf json.RawMessage) ([]Claim, error) {
 	if err := json.Unmarshal(leaf, &cs); err != nil {
 		return nil, err
 	}
-	published := func(c Claim) string {
-		if s := k.Source(c.Src); s != nil {
+	slices.SortStableFunc(cs, func(a, b Claim) int { return k.Newer(a.Src, b.Src) })
+	return cs, nil
+}
+
+// Newer orders two sources' documents newest first, by their published
+// dates, for sorting claims. A coarser date follows the dates within it
+// ("2019-09" before "2019"): only a total order sorts consistently, and
+// "2019" can't be placed among that year's months. Undated documents, and
+// unknown sources, come last.
+func (k *KB) Newer(a, b string) int {
+	published := func(id string) string {
+		if s := k.Source(id); s != nil {
 			return s.Published
 		}
 		return ""
 	}
-	// A coarser date follows the dates within it ("2019-09" before
-	// "2019"): only a total order sorts consistently, and "2019" can't be
-	// placed among that year's months. Undated claims come last.
-	slices.SortStableFunc(cs, func(a, b Claim) int { return strings.Compare(published(b), published(a)) })
-	return cs, nil
+	return strings.Compare(published(b), published(a))
 }
 
 // Confirmed says whether an entry rests only on OEM documents: an

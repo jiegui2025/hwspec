@@ -2,6 +2,7 @@ package advisor
 
 import (
 	"bufio"
+	"cmp"
 	"fmt"
 	"io"
 	"strings"
@@ -50,6 +51,9 @@ func WriteText(w io.Writer, a Advice) error {
 		if f.Detail != "" {
 			fmt.Fprintf(bw, "  Why        %s\n", c(f.Detail))
 		}
+		for _, an := range f.Answers {
+			fmt.Fprintf(bw, "  %-10s %s\n", cmp.Or(topics[an.Topic], "Answer"), c(an.Text))
+		}
 		for _, e := range f.Evidence {
 			v := "absent"
 			if value, ok := e.Value(); ok {
@@ -74,7 +78,7 @@ func WriteText(w io.Writer, a Advice) error {
 			}
 		}
 		for _, s := range f.Sources {
-			fmt.Fprintf(bw, "  Source     %s (%s, %s, retrieved %s)\n", c(s.URL), c(string(s.Confidence)), c(s.Licence), c(s.Retrieved))
+			fmt.Fprintf(bw, "  Source     %s  %s (%s, %s, retrieved %s)\n", c(s.ID), c(s.URL), c(string(s.Confidence)), c(s.Licence), c(s.Retrieved))
 		}
 		if f.Confidence != "" {
 			fmt.Fprintf(bw, "  Confidence %s\n", c(string(f.Confidence)))
@@ -87,6 +91,13 @@ func WriteText(w io.Writer, a Advice) error {
 		}
 	}
 	return bw.Flush()
+}
+
+// topics labels an answer's lines; a topic a newer build added is shown
+// as "Answer".
+var topics = map[string]string{
+	"slots": "Slots", "channels": "Channels", "pairs": "Pairs", "speed": "Speed", "faster": "Faster",
+	"minimum_speed": "Min speed", "max_capacity": "Max total", "fits": "Fits",
 }
 
 func rules(n int) string {

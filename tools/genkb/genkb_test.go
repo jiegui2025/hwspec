@@ -329,6 +329,11 @@ func TestSectionsCompile(t *testing.T) {
 			`models entry "hp.mini": its id is its key; drop the id field`},
 		"defined twice": {map[string]string{"m.yaml": m, "n.yaml": strings.Replace(m, "hp-ds-hp.mini:", "hp-ds-other:", 1)},
 			`models entry "hp.mini" is defined twice`},
+		// The memory checks read the memory group strictly (#107).
+		"a misspelt memory leaf": {map[string]string{"m.yaml": strings.Replace(m, "max_total_gb:", "max_totl_gb:", 1)},
+			`models entry "hp.mini": data.memory: json: unknown field "max_totl_gb"`},
+		"an unknown memory rule": {map[string]string{"m.yaml": strings.Replace(m, "        max_total_gb:", "        population: [{value: [any-order], src: hp-ds-hp.mini}]\n        max_total_gb:", 1)},
+			`data.memory: population: "any-order" isn't one of`},
 	} {
 		dir := writeFiles(t, c.files)
 		code, _, stderr := genkb(t, "-o", filepath.Join(t.TempDir(), "out.gz"), dir)
