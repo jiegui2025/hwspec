@@ -34,6 +34,9 @@ func (c cli) idsCmd(args []string) error {
 		fmt.Fprintf(c.stdout, "%s\t(%s %s)\n", name, kind, key)
 		return nil
 	case "template":
+		if len(args) > 1 {
+			return errors.New("usage: hwspec ids template")
+		}
 		fmt.Fprint(c.stdout, ids.OverridesHelp)
 		return nil
 	case "update":

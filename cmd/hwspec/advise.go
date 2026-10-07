@@ -53,7 +53,7 @@ func (c cli) advise(args []string) error {
 	if err != nil {
 		return err
 	}
-	if format, err = pickFormat(format, outPath, "text"); err != nil {
+	if format, err = pickFormat(format, outPath, "text", adviceFormats); err != nil {
 		return err
 	}
 	k, _, warnings, err := knowledgeBase()
@@ -116,8 +116,10 @@ func (c cli) advise(args []string) error {
 		err = enc.Encode(a)
 	case "yaml":
 		err = output.YAML(&buf, a)
-	default:
+	case "text":
 		err = advisor.WriteText(&buf, a)
+	default: // pickFormat allows only adviceFormats
+		err = fmt.Errorf("advice can't be written as %q", format)
 	}
 	if err != nil {
 		return err
@@ -267,26 +269,41 @@ func count(n int, noun string) string {
 // errArgs is a command's arguments, not its flags, being wrong.
 var errArgs = errors.New("wrong arguments")
 
-// fileArg takes the one FILE argument a command accepts, before or after
+// parseArgs parses a command's flags and positional arguments in any
+// order ("FILE -f json", "-f json FILE", "--redact FILE -f json"); "--" ends
+// the flags, so a file named "-x" can follow it. The standard flag package
+// stops at the first positional argument, so it parses again after each.
+func parseArgs(fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		rest := fs.Args()
+		if n := len(args) - len(rest); n > 0 && args[n-1] == "--" {
+			return append(pos, rest...), nil
+		}
+		if len(rest) == 0 {
+			return pos, nil
+		}
+		pos, args = append(pos, rest[0]), rest[1:]
+	}
+}
+
+// fileArg takes the one FILE argument a command accepts, anywhere among
 // its flags. required says whether it may be left out. Flag errors come
 // back as they are; a missing or extra argument is errArgs.
 func fileArg(flags *flag.FlagSet, args []string, required bool) (string, error) {
-	var file string
-	if len(args) > 0 && (!strings.HasPrefix(args[0], "-") || args[0] == "-") {
-		file, args = args[0], args[1:]
-	}
-	if err := flags.Parse(args); err != nil {
+	pos, err := parseArgs(flags, args)
+	switch {
+	case err != nil:
 		return "", err
-	}
-	if file == "" && flags.NArg() == 1 {
-		file = flags.Arg(0)
-	} else if flags.NArg() > 0 {
+	case len(pos) > 1, required && len(pos) == 0:
 		return "", errArgs
+	case len(pos) == 1:
+		return pos[0], nil
 	}
-	if required && file == "" {
-		return "", errArgs
-	}
-	return file, nil
+	return "", nil
 }
 
 // readInput reads the file a command was given; "-" is stdin.
@@ -495,3 +512,7 @@ func knowledgeBase() (k *kb.KB, source string, warnings []string, err error) {
 	}
 	return k, "embedded", nil, nil
 }
+
+// adviceFormats are the formats advice can be written in; a capture-only
+// format (a future Markdown report, #101) must not silently become text.
+var adviceFormats = []string{"text", "json", "yaml"}

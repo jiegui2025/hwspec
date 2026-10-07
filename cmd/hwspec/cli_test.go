@@ -688,3 +688,52 @@ func TestReexportingWarnsAboutFieldsItDrops(t *testing.T) {
 		t.Errorf("a capture with no unknown fields warned: %q", errOut)
 	}
 }
+
+// Flags and the FILE argument go in any order, and "--" ends the flags, so
+// a file whose name starts with "-" can still be given (#148).
+func TestFlagsAndTheFileGoInAnyOrder(t *testing.T) {
+	setup(t)
+	capture, _ := mustRun(t, "", "capture", "-f", "json")
+	dir := t.TempDir()
+	file := filepath.Join(dir, "spec.json")
+	if err := os.WriteFile(file, []byte(capture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"advise", "--redact", file, "-f", "json"},
+		{"advise", file, "--redact", "-f", "json"},
+		{"advise", "-f", "json", "--redact", file},
+		{"show", "-f", "json", file, "--redact"},
+	} {
+		if code, _, errOut := hwspec(t, "", args...); code != 0 {
+			t.Errorf("%v: exit %d: %s", args, code, errOut)
+		}
+	}
+	dashed := filepath.Join(dir, "-spec.json")
+	if err := os.WriteFile(dashed, []byte(capture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+	if code, _, errOut := hwspec(t, "", "show", "-f", "json", "--", "-spec.json"); code != 0 {
+		t.Errorf("show -- -spec.json: exit %d: %s", code, errOut)
+	}
+	if code, _, _ := hwspec(t, "", "show", "a.json", "b.json"); code != 1 {
+		t.Errorf("two files: exit %d, want 1", code)
+	}
+}
+
+// Commands that take no arguments refuse extra ones instead of ignoring
+// them, and advice refuses a format it can't write (#148).
+func TestCommandsRefuseArgumentsAndFormatsTheyDontTake(t *testing.T) {
+	setup(t)
+	for _, args := range [][]string{{"version", "extra"}, {"help", "extra"}, {"ids", "template", "extra"}} {
+		code, out, errOut := hwspec(t, "", args...)
+		if code != 1 || out != "" || !strings.Contains(errOut, "usage: hwspec "+args[0]) {
+			t.Errorf("%v: exit %d, stdout %q, stderr %q", args, code, out, errOut)
+		}
+	}
+	code, _, errOut := hwspec(t, "", "advise", "-f", "md")
+	if code != 1 || !strings.Contains(errOut, `unknown format "md" (want one of text, json, yaml)`) {
+		t.Errorf("advise -f md: exit %d, %q", code, errOut)
+	}
+}

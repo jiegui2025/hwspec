@@ -156,8 +156,16 @@ func run(args []string, c cli) int {
 			return 2
 		}
 	case "version", "--version", "-v":
+		if len(args) > 1 {
+			err = errors.New("usage: hwspec version")
+			break
+		}
 		fmt.Fprintln(c.stdout, "hwspec", fullVersion())
 	case "help", "--help", "-h":
+		if len(args) > 1 {
+			err = errors.New("usage: hwspec help")
+			break
+		}
 		fmt.Fprint(c.stdout, usage)
 	default:
 		fmt.Fprintf(c.stderr, "hwspec: unknown command %q\n\n%s", args[0], usage)
@@ -191,24 +199,24 @@ func outputFlags(fs *flag.FlagSet, outPath, format *string) {
 }
 
 // pickFormat applies the explicit format, else the output file's extension,
-// else the default.
-func pickFormat(format, outPath, def string) (string, error) {
+// else the default, and accepts only the formats this command can write.
+func pickFormat(format, outPath, def string, allowed []string) (string, error) {
 	if format == "" {
 		format = output.FormatFromPath(outPath)
 		// An extension we don't know would otherwise silently get the default.
 		// A dotfile's name (".hwspec") isn't an extension; "." still is refused.
 		base := filepath.Base(outPath)
 		if ext := filepath.Ext(outPath); format == "" && ext != "" && (ext != base || base == ".") {
-			return "", fmt.Errorf("can't tell the format from %q; use -f %s", ext, strings.Join(output.Formats, "|"))
+			return "", fmt.Errorf("can't tell the format from %q; use -f %s", ext, strings.Join(allowed, "|"))
 		}
 	}
 	if format == "" {
 		format = def
 	}
-	if slices.Contains(output.Formats, format) {
+	if slices.Contains(allowed, format) {
 		return format, nil
 	}
-	return "", fmt.Errorf("unknown format %q (want one of %s)", format, strings.Join(output.Formats, ", "))
+	return "", fmt.Errorf("unknown format %q (want one of %s)", format, strings.Join(allowed, ", "))
 }
 
 func (c cli) writeReport(r *report.Report, outPath, format string) error {
@@ -474,13 +482,14 @@ func (c cli) capture(args []string) error {
 	outputFlags(fs, &outPath, &format)
 	fs.BoolVar(&full, "full", false, "")
 	fs.BoolVar(&redact, "redact", false, "")
-	if err := fs.Parse(args); err != nil {
+	pos, err := parseArgs(fs, args)
+	if err != nil {
 		return err
 	}
-	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected argument %q (use -o to name the output file)", fs.Arg(0))
+	if len(pos) > 0 {
+		return fmt.Errorf("unexpected argument %q (use -o to name the output file)", pos[0])
 	}
-	format, err := pickFormat(format, outPath, "json")
+	format, err = pickFormat(format, outPath, "json", output.Formats)
 	if err != nil {
 		return err
 	}
@@ -560,7 +569,7 @@ func (c cli) show(args []string) error {
 	if err != nil {
 		return err
 	}
-	format, err = pickFormat(format, outPath, "text")
+	format, err = pickFormat(format, outPath, "text", output.Formats)
 	if err != nil {
 		return err
 	}
