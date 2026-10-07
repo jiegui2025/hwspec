@@ -42,6 +42,12 @@ func (c cli) idsCmd(args []string) error {
 	return fmt.Errorf("unknown ids subcommand %q (want update, lookup or template)", args[0])
 }
 
+// underSudo reports a run as root through sudo. The commands that keep
+// the user's own data (ids update, firmware update) need no root, and as
+// root would write into root's home, or, with sudo -E, make the user's own
+// directories root's.
+func underSudo() bool { return geteuid() == 0 && os.Getenv("SUDO_UID") != "" }
+
 // updateIDs downloads and installs the signed bundle; tests replace it.
 var updateIDs = ids.Update
 
@@ -54,6 +60,9 @@ func (c cli) idsUpdate(args []string) error {
 	fs.StringVar(&url, "url", url, "")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if underSudo() {
+		return errors.New("run `hwspec ids update` without sudo: the databases are kept in your own data directory and need no root")
 	}
 	if url == "" {
 		url = ids.DefaultSyncURL

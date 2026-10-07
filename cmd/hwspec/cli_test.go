@@ -390,6 +390,22 @@ func TestIDsUpdateReportsEveryOutcome(t *testing.T) {
 	if code, _, stderr := hwspec(t, "", "ids", "update"); code != 1 || !strings.Contains(stderr, "partly installed") || !strings.Contains(stderr, "disk full") {
 		t.Errorf("partial: exit %d, %q", code, stderr)
 	}
+	// Under sudo the databases would land in root's home, or (sudo -E)
+	// make the user's own directory root's: refused before any request.
+	oldEuid := geteuid
+	t.Cleanup(func() { geteuid = oldEuid })
+	geteuid = func() int { return 0 }
+	t.Setenv("SUDO_UID", "1000")
+	got = ids.UpdateOptions{}
+	if code, _, stderr := hwspec(t, "", "ids", "update"); code != 1 || !strings.Contains(stderr, "without sudo") || got.BaseURL != "" {
+		t.Errorf("under sudo: exit %d, %q, options %+v", code, stderr, got)
+	}
+	t.Setenv("SUDO_UID", "")
+	answer(&ids.UpdateResult{Files: files, BundleAt: fresh}, nil)
+	if code, _, _ := hwspec(t, "", "ids", "update"); code != 0 || got.BaseURL == "" {
+		t.Errorf("root without sudo: exit %d", code)
+	}
+	geteuid = oldEuid
 	answer(nil, errors.New("signature does not verify"))
 	if code, _, stderr := hwspec(t, "", "ids", "update"); code != 1 || !strings.Contains(stderr, "nothing changed: signature does not verify") {
 		t.Errorf("refused: exit %d, %q", code, stderr)
