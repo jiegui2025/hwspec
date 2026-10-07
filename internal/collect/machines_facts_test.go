@@ -1,6 +1,7 @@
 package collect
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -71,6 +72,11 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["tpm firmware IFX 7.85.1166080 from udev"] = r.TPM != nil && r.TPM.Firmware.Known() &&
 			r.TPM.Firmware.Vendor == "IFX" && r.TPM.Firmware.Version == "7.85.1166080" && r.TPM.Firmware.Source == "udev"
 		want["igpu firmware: GuC/HuC not read yet (#43)"] = len(r.GPUs) == 1 && unknown(r.GPUs[0].Firmware, "GuC, HuC, DMC")
+		// One SPD EEPROM for two modules: the kernel probed only 0x50
+		// (#203), so the second module's absence is said.
+		want["the missing SPD is said"] = slices.ContainsFunc(r.Warnings, func(w string) bool {
+			return strings.HasPrefix(w, "memory: SPD modules total 16.0 GiB, less than the 31.1 GiB usable")
+		})
 		// The AX200's HCI Read Local Version reply, as an unprivileged
 		// socket gets it (#202); btintel logs the same build: "Firmware
 		// revision 0.3 build 193 week 33 2024" (0x21 = 33, 0xc1 = 193).

@@ -3,6 +3,7 @@ package collect
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -229,6 +230,64 @@ func TestRootCaptureListsModulesFromTheFirmware(t *testing.T) {
 	}
 	if !hasWarning(c.r, "SPD 0-0052") || !hasWarning(c.r, "memory module SPD 0-0053") {
 		t.Errorf("warnings = %v", c.r.Warnings)
+	}
+}
+
+// The kernel exposes SPD EEPROMs only at 0x50 + slot index (#203): some
+// but not all modules missing one is said, by count with the firmware's
+// list (soldered memory has no SPD, so it doesn't count), by size without
+// it; none exposed at all, an SPD that didn't parse, or one whose size
+// wasn't decoded says nothing.
+func TestMissingSPDIsSaid(t *testing.T) {
+	sized := func(gib ...uint64) []*spd.Info {
+		var out []*spd.Info
+		for _, g := range gib {
+			out = append(out, &spd.Info{SizeBytes: g << 30})
+		}
+		return out
+	}
+	listed := func(forms ...string) []report.MemoryModule {
+		var out []report.MemoryModule
+		for i, f := range forms {
+			out = append(out, report.MemoryModule{Locator: fmt.Sprintf("DIMM%d", i), FormFactor: f, Type: "DDR4"})
+		}
+		return out
+	}
+	const cause = "a likely cause: the kernel registers SPD EEPROMs only at 0x50 + slot index"
+	usable := uint64(33412419584) // the reference machine's MemTotal: 31.1 GiB
+	for _, c := range []struct {
+		name     string
+		exposed  int
+		firmware []report.MemoryModule
+		found    []*spd.Info
+		want     string
+	}{
+		{"none exposed", 0, listed("SODIMM", "SODIMM"), nil, ""},
+		{"none exposed, no root", 0, nil, nil, ""},
+		{"one of two, as root", 1, listed("SODIMM", "SODIMM"), sized(16),
+			"memory: the kernel exposed SPD for 1 of the 2 modules that can have one (" + cause + "); the others' manufacture date and DRAM maker are left out"},
+		{"one soldered, one socketed", 1, listed("Row of chips", "SODIMM"), sized(16), ""},
+		{"soldered chips and a die", 1, listed("Chip", "Die", "SODIMM"), sized(16), ""},
+		{"a form factor that doesn't say counts", 1, listed("Other", "SODIMM"), sized(16), "of the 2 modules that can have one"},
+		{"all, as root", 2, listed("DIMM", "DIMM"), sized(16, 16), ""},
+		{"more than listed, as root", 3, listed("DIMM", "DIMM"), sized(16, 16, 16), ""},
+		{"short of the usable memory", 1, nil, sized(16),
+			"memory: SPD modules total 16.0 GiB, less than the 31.1 GiB usable: some modules' SPD isn't exposed (" + cause + "), so they aren't listed; --full lists every module"},
+		{"covering the usable memory", 2, nil, sized(16, 16), ""},
+		{"one SPD didn't parse", 2, nil, sized(16), ""},
+		{"a size the SPD didn't give", 2, nil, sized(16, 0), ""},
+	} {
+		col := &collector{r: &report.Report{Memory: report.Memory{TotalBytes: usable}}}
+		col.missingSPD(c.exposed, c.firmware, c.found)
+		got := strings.Join(col.r.Warnings, "\n")
+		if c.want == "" && got != "" || c.want != "" && !strings.Contains(got, c.want) {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+	// SPD modules exactly as large as the usable memory cover it.
+	col := &collector{r: &report.Report{Memory: report.Memory{TotalBytes: 16 << 30}}}
+	if col.missingSPD(1, nil, sized(16)); len(col.r.Warnings) != 0 {
+		t.Errorf("exactly covered: %q", col.r.Warnings)
 	}
 }
 
