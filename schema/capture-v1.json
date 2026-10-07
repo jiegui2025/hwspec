@@ -2,86 +2,108 @@
   "type": "object",
   "properties": {
     "$schema": {
-      "type": "string"
+      "type": "string",
+      "description": "Schema is the URL of the format's JSON Schema (package schema), for editors and validators. Captures from before it was added lack it."
     },
     "schema_version": {
-      "type": "integer"
+      "type": "integer",
+      "description": "the format's version (SchemaVersion)"
     },
     "tool": {
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "\"hwspec\""
         },
         "version": {
-          "type": "string"
+          "type": "string",
+          "description": "its version, e.g. \"v0.1.0\" or \"dev\""
         },
         "id_databases": {
           "type": [
             "null",
             "object"
           ],
+          "description": "IDDatabases records, per ID database, the source its names came from (e.g. \"pci\": \"/usr/share/hwdata/pci.ids (2026-09-03) + overrides\").",
           "additionalProperties": {
             "type": "string"
           }
         }
       },
+      "description": "Tool is the program that wrote the capture.",
       "required": [
         "name"
       ]
     },
     "captured_at": {
-      "type": "string"
+      "type": "string",
+      "description": "CapturedAt is when the capture was taken (RFC 3339)."
     },
     "hostname": {
-      "type": "string"
+      "type": "string",
+      "description": "the machine's hostname; \"\" when redacted"
     },
     "privileged": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Privileged is true when the capture ran as root, so the SMBIOS memory list, most serial numbers and drive health could be read. Memory modules' SPD (serials included) is often readable without root."
     },
     "redacted": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Redacted is true when what ties the capture to one machine or person was removed (--redact): serial numbers, UUIDs, WWNs, MAC and Bluetooth addresses, the hostname, the asset tag, partition labels and personal mount points. Manufacture dates are kept to the month."
     },
     "os": {
       "type": "object",
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "os-release NAME, e.g. \"Fedora Linux\""
         },
         "id": {
-          "type": "string"
+          "type": "string",
+          "description": "os-release ID, e.g. \"fedora\""
         },
         "id_like": {
-          "type": "string"
+          "type": "string",
+          "description": "os-release ID_LIKE, space-separated"
         },
         "version": {
-          "type": "string"
+          "type": "string",
+          "description": "os-release VERSION_ID; absent on rolling releases"
         },
         "pretty_name": {
-          "type": "string"
+          "type": "string",
+          "description": "os-release PRETTY_NAME"
         },
         "kernel": {
-          "type": "string"
+          "type": "string",
+          "description": "the kernel release, as uname -r"
         },
         "arch": {
-          "type": "string"
+          "type": "string",
+          "description": "the machine, as uname -m, e.g. x86_64"
         },
         "init": {
-          "type": "string"
+          "type": "string",
+          "description": "process 1's name, e.g. systemd"
         },
         "virtualization": {
-          "type": "string"
+          "type": "string",
+          "description": "none, vm, container; \"\" if unknown"
         },
         "boot_mode": {
-          "type": "string"
+          "type": "string",
+          "description": "uefi, bios; \"\" if unknown"
         },
         "secure_boot": {
           "type": [
             "null",
             "boolean"
-          ]
+          ],
+          "description": "SecureBoot is the firmware's Secure Boot state; absent when not UEFI or not readable."
         }
-      }
+      },
+      "description": "OS is the running operating system, from os-release and the kernel."
     },
     "system": {
       "type": "object",
@@ -93,42 +115,55 @@
           ],
           "properties": {
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the maker's name"
             },
             "model": {
-              "type": "string"
+              "type": "string",
+              "description": "the product's name"
             },
             "part_number": {
-              "type": "string"
+              "type": "string",
+              "description": "the maker's part number"
             },
             "serial": {
-              "type": "string"
+              "type": "string",
+              "description": "removed by --redact"
             },
             "revision": {
-              "type": "string"
+              "type": "string",
+              "description": "the hardware revision"
             },
             "manufacture_date": {
-              "type": "string"
+              "type": "string",
+              "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
             },
             "manufacture_date_source": {
-              "type": "string"
+              "type": "string",
+              "description": "spd, edid, battery"
             }
-          }
+          },
+          "description": "Identity is the machine's (SMBIOS type 1): model is the product name, part_number the SKU."
         },
         "family": {
-          "type": "string"
+          "type": "string",
+          "description": "the product family, as the firmware names it"
         },
         "uuid": {
-          "type": "string"
+          "type": "string",
+          "description": "the SMBIOS system UUID (root only)"
         },
         "chassis_type": {
-          "type": "string"
+          "type": "string",
+          "description": "e.g. Desktop, Notebook, Mini PC"
         },
         "chassis_vendor": {
-          "type": "string"
+          "type": "string",
+          "description": "the enclosure's maker"
         },
         "chassis_serial": {
-          "type": "string"
+          "type": "string",
+          "description": "root only"
         },
         "firmware": {
           "type": [
@@ -137,28 +172,56 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
             },
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the firmware's maker, where reported"
             },
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "as the part reports it"
             },
             "date": {
-              "type": "string"
+              "type": "string",
+              "description": "the build date, as the firmware states it"
             },
             "release": {
-              "type": "string"
+              "type": "string",
+              "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+              "examples": [
+                "dmi",
+                "microcode",
+                "nvme",
+                "scsi",
+                "mmc",
+                "ethtool",
+                "usb",
+                "vbios",
+                "mei",
+                "udev",
+                "tpm",
+                "caps",
+                "debugfs",
+                "amdgpu",
+                "hci"
+              ]
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "\"unknown\" when Version couldn't be read",
+              "examples": [
+                "unknown"
+              ]
             },
             "reason": {
-              "type": "string"
+              "type": "string",
+              "description": "why it's unknown, e.g. \"needs --full\""
             },
             "instance_ids": {
               "type": [
@@ -169,15 +232,19 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                   },
                   "guid": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the ID's GUID, lowercase"
                   }
                 }
-              }
+              },
+              "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
             }
-          }
+          },
+          "description": "the BIOS or UEFI firmware"
         },
         "me_firmware": {
           "type": [
@@ -186,28 +253,56 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
             },
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the firmware's maker, where reported"
             },
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "as the part reports it"
             },
             "date": {
-              "type": "string"
+              "type": "string",
+              "description": "the build date, as the firmware states it"
             },
             "release": {
-              "type": "string"
+              "type": "string",
+              "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+              "examples": [
+                "dmi",
+                "microcode",
+                "nvme",
+                "scsi",
+                "mmc",
+                "ethtool",
+                "usb",
+                "vbios",
+                "mei",
+                "udev",
+                "tpm",
+                "caps",
+                "debugfs",
+                "amdgpu",
+                "hci"
+              ]
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "\"unknown\" when Version couldn't be read",
+              "examples": [
+                "unknown"
+              ]
             },
             "reason": {
-              "type": "string"
+              "type": "string",
+              "description": "why it's unknown, e.g. \"needs --full\""
             },
             "instance_ids": {
               "type": [
@@ -218,15 +313,19 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                   },
                   "guid": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the ID's GUID, lowercase"
                   }
                 }
-              }
+              },
+              "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
             }
-          }
+          },
+          "description": "MEFirmware is the Intel Management Engine (CSME) firmware, and ECFirmware the embedded controller's: separate controllers with their own firmware."
         },
         "ec_firmware": {
           "type": [
@@ -235,28 +334,56 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
             },
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the firmware's maker, where reported"
             },
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "as the part reports it"
             },
             "date": {
-              "type": "string"
+              "type": "string",
+              "description": "the build date, as the firmware states it"
             },
             "release": {
-              "type": "string"
+              "type": "string",
+              "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+              "examples": [
+                "dmi",
+                "microcode",
+                "nvme",
+                "scsi",
+                "mmc",
+                "ethtool",
+                "usb",
+                "vbios",
+                "mei",
+                "udev",
+                "tpm",
+                "caps",
+                "debugfs",
+                "amdgpu",
+                "hci"
+              ]
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "\"unknown\" when Version couldn't be read",
+              "examples": [
+                "unknown"
+              ]
             },
             "reason": {
-              "type": "string"
+              "type": "string",
+              "description": "why it's unknown, e.g. \"needs --full\""
             },
             "instance_ids": {
               "type": [
@@ -267,15 +394,19 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                   },
                   "guid": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the ID's GUID, lowercase"
                   }
                 }
-              }
+              },
+              "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
             }
-          }
+          },
+          "description": "Firmware is the firmware a part runs, as the part or its driver reports it. A part that has firmware always has this block (ADR 0008): with a version and its source, or, when the version can't be read, Status \"unknown\" and the Reason, never silently absent."
         },
         "esrt": {
           "type": [
@@ -292,33 +423,42 @@
                 "type": "object",
                 "properties": {
                   "fw_class": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the GUID an update names"
                   },
                   "fw_type": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "system, device, uefi-driver, unknown"
                   },
                   "fw_version": {
                     "type": "integer",
+                    "description": "the installed version",
                     "minimum": 0,
                     "maximum": 4294967295
                   },
                   "lowest_supported_fw_version": {
                     "type": "integer",
+                    "description": "LowestSupportedFWVersion is the oldest version the firmware accepts as an update.",
                     "minimum": 0,
                     "maximum": 4294967295
                   }
                 }
-              }
+              },
+              "description": "ESRTEntry is one updatable firmware. Versions are the 32-bit numbers the firmware reports, before any vendor format is applied."
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "\"unknown\" when the entries couldn't be read"
             },
             "reason": {
-              "type": "string"
+              "type": "string",
+              "description": "why they couldn't, e.g. \"needs --full\""
             }
-          }
+          },
+          "description": "ESRT is the UEFI firmware's EFI System Resource Table: the firmware it can update by capsule, each by the GUID LVFS releases name. Absent without UEFI or an ESRT."
         }
-      }
+      },
+      "description": "System is the machine as a whole; its firmware is the BIOS/UEFI."
     },
     "board": {
       "type": "object",
@@ -330,30 +470,39 @@
           ],
           "properties": {
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the maker's name"
             },
             "model": {
-              "type": "string"
+              "type": "string",
+              "description": "the product's name"
             },
             "part_number": {
-              "type": "string"
+              "type": "string",
+              "description": "the maker's part number"
             },
             "serial": {
-              "type": "string"
+              "type": "string",
+              "description": "removed by --redact"
             },
             "revision": {
-              "type": "string"
+              "type": "string",
+              "description": "the hardware revision"
             },
             "manufacture_date": {
-              "type": "string"
+              "type": "string",
+              "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
             },
             "manufacture_date_source": {
-              "type": "string"
+              "type": "string",
+              "description": "spd, edid, battery"
             }
-          }
+          },
+          "description": "Identity names one physical part."
         },
         "asset_tag": {
-          "type": "string"
+          "type": "string",
+          "description": "the owner's inventory tag, if set"
         },
         "slots": {
           "type": [
@@ -364,28 +513,36 @@
             "type": "object",
             "properties": {
               "designation": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. \"Slot3 / M2 SSD\""
               },
               "type": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. \"PCI Express Gen 3 x4\""
               },
               "width": {
-                "type": "string"
+                "type": "string",
+                "description": "electrical width, e.g. \"x4\"; the type's xN is the physical one"
               },
               "usage": {
-                "type": "string"
+                "type": "string",
+                "description": "Available, In use, Unavailable"
               },
               "length": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. \"Long Length\""
               },
               "id": {
-                "type": "integer"
+                "type": "integer",
+                "description": "0 is a valid slot number (ACPI _SUN)"
               },
               "address": {
-                "type": "string"
+                "type": "string",
+                "description": "Address is the PCI address the firmware gives for the slot, as written; \"\" when it gives none."
               }
             }
-          }
+          },
+          "description": "Slots and OnboardDevices are the firmware's SMBIOS tables (types 9 and 41, root only) as it states them. Their addresses can be wrong: compare them with the PCI topology before trusting them."
         },
         "onboard_devices": {
           "type": [
@@ -396,24 +553,31 @@
             "type": "object",
             "properties": {
               "designation": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. \"Onboard IGD\""
               },
               "type": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. \"Video\""
               },
               "enabled": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "whether the firmware has it enabled"
               },
               "instance": {
-                "type": "integer"
+                "type": "integer",
+                "description": "tells devices of one type apart"
               },
               "address": {
-                "type": "string"
+                "type": "string",
+                "description": "as for Slot.Address"
               }
             }
-          }
+          },
+          "description": "OnboardDevice is a device the firmware says is soldered onto the board (SMBIOS type 41)."
         }
-      }
+      },
+      "description": "Board is the mainboard (SMBIOS type 2)."
     },
     "cpu": {
       "type": "object",
@@ -425,45 +589,59 @@
           ],
           "properties": {
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the maker's name"
             },
             "model": {
-              "type": "string"
+              "type": "string",
+              "description": "the product's name"
             },
             "part_number": {
-              "type": "string"
+              "type": "string",
+              "description": "the maker's part number"
             },
             "serial": {
-              "type": "string"
+              "type": "string",
+              "description": "removed by --redact"
             },
             "revision": {
-              "type": "string"
+              "type": "string",
+              "description": "the hardware revision"
             },
             "manufacture_date": {
-              "type": "string"
+              "type": "string",
+              "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
             },
             "manufacture_date_source": {
-              "type": "string"
+              "type": "string",
+              "description": "spd, edid, battery"
             }
-          }
+          },
+          "description": "vendor = CPUID vendor string, model = brand string"
         },
         "family": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Family, ModelID and Stepping are the x86 signature, as the kernel reports it (decimal)."
         },
         "model_id": {
-          "type": "integer"
+          "type": "integer",
+          "description": "see family"
         },
         "stepping": {
-          "type": "integer"
+          "type": "integer",
+          "description": "see family"
         },
         "codename": {
-          "type": "string"
+          "type": "string",
+          "description": "Codename and Microarchitecture come from the cpu ID database."
         },
         "microarchitecture": {
-          "type": "string"
+          "type": "string",
+          "description": "e.g. \"Golden Cove\"; see codename"
         },
         "sockets": {
-          "type": "integer"
+          "type": "integer",
+          "description": "physical processor packages the kernel sees"
         },
         "packages": {
           "type": [
@@ -474,25 +652,32 @@
             "type": "object",
             "properties": {
               "designation": {
-                "type": "string"
+                "type": "string",
+                "description": "the socket's label, e.g. U3E1"
               },
               "package": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. \"Socket LGA1151\", \"Socket BGA1528\""
               },
               "mounting": {
-                "type": "string"
+                "type": "string",
+                "description": "Mounting is \"socket\", \"slot\" (a cartridge) or \"onboard\" (soldered) when the package's name says so."
               },
               "populated": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "whether a processor is in it"
               }
             }
-          }
+          },
+          "description": "Packages is what the firmware says each processor socket takes (SMBIOS type 4, root only), and whether that package is socketed or soldered."
         },
         "cores": {
-          "type": "integer"
+          "type": "integer",
+          "description": "physical cores, all sockets"
         },
         "threads": {
-          "type": "integer"
+          "type": "integer",
+          "description": "logical CPUs, all sockets"
         },
         "core_types": {
           "type": [
@@ -503,22 +688,28 @@
             "type": "object",
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "performance, efficiency"
               },
               "threads": {
-                "type": "integer"
+                "type": "integer",
+                "description": "logical CPUs of this kind"
               }
             }
-          }
+          },
+          "description": "hybrid CPUs (Intel P/E cores)"
         },
         "min_freq_mhz": {
-          "type": "integer"
+          "type": "integer",
+          "description": "the lowest clock cpufreq allows"
         },
         "max_freq_mhz": {
-          "type": "integer"
+          "type": "integer",
+          "description": "the highest, boost included"
         },
         "governor": {
-          "type": "string"
+          "type": "string",
+          "description": "Governor is cpufreq's scaling governor (CPU 0's), e.g. powersave."
         },
         "caches": {
           "type": [
@@ -529,23 +720,29 @@
             "type": "object",
             "properties": {
               "level": {
-                "type": "integer"
+                "type": "integer",
+                "description": "1, 2, 3"
               },
               "type": {
-                "type": "string"
+                "type": "string",
+                "description": "Data, Instruction, Unified"
               },
               "size_bytes": {
                 "type": "integer",
+                "description": "one instance's size",
                 "minimum": 0
               },
               "instances": {
-                "type": "integer"
+                "type": "integer",
+                "description": "how many copies exist (e.g. one L2 per core)"
               }
             }
-          }
+          },
+          "description": "Cache is one level and type of CPU cache."
         },
         "virtualization": {
-          "type": "string"
+          "type": "string",
+          "description": "vmx, svm"
         },
         "flags": {
           "type": [
@@ -554,7 +751,8 @@
           ],
           "items": {
             "type": "string"
-          }
+          },
+          "description": "the kernel's CPU flags (/proc/cpuinfo)"
         },
         "firmware": {
           "type": [
@@ -563,28 +761,56 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
             },
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the firmware's maker, where reported"
             },
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "as the part reports it"
             },
             "date": {
-              "type": "string"
+              "type": "string",
+              "description": "the build date, as the firmware states it"
             },
             "release": {
-              "type": "string"
+              "type": "string",
+              "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+              "examples": [
+                "dmi",
+                "microcode",
+                "nvme",
+                "scsi",
+                "mmc",
+                "ethtool",
+                "usb",
+                "vbios",
+                "mei",
+                "udev",
+                "tpm",
+                "caps",
+                "debugfs",
+                "amdgpu",
+                "hci"
+              ]
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "\"unknown\" when Version couldn't be read",
+              "examples": [
+                "unknown"
+              ]
             },
             "reason": {
-              "type": "string"
+              "type": "string",
+              "description": "why it's unknown, e.g. \"needs --full\""
             },
             "instance_ids": {
               "type": [
@@ -595,15 +821,19 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                   },
                   "guid": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the ID's GUID, lowercase"
                   }
                 }
-              }
+              },
+              "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
             }
-          }
+          },
+          "description": "microcode"
         },
         "driver": {
           "type": [
@@ -612,39 +842,48 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "the driver's name, e.g. iwlwifi"
             },
             "module": {
-              "type": "string"
+              "type": "string",
+              "description": "the kernel module providing it, if not built in"
             },
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
             },
             "srcversion": {
-              "type": "string"
+              "type": "string",
+              "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
             },
             "builtin": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "built into the kernel, not a loadable module"
             },
             "in_tree": {
               "type": [
                 "null",
                 "boolean"
-              ]
+              ],
+              "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
             },
             "proprietary": {
               "type": [
                 "null",
                 "boolean"
-              ]
+              ],
+              "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
             },
             "unsigned": {
               "type": [
                 "null",
                 "boolean"
-              ]
+              ],
+              "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
             }
-          }
+          },
+          "description": "frequency scaling"
         },
         "health": {
           "type": [
@@ -653,7 +892,14 @@
           ],
           "properties": {
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "ok, warning, failing, unknown",
+              "examples": [
+                "ok",
+                "warning",
+                "failing",
+                "unknown"
+              ]
             },
             "reasons": {
               "type": [
@@ -662,22 +908,34 @@
               ],
               "items": {
                 "type": "string"
-              }
+              },
+              "description": "why the status isn't ok, one line each"
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "what it was read from (HealthFrom*)",
+              "examples": [
+                "nvme",
+                "smartctl",
+                "edac",
+                "power_supply",
+                "statistics",
+                "thermal_throttle"
+              ]
             },
             "life_used_percent": {
               "type": [
                 "null",
                 "number"
-              ]
+              ],
+              "description": "LifeUsedPercent and LifeRemainingPercent come only from the part's own wear indicator (NVMe percentage used, SSD endurance, battery capacity versus design, measured on its 100% to 80% range). Used may exceed 100; remaining stops at 0."
             },
             "life_remaining_percent": {
               "type": [
                 "null",
                 "number"
-              ]
+              ],
+              "description": "see life_used_percent"
             },
             "estimate": {
               "type": [
@@ -686,56 +944,97 @@
               ],
               "properties": {
                 "what": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "e.g. \"cycles until 80% capacity\""
                 },
                 "value": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "in unit"
                 },
                 "unit": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "e.g. \"cycles\""
                 },
                 "method": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "how Value was computed, in words"
                 }
-              }
+              },
+              "description": "Estimate is a derived figure; Method says how it was computed."
             },
             "metrics": {
               "type": [
                 "null",
                 "object"
               ],
+              "description": "Metrics are measurements by name (the Metric* constants; the schema lists them as examples), in the unit the name ends with, or a count. Newer builds may add names.",
               "additionalProperties": {
                 "type": "number"
+              },
+              "propertyNames": {
+                "examples": [
+                  "temperature_c",
+                  "power_on_hours",
+                  "power_cycles",
+                  "data_read_bytes",
+                  "data_written_bytes",
+                  "available_spare_percent",
+                  "unsafe_shutdowns",
+                  "media_errors",
+                  "reallocated_sectors",
+                  "pending_sectors",
+                  "cycle_count",
+                  "full_wh",
+                  "capacity_percent",
+                  "design_wh",
+                  "ecc_corrected",
+                  "ecc_uncorrected",
+                  "thermal_throttle_events",
+                  "rx_errors",
+                  "tx_errors",
+                  "rx_dropped",
+                  "tx_dropped",
+                  "rx_packets",
+                  "tx_packets"
+                ]
               }
             }
-          }
+          },
+          "description": "Health is from the thermal throttling counters."
         }
-      }
+      },
+      "description": "CPU is the machine's processors, taken together."
     },
     "memory": {
       "type": "object",
       "properties": {
         "total_bytes": {
           "type": "integer",
+          "description": "TotalBytes is what the kernel can use (MemTotal), a little less than InstalledBytes because firmware and the kernel reserve some.",
           "minimum": 0
         },
         "swap_bytes": {
           "type": "integer",
+          "description": "swap space (SwapTotal)",
           "minimum": 0
         },
         "installed_bytes": {
           "type": "integer",
+          "description": "InstalledBytes is the modules' total, from SMBIOS (root only), as are MaxCapacityBytes, Slots and ECC.",
           "minimum": 0
         },
         "max_capacity_bytes": {
           "type": "integer",
+          "description": "the most the board takes, as the firmware states",
           "minimum": 0
         },
         "slots": {
-          "type": "integer"
+          "type": "integer",
+          "description": "memory slots on the board"
         },
         "ecc": {
-          "type": "string"
+          "type": "string",
+          "description": "the error correction in use, e.g. None, Single-bit ECC"
         },
         "slot_usage": {
           "type": [
@@ -746,22 +1045,27 @@
             "type": "object",
             "properties": {
               "locator": {
-                "type": "string"
+                "type": "string",
+                "description": "the slot's label, e.g. DIMM A1"
               },
               "bank_locator": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. BANK 0, P0 CHANNEL A"
               },
               "populated": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Populated is whether a module is in the slot; absent when the firmware doesn't say."
               },
               "form_factor": {
-                "type": "string"
+                "type": "string",
+                "description": "DIMM, SODIMM..."
               }
             }
-          }
+          },
+          "description": "SlotUsage lists every memory slot the firmware describes (SMBIOS type 17, root only), used or empty. Absent means not read, never \"no slots\"; it is never inferred from the usable memory."
         },
         "modules": {
           "type": [
@@ -772,38 +1076,49 @@
             "type": "object",
             "properties": {
               "locator": {
-                "type": "string"
+                "type": "string",
+                "description": "Locator is the slot's label, e.g. DIMM A1; for a module read from SPD alone, \"SPD\" and its I2C device, e.g. \"SPD 0-0050\"."
               },
               "bank_locator": {
-                "type": "string"
+                "type": "string",
+                "description": "e.g. BANK 0, P0 CHANNEL A"
               },
               "size_bytes": {
                 "type": "integer",
+                "description": "the module's capacity",
                 "minimum": 0
               },
               "type": {
-                "type": "string"
+                "type": "string",
+                "description": "DDR4, DDR5, LPDDR5..."
               },
               "form_factor": {
-                "type": "string"
+                "type": "string",
+                "description": "DIMM, SODIMM..."
               },
               "speed_mts": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the rated speed, in MT/s"
               },
               "configured_speed_mts": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the speed it runs at, in MT/s"
               },
               "data_width_bits": {
-                "type": "integer"
+                "type": "integer",
+                "description": "e.g. 64"
               },
               "total_width_bits": {
-                "type": "integer"
+                "type": "integer",
+                "description": "data plus ECC bits, e.g. 72"
               },
               "rank": {
-                "type": "integer"
+                "type": "integer",
+                "description": "ranks on the module"
               },
               "configured_voltage_mv": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the voltage it runs at, in millivolts"
               },
               "identity": {
                 "type": [
@@ -812,36 +1127,47 @@
                 ],
                 "properties": {
                   "vendor": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the maker's name"
                   },
                   "model": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the product's name"
                   },
                   "part_number": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the maker's part number"
                   },
                   "serial": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "removed by --redact"
                   },
                   "revision": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the hardware revision"
                   },
                   "manufacture_date": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
                   },
                   "manufacture_date_source": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "spd, edid, battery"
                   }
-                }
+                },
+                "description": "Identity.Vendor is decoded from a JEDEC code when the firmware gives one; ManufacturerRaw then keeps the firmware's string, e.g. \"Unknown - [0xF785]\"."
               },
               "manufacturer_raw": {
-                "type": "string"
+                "type": "string",
+                "description": "see identity"
               },
               "dram_vendor_id": {
-                "type": "string"
+                "type": "string",
+                "description": "DRAMVendorID is the memory chips' maker, which can differ from the module's (from SPD): its JEDEC code, and DRAMVendor the name resolve fills in."
               },
               "dram_vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "see dram_vendor_id"
               },
               "health": {
                 "type": [
@@ -850,7 +1176,14 @@
                 ],
                 "properties": {
                   "status": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "ok, warning, failing, unknown",
+                    "examples": [
+                      "ok",
+                      "warning",
+                      "failing",
+                      "unknown"
+                    ]
                   },
                   "reasons": {
                     "type": [
@@ -859,22 +1192,34 @@
                     ],
                     "items": {
                       "type": "string"
-                    }
+                    },
+                    "description": "why the status isn't ok, one line each"
                   },
                   "source": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "what it was read from (HealthFrom*)",
+                    "examples": [
+                      "nvme",
+                      "smartctl",
+                      "edac",
+                      "power_supply",
+                      "statistics",
+                      "thermal_throttle"
+                    ]
                   },
                   "life_used_percent": {
                     "type": [
                       "null",
                       "number"
-                    ]
+                    ],
+                    "description": "LifeUsedPercent and LifeRemainingPercent come only from the part's own wear indicator (NVMe percentage used, SSD endurance, battery capacity versus design, measured on its 100% to 80% range). Used may exceed 100; remaining stops at 0."
                   },
                   "life_remaining_percent": {
                     "type": [
                       "null",
                       "number"
-                    ]
+                    ],
+                    "description": "see life_used_percent"
                   },
                   "estimate": {
                     "type": [
@@ -883,29 +1228,63 @@
                     ],
                     "properties": {
                       "what": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "e.g. \"cycles until 80% capacity\""
                       },
                       "value": {
-                        "type": "number"
+                        "type": "number",
+                        "description": "in unit"
                       },
                       "unit": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "e.g. \"cycles\""
                       },
                       "method": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "how Value was computed, in words"
                       }
-                    }
+                    },
+                    "description": "Estimate is a derived figure; Method says how it was computed."
                   },
                   "metrics": {
                     "type": [
                       "null",
                       "object"
                     ],
+                    "description": "Metrics are measurements by name (the Metric* constants; the schema lists them as examples), in the unit the name ends with, or a count. Newer builds may add names.",
                     "additionalProperties": {
                       "type": "number"
+                    },
+                    "propertyNames": {
+                      "examples": [
+                        "temperature_c",
+                        "power_on_hours",
+                        "power_cycles",
+                        "data_read_bytes",
+                        "data_written_bytes",
+                        "available_spare_percent",
+                        "unsafe_shutdowns",
+                        "media_errors",
+                        "reallocated_sectors",
+                        "pending_sectors",
+                        "cycle_count",
+                        "full_wh",
+                        "capacity_percent",
+                        "design_wh",
+                        "ecc_corrected",
+                        "ecc_uncorrected",
+                        "thermal_throttle_events",
+                        "rx_errors",
+                        "tx_errors",
+                        "rx_dropped",
+                        "tx_dropped",
+                        "rx_packets",
+                        "tx_packets"
+                      ]
                     }
                   }
-                }
+                },
+                "description": "EDAC error counts"
               },
               "mounting": {
                 "type": [
@@ -914,16 +1293,20 @@
                 ],
                 "properties": {
                   "kind": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Kind is onboard (soldered), socket, slot, or unknown."
                   },
                   "slot": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Slot names the slot as the firmware does (\"Slot2 / M2 WLAN/BT\"); SlotType is its type (\"PCI Express Gen 3 x1\"). When several slots could hold the part, SlotType is set and Slot isn't."
                   },
                   "slot_type": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "see slot"
                   },
                   "confidence": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Confidence is high (the evidence names this part), medium (it fits only one way, but the firmware's own link is broken or the type is ambiguous), or absent for unknown."
                   },
                   "evidence": {
                     "type": [
@@ -932,17 +1315,22 @@
                     ],
                     "items": {
                       "type": "string"
-                    }
+                    },
+                    "description": "what showed it, one finding each"
                   },
                   "reason": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Reason says why it's unknown, or what lowered the confidence."
                   }
-                }
+                },
+                "description": "Mounting is whether a part is soldered on or removable, with what showed it."
               }
             }
-          }
+          },
+          "description": "MemoryModule is one installed memory module, from SMBIOS (root only) or, without it, the module's SPD."
         }
-      }
+      },
+      "description": "Memory is the machine's RAM: what the kernel sees, and the modules."
     },
     "storage": {
       "type": [
@@ -953,33 +1341,42 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "nvme0n1, sda"
           },
           "wwn": {
-            "type": "string"
+            "type": "string",
+            "description": "the World Wide Name, a unique ID"
           },
           "size_bytes": {
             "type": "integer",
+            "description": "the disk's capacity",
             "minimum": 0
           },
           "type": {
-            "type": "string"
+            "type": "string",
+            "description": "Type is nvme, ssd, hdd, flash, virtual, optical or unknown; it is the authority on whether a disk spins."
           },
           "transport": {
-            "type": "string"
+            "type": "string",
+            "description": "nvme, sata, usb, virtio, mmc..."
           },
           "rotational": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Rotational is the kernel's flag. false also means it couldn't be read, so it's not evidence of an SSD: read type."
           },
           "removable": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "the kernel's flag: removable media"
           },
           "logical_block_bytes": {
             "type": "integer",
+            "description": "the sector size addressed",
             "minimum": 0
           },
           "physical_block_bytes": {
             "type": "integer",
+            "description": "the sector size written",
             "minimum": 0
           },
           "partitions": {
@@ -991,29 +1388,37 @@
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "e.g. nvme0n1p1"
                 },
                 "size_bytes": {
                   "type": "integer",
+                  "description": "the partition's size",
                   "minimum": 0
                 },
                 "filesystem": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "e.g. ext4, vfat, crypto_LUKS"
                 },
                 "label": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the filesystem's label"
                 },
                 "uuid": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the filesystem's UUID (lsblk UUID)"
                 },
                 "partuuid": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the partition table entry's UUID (lsblk PARTUUID)"
                 },
                 "mount_point": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "MountPoint is where it's mounted; --redact keeps only system ones such as / and /boot."
                 }
               }
-            }
+            },
+            "description": "Partition is one partition of a disk."
           },
           "identity": {
             "type": [
@@ -1022,27 +1427,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "Identity names one physical part."
           },
           "firmware": {
             "type": [
@@ -1051,28 +1464,56 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
               },
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the firmware's maker, where reported"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "as the part reports it"
               },
               "date": {
-                "type": "string"
+                "type": "string",
+                "description": "the build date, as the firmware states it"
               },
               "release": {
-                "type": "string"
+                "type": "string",
+                "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+                "examples": [
+                  "dmi",
+                  "microcode",
+                  "nvme",
+                  "scsi",
+                  "mmc",
+                  "ethtool",
+                  "usb",
+                  "vbios",
+                  "mei",
+                  "udev",
+                  "tpm",
+                  "caps",
+                  "debugfs",
+                  "amdgpu",
+                  "hci"
+                ]
               },
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "\"unknown\" when Version couldn't be read",
+                "examples": [
+                  "unknown"
+                ]
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "why it's unknown, e.g. \"needs --full\""
               },
               "instance_ids": {
                 "type": [
@@ -1083,15 +1524,19 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                     },
                     "guid": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the ID's GUID, lowercase"
                     }
                   }
-                }
+                },
+                "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
               }
-            }
+            },
+            "description": "Firmware is the firmware a part runs, as the part or its driver reports it. A part that has firmware always has this block (ADR 0008): with a version and its source, or, when the version can't be read, Status \"unknown\" and the Reason, never silently absent."
           },
           "driver": {
             "type": [
@@ -1100,39 +1545,48 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver's name, e.g. iwlwifi"
               },
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "the kernel module providing it, if not built in"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
               },
               "srcversion": {
-                "type": "string"
+                "type": "string",
+                "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
               },
               "builtin": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "built into the kernel, not a loadable module"
               },
               "in_tree": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
               },
               "proprietary": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
               },
               "unsigned": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
               }
-            }
+            },
+            "description": "Driver is the kernel driver bound to a part."
           },
           "health": {
             "type": [
@@ -1141,7 +1595,14 @@
             ],
             "properties": {
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "ok, warning, failing, unknown",
+                "examples": [
+                  "ok",
+                  "warning",
+                  "failing",
+                  "unknown"
+                ]
               },
               "reasons": {
                 "type": [
@@ -1150,22 +1611,34 @@
                 ],
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "why the status isn't ok, one line each"
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "what it was read from (HealthFrom*)",
+                "examples": [
+                  "nvme",
+                  "smartctl",
+                  "edac",
+                  "power_supply",
+                  "statistics",
+                  "thermal_throttle"
+                ]
               },
               "life_used_percent": {
                 "type": [
                   "null",
                   "number"
-                ]
+                ],
+                "description": "LifeUsedPercent and LifeRemainingPercent come only from the part's own wear indicator (NVMe percentage used, SSD endurance, battery capacity versus design, measured on its 100% to 80% range). Used may exceed 100; remaining stops at 0."
               },
               "life_remaining_percent": {
                 "type": [
                   "null",
                   "number"
-                ]
+                ],
+                "description": "see life_used_percent"
               },
               "estimate": {
                 "type": [
@@ -1174,29 +1647,63 @@
                 ],
                 "properties": {
                   "what": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. \"cycles until 80% capacity\""
                   },
                   "value": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "in unit"
                   },
                   "unit": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. \"cycles\""
                   },
                   "method": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "how Value was computed, in words"
                   }
-                }
+                },
+                "description": "Estimate is a derived figure; Method says how it was computed."
               },
               "metrics": {
                 "type": [
                   "null",
                   "object"
                 ],
+                "description": "Metrics are measurements by name (the Metric* constants; the schema lists them as examples), in the unit the name ends with, or a count. Newer builds may add names.",
                 "additionalProperties": {
                   "type": "number"
+                },
+                "propertyNames": {
+                  "examples": [
+                    "temperature_c",
+                    "power_on_hours",
+                    "power_cycles",
+                    "data_read_bytes",
+                    "data_written_bytes",
+                    "available_spare_percent",
+                    "unsafe_shutdowns",
+                    "media_errors",
+                    "reallocated_sectors",
+                    "pending_sectors",
+                    "cycle_count",
+                    "full_wh",
+                    "capacity_percent",
+                    "design_wh",
+                    "ecc_corrected",
+                    "ecc_uncorrected",
+                    "thermal_throttle_events",
+                    "rx_errors",
+                    "tx_errors",
+                    "rx_dropped",
+                    "tx_dropped",
+                    "rx_packets",
+                    "tx_packets"
+                  ]
                 }
               }
-            }
+            },
+            "description": "Health describes a part's condition and wear."
           },
           "mounting": {
             "type": [
@@ -1205,16 +1712,20 @@
             ],
             "properties": {
               "kind": {
-                "type": "string"
+                "type": "string",
+                "description": "Kind is onboard (soldered), socket, slot, or unknown."
               },
               "slot": {
-                "type": "string"
+                "type": "string",
+                "description": "Slot names the slot as the firmware does (\"Slot2 / M2 WLAN/BT\"); SlotType is its type (\"PCI Express Gen 3 x1\"). When several slots could hold the part, SlotType is set and Slot isn't."
               },
               "slot_type": {
-                "type": "string"
+                "type": "string",
+                "description": "see slot"
               },
               "confidence": {
-                "type": "string"
+                "type": "string",
+                "description": "Confidence is high (the evidence names this part), medium (it fits only one way, but the firmware's own link is broken or the type is ambiguous), or absent for unknown."
               },
               "evidence": {
                 "type": [
@@ -1223,15 +1734,19 @@
                 ],
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "what showed it, one finding each"
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "Reason says why it's unknown, or what lowered the confidence."
               }
-            }
+            },
+            "description": "eMMC and SD cards"
           }
         }
-      }
+      },
+      "description": "Disk is one block device: a drive, a card, or a virtual disk."
     },
     "gpus": {
       "type": [
@@ -1242,22 +1757,28 @@
         "type": "object",
         "properties": {
           "pci_address": {
-            "type": "string"
+            "type": "string",
+            "description": "e.g. 0000:00:02.0"
           },
           "vendor_id": {
-            "type": "string"
+            "type": "string",
+            "description": "PCI vendor ID, 4 hex digits"
           },
           "device_id": {
-            "type": "string"
+            "type": "string",
+            "description": "PCI device ID, 4 hex digits"
           },
           "chip": {
-            "type": "string"
+            "type": "string",
+            "description": "Identity.Model is the retail name where known (AMD: libdrm's amdgpu.ids), otherwise the chip name; Chip is always the chip name."
           },
           "subsystem": {
-            "type": "string"
+            "type": "string",
+            "description": "the card maker's name for it (PCI subsystem)"
           },
           "vram_bytes": {
             "type": "integer",
+            "description": "dedicated memory (amdgpu)",
             "minimum": 0
           },
           "clocks": {
@@ -1267,27 +1788,34 @@
             ],
             "properties": {
               "min_freq_mhz": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the lowest hardware clock"
               },
               "max_freq_mhz": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the highest hardware clock"
               },
               "actual_freq_mhz": {
                 "type": [
                   "null",
                   "integer"
-                ]
+                ],
+                "description": "ActualFreqMHz is the measured clock. i915 may read 0 while the GPU is in RC6 (by generation: a Gen9 GPU reads its minimum instead); a value below the range is amdgpu's deep-sleep clock. Absent when the driver doesn't report it or reports one outside the range."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Source names the interface: \"i915\" (gt_RPn/RP0/act_freq_mhz) or \"amdgpu\" (pp_dpm_sclk)."
               }
-            }
+            },
+            "description": "GPUClocks is the graphics core's hardware clock range, and its measured clock when the capture was taken: a moment's value, not a sustained one. Present only when the driver exposes them without root."
           },
           "boot_vga": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "BootVGA is the kernel's boot_vga flag: the GPU the firmware showed the boot screen on. false also means it couldn't be read."
           },
           "drm_card": {
-            "type": "string"
+            "type": "string",
+            "description": "e.g. card1"
           },
           "pcie_link": {
             "type": [
@@ -1296,18 +1824,23 @@
             ],
             "properties": {
               "speed": {
-                "type": "string"
+                "type": "string",
+                "description": "as the kernel writes it, e.g. \"16.0 GT/s PCIe\""
               },
               "width": {
-                "type": "integer"
+                "type": "integer",
+                "description": "lanes in use"
               },
               "max_speed": {
-                "type": "string"
+                "type": "string",
+                "description": "the fastest the device supports"
               },
               "max_width": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the most lanes the device supports"
               }
-            }
+            },
+            "description": "PCIeLink is a PCI Express link's state when captured, and the most the device supports. A link below that may be saving power, or be held back by the slot."
           },
           "outputs": {
             "type": [
@@ -1316,7 +1849,8 @@
             ],
             "items": {
               "type": "string"
-            }
+            },
+            "description": "connectors, e.g. DP-1, HDMI-A-1"
           },
           "identity": {
             "type": [
@@ -1325,27 +1859,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "Identity names one physical part."
           },
           "firmware": {
             "type": [
@@ -1354,28 +1896,56 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
               },
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the firmware's maker, where reported"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "as the part reports it"
               },
               "date": {
-                "type": "string"
+                "type": "string",
+                "description": "the build date, as the firmware states it"
               },
               "release": {
-                "type": "string"
+                "type": "string",
+                "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+                "examples": [
+                  "dmi",
+                  "microcode",
+                  "nvme",
+                  "scsi",
+                  "mmc",
+                  "ethtool",
+                  "usb",
+                  "vbios",
+                  "mei",
+                  "udev",
+                  "tpm",
+                  "caps",
+                  "debugfs",
+                  "amdgpu",
+                  "hci"
+                ]
               },
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "\"unknown\" when Version couldn't be read",
+                "examples": [
+                  "unknown"
+                ]
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "why it's unknown, e.g. \"needs --full\""
               },
               "instance_ids": {
                 "type": [
@@ -1386,15 +1956,19 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                     },
                     "guid": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the ID's GUID, lowercase"
                     }
                   }
-                }
+                },
+                "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
               }
-            }
+            },
+            "description": "Firmware is the video BIOS (amdgpu, NVIDIA)."
           },
           "firmware_components": {
             "type": [
@@ -1405,28 +1979,56 @@
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
                 },
                 "vendor": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the firmware's maker, where reported"
                 },
                 "version": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "as the part reports it"
                 },
                 "date": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the build date, as the firmware states it"
                 },
                 "release": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
                 },
                 "source": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+                  "examples": [
+                    "dmi",
+                    "microcode",
+                    "nvme",
+                    "scsi",
+                    "mmc",
+                    "ethtool",
+                    "usb",
+                    "vbios",
+                    "mei",
+                    "udev",
+                    "tpm",
+                    "caps",
+                    "debugfs",
+                    "amdgpu",
+                    "hci"
+                  ]
                 },
                 "status": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "\"unknown\" when Version couldn't be read",
+                  "examples": [
+                    "unknown"
+                  ]
                 },
                 "reason": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "why it's unknown, e.g. \"needs --full\""
                 },
                 "instance_ids": {
                   "type": [
@@ -1437,16 +2039,20 @@
                     "type": "object",
                     "properties": {
                       "id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                       },
                       "guid": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "the ID's GUID, lowercase"
                       }
                     }
-                  }
+                  },
+                  "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
                 }
               }
-            }
+            },
+            "description": "FirmwareComponents are the GPU's other firmware, each named: Intel's GuC and HuC (debugfs, --full), amdgpu's blocks (smc, sos, vcn, …)."
           },
           "driver": {
             "type": [
@@ -1455,42 +2061,52 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver's name, e.g. iwlwifi"
               },
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "the kernel module providing it, if not built in"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
               },
               "srcversion": {
-                "type": "string"
+                "type": "string",
+                "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
               },
               "builtin": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "built into the kernel, not a loadable module"
               },
               "in_tree": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
               },
               "proprietary": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
               },
               "unsigned": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
               }
-            }
+            },
+            "description": "Driver is the kernel driver bound to a part."
           }
         }
-      }
+      },
+      "description": "GPU is a display controller (PCI class 03)."
     },
     "displays": {
       "type": [
@@ -1501,34 +2117,44 @@
         "type": "object",
         "properties": {
           "connector": {
-            "type": "string"
+            "type": "string",
+            "description": "card1-DP-1"
           },
           "manufacturer_id": {
-            "type": "string"
+            "type": "string",
+            "description": "PNP ID, e.g. DEL"
           },
           "width_mm": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the image's width"
           },
           "height_mm": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the image's height"
           },
           "diagonal_in": {
-            "type": "number"
+            "type": "number",
+            "description": "in inches, from width_mm and height_mm"
           },
           "native_width": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the preferred mode's pixels across"
           },
           "native_height": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the preferred mode's pixels down"
           },
           "native_refresh_hz": {
-            "type": "number"
+            "type": "number",
+            "description": "the preferred mode's refresh rate"
           },
           "edid_version": {
-            "type": "string"
+            "type": "string",
+            "description": "e.g. \"1.4\""
           },
           "model_year": {
-            "type": "integer"
+            "type": "integer",
+            "description": "ModelYear is set instead of a manufacture date when the EDID gives the model year only."
           },
           "identity": {
             "type": [
@@ -1537,30 +2163,39 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "part_number = EDID product code"
           }
         }
-      }
+      },
+      "description": "Display is a connected monitor or panel, from its EDID."
     },
     "network": {
       "type": [
@@ -1571,34 +2206,44 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "the interface's name, e.g. enp3s0"
           },
           "type": {
-            "type": "string"
+            "type": "string",
+            "description": "Type is ethernet, wireless, or \"other (N)\" with the kernel's ARP hardware type N."
           },
           "mac": {
-            "type": "string"
+            "type": "string",
+            "description": "the hardware address, lowercase"
           },
           "mac_vendor": {
-            "type": "string"
+            "type": "string",
+            "description": "registered owner of the MAC prefix"
           },
           "bus": {
-            "type": "string"
+            "type": "string",
+            "description": "pci, usb"
           },
           "bus_address": {
-            "type": "string"
+            "type": "string",
+            "description": "the device's address on that bus"
           },
           "state": {
-            "type": "string"
+            "type": "string",
+            "description": "State is the kernel's operstate when captured: up, down, dormant, unknown..."
           },
           "speed_mbps": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the link's speed, while it's up"
           },
           "duplex": {
-            "type": "string"
+            "type": "string",
+            "description": "full, half; while the link is up"
           },
           "mtu": {
-            "type": "integer"
+            "type": "integer",
+            "description": "in bytes"
           },
           "identity": {
             "type": [
@@ -1607,27 +2252,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "Identity names one physical part."
           },
           "firmware": {
             "type": [
@@ -1636,28 +2289,56 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
               },
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the firmware's maker, where reported"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "as the part reports it"
               },
               "date": {
-                "type": "string"
+                "type": "string",
+                "description": "the build date, as the firmware states it"
               },
               "release": {
-                "type": "string"
+                "type": "string",
+                "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+                "examples": [
+                  "dmi",
+                  "microcode",
+                  "nvme",
+                  "scsi",
+                  "mmc",
+                  "ethtool",
+                  "usb",
+                  "vbios",
+                  "mei",
+                  "udev",
+                  "tpm",
+                  "caps",
+                  "debugfs",
+                  "amdgpu",
+                  "hci"
+                ]
               },
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "\"unknown\" when Version couldn't be read",
+                "examples": [
+                  "unknown"
+                ]
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "why it's unknown, e.g. \"needs --full\""
               },
               "instance_ids": {
                 "type": [
@@ -1668,15 +2349,19 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                     },
                     "guid": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the ID's GUID, lowercase"
                     }
                   }
-                }
+                },
+                "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
               }
-            }
+            },
+            "description": "Firmware is the firmware a part runs, as the part or its driver reports it. A part that has firmware always has this block (ADR 0008): with a version and its source, or, when the version can't be read, Status \"unknown\" and the Reason, never silently absent."
           },
           "driver": {
             "type": [
@@ -1685,39 +2370,48 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver's name, e.g. iwlwifi"
               },
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "the kernel module providing it, if not built in"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
               },
               "srcversion": {
-                "type": "string"
+                "type": "string",
+                "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
               },
               "builtin": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "built into the kernel, not a loadable module"
               },
               "in_tree": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
               },
               "proprietary": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
               },
               "unsigned": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
               }
-            }
+            },
+            "description": "Driver is the kernel driver bound to a part."
           },
           "health": {
             "type": [
@@ -1726,7 +2420,14 @@
             ],
             "properties": {
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "ok, warning, failing, unknown",
+                "examples": [
+                  "ok",
+                  "warning",
+                  "failing",
+                  "unknown"
+                ]
               },
               "reasons": {
                 "type": [
@@ -1735,22 +2436,34 @@
                 ],
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "why the status isn't ok, one line each"
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "what it was read from (HealthFrom*)",
+                "examples": [
+                  "nvme",
+                  "smartctl",
+                  "edac",
+                  "power_supply",
+                  "statistics",
+                  "thermal_throttle"
+                ]
               },
               "life_used_percent": {
                 "type": [
                   "null",
                   "number"
-                ]
+                ],
+                "description": "LifeUsedPercent and LifeRemainingPercent come only from the part's own wear indicator (NVMe percentage used, SSD endurance, battery capacity versus design, measured on its 100% to 80% range). Used may exceed 100; remaining stops at 0."
               },
               "life_remaining_percent": {
                 "type": [
                   "null",
                   "number"
-                ]
+                ],
+                "description": "see life_used_percent"
               },
               "estimate": {
                 "type": [
@@ -1759,32 +2472,67 @@
                 ],
                 "properties": {
                   "what": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. \"cycles until 80% capacity\""
                   },
                   "value": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "in unit"
                   },
                   "unit": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. \"cycles\""
                   },
                   "method": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "how Value was computed, in words"
                   }
-                }
+                },
+                "description": "Estimate is a derived figure; Method says how it was computed."
               },
               "metrics": {
                 "type": [
                   "null",
                   "object"
                 ],
+                "description": "Metrics are measurements by name (the Metric* constants; the schema lists them as examples), in the unit the name ends with, or a count. Newer builds may add names.",
                 "additionalProperties": {
                   "type": "number"
+                },
+                "propertyNames": {
+                  "examples": [
+                    "temperature_c",
+                    "power_on_hours",
+                    "power_cycles",
+                    "data_read_bytes",
+                    "data_written_bytes",
+                    "available_spare_percent",
+                    "unsafe_shutdowns",
+                    "media_errors",
+                    "reallocated_sectors",
+                    "pending_sectors",
+                    "cycle_count",
+                    "full_wh",
+                    "capacity_percent",
+                    "design_wh",
+                    "ecc_corrected",
+                    "ecc_uncorrected",
+                    "thermal_throttle_events",
+                    "rx_errors",
+                    "tx_errors",
+                    "rx_dropped",
+                    "tx_dropped",
+                    "rx_packets",
+                    "tx_packets"
+                  ]
                 }
               }
-            }
+            },
+            "description": "error and drop counters since boot"
           }
         }
-      }
+      },
+      "description": "NIC is a network interface backed by hardware (virtual ones are left out)."
     },
     "bluetooth": {
       "type": [
@@ -1795,37 +2543,47 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "hci0"
           },
           "address": {
-            "type": "string"
+            "type": "string",
+            "description": "the controller's Bluetooth address"
           },
           "address_vendor": {
-            "type": "string"
+            "type": "string",
+            "description": "registered owner of the address prefix"
           },
           "manufacturer_id": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Bluetooth SIG company ID of the chip"
           },
           "manufacturer": {
-            "type": "string"
+            "type": "string",
+            "description": "that company's name"
           },
           "version": {
-            "type": "string"
+            "type": "string",
+            "description": "core spec version, e.g. \"5.2\""
           },
           "local_name": {
-            "type": "string"
+            "type": "string",
+            "description": "LocalName is the name it advertises, often the hostname."
           },
           "powered": {
             "type": [
               "null",
               "boolean"
-            ]
+            ],
+            "description": "whether the radio is on; absent if unknown"
           },
           "bus": {
-            "type": "string"
+            "type": "string",
+            "description": "usb, pci..."
           },
           "bus_address": {
-            "type": "string"
+            "type": "string",
+            "description": "the adapter's address on that bus"
           },
           "identity": {
             "type": [
@@ -1834,27 +2592,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "the USB/PCI adapter"
           },
           "firmware": {
             "type": [
@@ -1863,28 +2629,56 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
               },
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the firmware's maker, where reported"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "as the part reports it"
               },
               "date": {
-                "type": "string"
+                "type": "string",
+                "description": "the build date, as the firmware states it"
               },
               "release": {
-                "type": "string"
+                "type": "string",
+                "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+                "examples": [
+                  "dmi",
+                  "microcode",
+                  "nvme",
+                  "scsi",
+                  "mmc",
+                  "ethtool",
+                  "usb",
+                  "vbios",
+                  "mei",
+                  "udev",
+                  "tpm",
+                  "caps",
+                  "debugfs",
+                  "amdgpu",
+                  "hci"
+                ]
               },
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "\"unknown\" when Version couldn't be read",
+                "examples": [
+                  "unknown"
+                ]
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "why it's unknown, e.g. \"needs --full\""
               },
               "instance_ids": {
                 "type": [
@@ -1895,15 +2689,19 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                     },
                     "guid": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the ID's GUID, lowercase"
                     }
                   }
-                }
+                },
+                "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
               }
-            }
+            },
+            "description": "Firmware is the firmware a part runs, as the part or its driver reports it. A part that has firmware always has this block (ADR 0008): with a version and its source, or, when the version can't be read, Status \"unknown\" and the Reason, never silently absent."
           },
           "driver": {
             "type": [
@@ -1912,42 +2710,52 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver's name, e.g. iwlwifi"
               },
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "the kernel module providing it, if not built in"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
               },
               "srcversion": {
-                "type": "string"
+                "type": "string",
+                "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
               },
               "builtin": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "built into the kernel, not a loadable module"
               },
               "in_tree": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
               },
               "proprietary": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
               },
               "unsigned": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
               }
-            }
+            },
+            "description": "Driver is the kernel driver bound to a part."
           }
         }
-      }
+      },
+      "description": "BluetoothController is a Bluetooth adapter the kernel knows (hciN)."
     },
     "audio": {
       "type": [
@@ -1958,19 +2766,24 @@
         "type": "object",
         "properties": {
           "index": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the card's number, as in cardN"
           },
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "ALSA's short ID, e.g. PCH"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "ALSA's name, e.g. \"HDA Intel PCH\""
           },
           "bus": {
-            "type": "string"
+            "type": "string",
+            "description": "pci, usb..."
           },
           "bus_address": {
-            "type": "string"
+            "type": "string",
+            "description": "the card's address on that bus"
           },
           "codecs": {
             "type": [
@@ -1981,10 +2794,12 @@
               "type": "object",
               "properties": {
                 "vendor_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "e.g. 14f15098: PCI vendor 14f1, device 5098"
                 },
                 "subsystem_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the board maker's ID for its use of the codec"
                 },
                 "identity": {
                   "type": [
@@ -1993,30 +2808,39 @@
                   ],
                   "properties": {
                     "vendor": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the maker's name"
                     },
                     "model": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the product's name"
                     },
                     "part_number": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the maker's part number"
                     },
                     "serial": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "removed by --redact"
                     },
                     "revision": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the hardware revision"
                     },
                     "manufacture_date": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
                     },
                     "manufacture_date_source": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "spd, edid, battery"
                     }
-                  }
+                  },
+                  "description": "Identity names one physical part."
                 }
               }
-            }
+            },
+            "description": "AudioCodec is an HD Audio codec chip, named by the kernel."
           },
           "driver": {
             "type": [
@@ -2025,42 +2849,52 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver's name, e.g. iwlwifi"
               },
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "the kernel module providing it, if not built in"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
               },
               "srcversion": {
-                "type": "string"
+                "type": "string",
+                "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
               },
               "builtin": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "built into the kernel, not a loadable module"
               },
               "in_tree": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
               },
               "proprietary": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
               },
               "unsigned": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
               }
-            }
+            },
+            "description": "Driver is the kernel driver bound to a part."
           }
         }
-      }
+      },
+      "description": "SoundCard is an ALSA sound card (/proc/asound/cards)."
     },
     "batteries": {
       "type": [
@@ -2071,16 +2905,20 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "the kernel's name, e.g. BAT0"
           },
           "technology": {
-            "type": "string"
+            "type": "string",
+            "description": "e.g. Li-ion"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "description": "charging, discharging..."
           },
           "capacity_percent": {
-            "type": "integer"
+            "type": "integer",
+            "description": "CapacityPercent is the charge level (% charged) when captured, not wear: health.metrics.capacity_percent is the full charge against the design capacity."
           },
           "identity": {
             "type": [
@@ -2089,27 +2927,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "Identity names one physical part."
           },
           "health": {
             "type": [
@@ -2118,7 +2964,14 @@
             ],
             "properties": {
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "ok, warning, failing, unknown",
+                "examples": [
+                  "ok",
+                  "warning",
+                  "failing",
+                  "unknown"
+                ]
               },
               "reasons": {
                 "type": [
@@ -2127,22 +2980,34 @@
                 ],
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "why the status isn't ok, one line each"
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "what it was read from (HealthFrom*)",
+                "examples": [
+                  "nvme",
+                  "smartctl",
+                  "edac",
+                  "power_supply",
+                  "statistics",
+                  "thermal_throttle"
+                ]
               },
               "life_used_percent": {
                 "type": [
                   "null",
                   "number"
-                ]
+                ],
+                "description": "LifeUsedPercent and LifeRemainingPercent come only from the part's own wear indicator (NVMe percentage used, SSD endurance, battery capacity versus design, measured on its 100% to 80% range). Used may exceed 100; remaining stops at 0."
               },
               "life_remaining_percent": {
                 "type": [
                   "null",
                   "number"
-                ]
+                ],
+                "description": "see life_used_percent"
               },
               "estimate": {
                 "type": [
@@ -2151,32 +3016,67 @@
                 ],
                 "properties": {
                   "what": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. \"cycles until 80% capacity\""
                   },
                   "value": {
-                    "type": "number"
+                    "type": "number",
+                    "description": "in unit"
                   },
                   "unit": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. \"cycles\""
                   },
                   "method": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "how Value was computed, in words"
                   }
-                }
+                },
+                "description": "Estimate is a derived figure; Method says how it was computed."
               },
               "metrics": {
                 "type": [
                   "null",
                   "object"
                 ],
+                "description": "Metrics are measurements by name (the Metric* constants; the schema lists them as examples), in the unit the name ends with, or a count. Newer builds may add names.",
                 "additionalProperties": {
                   "type": "number"
+                },
+                "propertyNames": {
+                  "examples": [
+                    "temperature_c",
+                    "power_on_hours",
+                    "power_cycles",
+                    "data_read_bytes",
+                    "data_written_bytes",
+                    "available_spare_percent",
+                    "unsafe_shutdowns",
+                    "media_errors",
+                    "reallocated_sectors",
+                    "pending_sectors",
+                    "cycle_count",
+                    "full_wh",
+                    "capacity_percent",
+                    "design_wh",
+                    "ecc_corrected",
+                    "ecc_uncorrected",
+                    "thermal_throttle_events",
+                    "rx_errors",
+                    "tx_errors",
+                    "rx_dropped",
+                    "tx_dropped",
+                    "rx_packets",
+                    "tx_packets"
+                  ]
                 }
               }
-            }
+            },
+            "description": "Health describes a part's condition and wear."
           }
         }
-      }
+      },
+      "description": "Battery is one of the machine's own batteries (power_supply); peripherals' batteries are left out."
     },
     "tpm": {
       "type": [
@@ -2185,7 +3085,8 @@
       ],
       "properties": {
         "spec_version_major": {
-          "type": "integer"
+          "type": "integer",
+          "description": "SpecVersionMajor is the TCG specification major version the TPM implements (1 or 2)."
         },
         "firmware": {
           "type": [
@@ -2194,28 +3095,56 @@
           ],
           "properties": {
             "name": {
-              "type": "string"
+              "type": "string",
+              "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
             },
             "vendor": {
-              "type": "string"
+              "type": "string",
+              "description": "the firmware's maker, where reported"
             },
             "version": {
-              "type": "string"
+              "type": "string",
+              "description": "as the part reports it"
             },
             "date": {
-              "type": "string"
+              "type": "string",
+              "description": "the build date, as the firmware states it"
             },
             "release": {
-              "type": "string"
+              "type": "string",
+              "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
             },
             "source": {
-              "type": "string"
+              "type": "string",
+              "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+              "examples": [
+                "dmi",
+                "microcode",
+                "nvme",
+                "scsi",
+                "mmc",
+                "ethtool",
+                "usb",
+                "vbios",
+                "mei",
+                "udev",
+                "tpm",
+                "caps",
+                "debugfs",
+                "amdgpu",
+                "hci"
+              ]
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "\"unknown\" when Version couldn't be read",
+              "examples": [
+                "unknown"
+              ]
             },
             "reason": {
-              "type": "string"
+              "type": "string",
+              "description": "why it's unknown, e.g. \"needs --full\""
             },
             "instance_ids": {
               "type": [
@@ -2226,17 +3155,22 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                   },
                   "guid": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "the ID's GUID, lowercase"
                   }
                 }
-              }
+              },
+              "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
             }
-          }
+          },
+          "description": "Firmware is the firmware a part runs, as the part or its driver reports it. A part that has firmware always has this block (ADR 0008): with a version and its source, or, when the version can't be read, Status \"unknown\" and the Reason, never silently absent."
         }
-      }
+      },
+      "description": "TPM is the machine's Trusted Platform Module."
     },
     "sensors": {
       "type": [
@@ -2247,10 +3181,12 @@
         "type": "object",
         "properties": {
           "chip": {
-            "type": "string"
+            "type": "string",
+            "description": "coretemp, nvme, amdgpu..."
           },
           "device": {
-            "type": "string"
+            "type": "string",
+            "description": "the address of the device it measures"
           },
           "readings": {
             "type": [
@@ -2261,28 +3197,36 @@
               "type": "object",
               "properties": {
                 "label": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the chip's label, or the sensor's name (temp1)"
                 },
                 "kind": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "temperature, fan, voltage, power, current"
                 },
                 "value": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "in unit"
                 },
                 "unit": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "C, RPM, V, W, A"
                 },
                 "max": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "the high threshold, in unit"
                 },
                 "crit": {
-                  "type": "number"
+                  "type": "number",
+                  "description": "the critical threshold, in unit"
                 }
               }
-            }
+            },
+            "description": "SensorReading is one sensor's value when captured."
           }
         }
-      }
+      },
+      "description": "Sensor is one hardware monitoring chip (hwmon) and its readings."
     },
     "pci": {
       "type": [
@@ -2293,34 +3237,44 @@
         "type": "object",
         "properties": {
           "address": {
-            "type": "string"
+            "type": "string",
+            "description": "domain:bus:device.function, e.g. 0000:00:1f.3"
           },
           "parent": {
-            "type": "string"
+            "type": "string",
+            "description": "Parent is the bridge or root port the device sits behind, from the kernel's device path (for a root port behind Intel VMD, the VMD controller). Absent on a platform root bus, and when the path can't be resolved, which the capture warns about."
           },
           "vendor_id": {
-            "type": "string"
+            "type": "string",
+            "description": "4 hex digits"
           },
           "device_id": {
-            "type": "string"
+            "type": "string",
+            "description": "4 hex digits"
           },
           "subsystem_vendor_id": {
-            "type": "string"
+            "type": "string",
+            "description": "the card or board maker's vendor ID"
           },
           "subsystem_device_id": {
-            "type": "string"
+            "type": "string",
+            "description": "that maker's ID for the product"
           },
           "class_code": {
-            "type": "string"
+            "type": "string",
+            "description": "ClassCode is the class, subclass and programming interface, 6 hex digits, e.g. 030000 (VGA)."
           },
           "class": {
-            "type": "string"
+            "type": "string",
+            "description": "the class code's name, e.g. \"VGA compatible controller\""
           },
           "subsystem": {
-            "type": "string"
+            "type": "string",
+            "description": "the subsystem IDs' name"
           },
           "iommu_group": {
-            "type": "string"
+            "type": "string",
+            "description": "the IOMMU group's number; absent without an IOMMU"
           },
           "pcie_link": {
             "type": [
@@ -2329,24 +3283,31 @@
             ],
             "properties": {
               "speed": {
-                "type": "string"
+                "type": "string",
+                "description": "as the kernel writes it, e.g. \"16.0 GT/s PCIe\""
               },
               "width": {
-                "type": "integer"
+                "type": "integer",
+                "description": "lanes in use"
               },
               "max_speed": {
-                "type": "string"
+                "type": "string",
+                "description": "the fastest the device supports"
               },
               "max_width": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the most lanes the device supports"
               }
-            }
+            },
+            "description": "PCIeLink is a PCI Express link's state when captured, and the most the device supports. A link below that may be saving power, or be held back by the slot."
           },
           "label": {
-            "type": "string"
+            "type": "string",
+            "description": "Label is the firmware's name for the device (sysfs label), and LabelSource where the kernel got it: \"smbios\" (type 41, an onboard device) or \"acpi\" (a _DSM name, which says nothing about mounting)."
           },
           "label_source": {
-            "type": "string"
+            "type": "string",
+            "description": "see label"
           },
           "mounting": {
             "type": [
@@ -2355,16 +3316,20 @@
             ],
             "properties": {
               "kind": {
-                "type": "string"
+                "type": "string",
+                "description": "Kind is onboard (soldered), socket, slot, or unknown."
               },
               "slot": {
-                "type": "string"
+                "type": "string",
+                "description": "Slot names the slot as the firmware does (\"Slot2 / M2 WLAN/BT\"); SlotType is its type (\"PCI Express Gen 3 x1\"). When several slots could hold the part, SlotType is set and Slot isn't."
               },
               "slot_type": {
-                "type": "string"
+                "type": "string",
+                "description": "see slot"
               },
               "confidence": {
-                "type": "string"
+                "type": "string",
+                "description": "Confidence is high (the evidence names this part), medium (it fits only one way, but the firmware's own link is broken or the type is ambiguous), or absent for unknown."
               },
               "evidence": {
                 "type": [
@@ -2373,12 +3338,15 @@
                 ],
                 "items": {
                   "type": "string"
-                }
+                },
+                "description": "what showed it, one finding each"
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "Reason says why it's unknown, or what lowered the confidence."
               }
-            }
+            },
+            "description": "Mounting says whether the device is soldered on or sits in a slot, for storage, network, display, multimedia and wireless devices."
           },
           "identity": {
             "type": [
@@ -2387,27 +3355,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "vendor, model = device name, revision"
           },
           "driver": {
             "type": [
@@ -2416,39 +3392,48 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver's name, e.g. iwlwifi"
               },
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "the kernel module providing it, if not built in"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
               },
               "srcversion": {
-                "type": "string"
+                "type": "string",
+                "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
               },
               "builtin": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "built into the kernel, not a loadable module"
               },
               "in_tree": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
               },
               "proprietary": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
               },
               "unsigned": {
                 "type": [
                   "null",
                   "boolean"
-                ]
+                ],
+                "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
               }
-            }
+            },
+            "description": "Driver is the kernel driver bound to a part."
           },
           "module_candidates": {
             "type": [
@@ -2459,19 +3444,24 @@
               "type": "object",
               "properties": {
                 "module": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "with \"_\" for \"-\", as modprobe treats them"
                 },
                 "builtin": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "built into the kernel: always available"
                 },
                 "loaded": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "built in, or loaded (/sys/module/\u003cm\u003e/initstate \"live\")"
                 }
               }
-            }
+            },
+            "description": "ModuleCandidates are the kernel modules whose aliases match a driverless device's modalias, in the running kernel's module index: [] when none does. Absent for a device with a driver, and when the index couldn't be read (kernel.module_index says why)."
           }
         }
-      }
+      },
+      "description": "PCIDevice is one PCI function."
     },
     "kernel": {
       "type": [
@@ -2486,13 +3476,21 @@
           ],
           "properties": {
             "release": {
-              "type": "string"
+              "type": "string",
+              "description": "os.kernel"
             },
             "status": {
-              "type": "string"
+              "type": "string",
+              "description": "Status is \"found\" (Dir holds its modules.alias), \"other_release\" (only other kernels' modules are installed: what an upgrade without a reboot leaves, the only evidence of one), or \"none\" (no module tree at all: a container without the host's, or a kernel built without modules).",
+              "examples": [
+                "found",
+                "other_release",
+                "none"
+              ]
             },
             "dir": {
-              "type": "string"
+              "type": "string",
+              "description": "the running kernel's module directory, when found"
             },
             "other_releases": {
               "type": [
@@ -2501,9 +3499,11 @@
               ],
               "items": {
                 "type": "string"
-              }
+              },
+              "description": "the kernel releases whose modules are installed instead"
             }
-          }
+          },
+          "description": "ModuleIndex says where the running kernel's module index is, or what was found instead."
         },
         "module_blacklist": {
           "type": [
@@ -2514,16 +3514,25 @@
             "type": "object",
             "properties": {
               "module": {
-                "type": "string"
+                "type": "string",
+                "description": "as modprobe names it, \"-\" read as \"_\""
               },
               "kind": {
-                "type": "string"
+                "type": "string",
+                "description": "Kind is how: \"blacklist\" (modprobe ignores the module's aliases, so a device doesn't load it, but \"modprobe \u003cmodule\u003e\" still does), \"kernel\" (module_blacklist=: the kernel refuses to load it at all), or \"install\" (modprobe runs a no-op, /bin/false or /bin/true, instead of loading it).",
+                "examples": [
+                  "blacklist",
+                  "kernel",
+                  "install"
+                ]
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "the modprobe.d file's path, or \"cmdline\""
               }
             }
-          }
+          },
+          "description": "ModuleBlacklist lists the modules kept from loading, by the three ways hwspec reads (#212): modprobe.d's blacklist lines and modprobe.blacklist=, the kernel's module_blacklist=, and modprobe.d install lines that run a no-op instead. Absent: not read (a capture from before it). Empty: none of those name a module; another way to keep one from loading (an install script, a udev rule) isn't read, so it doesn't mean nothing can."
         },
         "firmware_failures": {
           "type": [
@@ -2534,21 +3543,27 @@
             "type": "object",
             "properties": {
               "device": {
-                "type": "string"
+                "type": "string",
+                "description": "its bus address, e.g. 0000:02:00.0"
               },
               "driver": {
-                "type": "string"
+                "type": "string",
+                "description": "the driver that asked for the file"
               },
               "file": {
-                "type": "string"
+                "type": "string",
+                "description": "as requested, e.g. iwlwifi-cc-a0-77.ucode"
               },
               "error": {
-                "type": "integer"
+                "type": "integer",
+                "description": "the loader's negative errno, e.g. -2 (ENOENT)"
               }
             }
-          }
+          },
+          "description": "FirmwareFailures are the \"Direct firmware load … failed\" warnings in the kernel log (/dev/kmsg, --full only). Absent: not read (no root, or a capture from before it). Empty: none logged, though a driver that asked quietly, or a log that wrapped, logs nothing."
         }
-      }
+      },
+      "description": "Kernel is what the running kernel provides beyond its version (os.kernel)."
     },
     "usb": {
       "type": [
@@ -2559,31 +3574,40 @@
         "type": "object",
         "properties": {
           "bus": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the bus number, as lsusb shows it"
           },
           "device": {
-            "type": "integer"
+            "type": "integer",
+            "description": "the device number on that bus, as lsusb shows it"
           },
           "path": {
-            "type": "string"
+            "type": "string",
+            "description": "sysfs name, e.g. 1-2.3"
           },
           "vendor_id": {
-            "type": "string"
+            "type": "string",
+            "description": "4 hex digits"
           },
           "product_id": {
-            "type": "string"
+            "type": "string",
+            "description": "4 hex digits"
           },
           "class_code": {
-            "type": "string"
+            "type": "string",
+            "description": "the device class, 2 hex digits; 00 means per interface"
           },
           "class": {
-            "type": "string"
+            "type": "string",
+            "description": "the class code's name"
           },
           "speed_mbps": {
-            "type": "number"
+            "type": "number",
+            "description": "the negotiated speed, e.g. 480 or 5000"
           },
           "usb_version": {
-            "type": "string"
+            "type": "string",
+            "description": "the USB version the device declares, e.g. \"2.10\""
           },
           "identity": {
             "type": [
@@ -2592,27 +3616,35 @@
             ],
             "properties": {
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's name"
               },
               "model": {
-                "type": "string"
+                "type": "string",
+                "description": "the product's name"
               },
               "part_number": {
-                "type": "string"
+                "type": "string",
+                "description": "the maker's part number"
               },
               "serial": {
-                "type": "string"
+                "type": "string",
+                "description": "removed by --redact"
               },
               "revision": {
-                "type": "string"
+                "type": "string",
+                "description": "the hardware revision"
               },
               "manufacture_date": {
-                "type": "string"
+                "type": "string",
+                "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
               },
               "manufacture_date_source": {
-                "type": "string"
+                "type": "string",
+                "description": "spd, edid, battery"
               }
-            }
+            },
+            "description": "Identity names one physical part."
           },
           "firmware": {
             "type": [
@@ -2621,28 +3653,56 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "Name says which firmware of a part this is, where a part has several (a GPU's firmware_components: \"GuC\", \"HuC\", \"GuC (gt1)\")."
               },
               "vendor": {
-                "type": "string"
+                "type": "string",
+                "description": "the firmware's maker, where reported"
               },
               "version": {
-                "type": "string"
+                "type": "string",
+                "description": "as the part reports it"
               },
               "date": {
-                "type": "string"
+                "type": "string",
+                "description": "the build date, as the firmware states it"
               },
               "release": {
-                "type": "string"
+                "type": "string",
+                "description": "Release is a second version number the firmware reports: the BIOS release (\"5.17\"), or a Bluetooth controller's HCI revision."
               },
               "source": {
-                "type": "string"
+                "type": "string",
+                "description": "Source says where the version was read: dmi, microcode, nvme, scsi (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci (a Bluetooth controller: version is the LMP subversion, release the HCI revision).",
+                "examples": [
+                  "dmi",
+                  "microcode",
+                  "nvme",
+                  "scsi",
+                  "mmc",
+                  "ethtool",
+                  "usb",
+                  "vbios",
+                  "mei",
+                  "udev",
+                  "tpm",
+                  "caps",
+                  "debugfs",
+                  "amdgpu",
+                  "hci"
+                ]
               },
               "status": {
-                "type": "string"
+                "type": "string",
+                "description": "\"unknown\" when Version couldn't be read",
+                "examples": [
+                  "unknown"
+                ]
               },
               "reason": {
-                "type": "string"
+                "type": "string",
+                "description": "why it's unknown, e.g. \"needs --full\""
               },
               "instance_ids": {
                 "type": [
@@ -2653,15 +3713,19 @@
                   "type": "object",
                   "properties": {
                     "id": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "e.g. NVME\\VEN_144D\u0026DEV_A808"
                     },
                     "guid": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the ID's GUID, lowercase"
                     }
                   }
-                }
+                },
+                "description": "InstanceIDs are the IDs fwupd knows this part by, each with the GUID LVFS releases name it with (ADR 0012): derived from the part's own IDs, so a capture can be compared with a firmware catalogue offline."
               }
-            }
+            },
+            "description": "device release number (bcdDevice)"
           },
           "drivers": {
             "type": [
@@ -2672,40 +3736,49 @@
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the driver's name, e.g. iwlwifi"
                 },
                 "module": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the kernel module providing it, if not built in"
                 },
                 "version": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
                 },
                 "srcversion": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
                 },
                 "builtin": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "built into the kernel, not a loadable module"
                 },
                 "in_tree": {
                   "type": [
                     "null",
                     "boolean"
-                  ]
+                  ],
+                  "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
                 },
                 "proprietary": {
                   "type": [
                     "null",
                     "boolean"
-                  ]
+                  ],
+                  "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
                 },
                 "unsigned": {
                   "type": [
                     "null",
                     "boolean"
-                  ]
+                  ],
+                  "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
                 }
               }
-            }
+            },
+            "description": "one per bound interface driver"
           },
           "interfaces": {
             "type": [
@@ -2716,13 +3789,16 @@
               "type": "object",
               "properties": {
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "sysfs name, e.g. 1-2:1.0"
                 },
                 "class_code": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "ClassCode is the interface's class, subclass and protocol, hex, e.g. \"030102\" (HID, boot interface, mouse)."
                 },
                 "modalias": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the alias modules are matched by, e.g. usb:v046DpC52Bd..."
                 },
                 "driver": {
                   "type": [
@@ -2731,39 +3807,48 @@
                   ],
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the driver's name, e.g. iwlwifi"
                     },
                     "module": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "the kernel module providing it, if not built in"
                     },
                     "version": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Version is the module's own version; in-tree modules usually have none, and match the kernel."
                     },
                     "srcversion": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "SrcVersion is the checksum of the module's source (modinfo srcversion), which tells two builds of one version apart."
                     },
                     "builtin": {
-                      "type": "boolean"
+                      "type": "boolean",
+                      "description": "built into the kernel, not a loadable module"
                     },
                     "in_tree": {
                       "type": [
                         "null",
                         "boolean"
-                      ]
+                      ],
+                      "description": "InTree is false for a module built outside the kernel tree (taint flag O). Absent when the taint flags can't be read, as for Proprietary and Unsigned."
                     },
                     "proprietary": {
                       "type": [
                         "null",
                         "boolean"
-                      ]
+                      ],
+                      "description": "Proprietary is true for a module under a non-GPL-compatible licence (taint flag P)."
                     },
                     "unsigned": {
                       "type": [
                         "null",
                         "boolean"
-                      ]
+                      ],
+                      "description": "Unsigned is true for a module loaded without a valid signature (taint flag E), set only when the kernel exposes module.sig_enforce; unpatched kernels before 5.13 can expose it without module signing."
                     }
-                  }
+                  },
+                  "description": "Driver is the kernel driver bound to a part."
                 },
                 "module_candidates": {
                   "type": [
@@ -2774,22 +3859,28 @@
                     "type": "object",
                     "properties": {
                       "module": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "with \"_\" for \"-\", as modprobe treats them"
                       },
                       "builtin": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "built into the kernel: always available"
                       },
                       "loaded": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "built in, or loaded (/sys/module/\u003cm\u003e/initstate \"live\")"
                       }
                     }
-                  }
+                  },
+                  "description": "ModuleCandidates are, for an interface without a driver, the running kernel's modules whose aliases match its modalias, as for a PCI device. Absent: not read."
                 }
               }
-            }
+            },
+            "description": "Interfaces are the device's interfaces in its active configuration, each with its own class and driver (#216). Absent: not read (a capture from before them)."
           }
         }
-      }
+      },
+      "description": "USBDevice is one USB device (root hubs are left out)."
     },
     "warnings": {
       "type": [
@@ -2798,7 +3889,8 @@
       ],
       "items": {
         "type": "string"
-      }
+      },
+      "description": "Warnings lists what couldn't be read and why (e.g. permission denied)."
     }
   },
   "$id": "https://raw.githubusercontent.com/jiegui2025/hwspec/main/schema/capture-v1.json",

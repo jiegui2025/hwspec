@@ -119,6 +119,9 @@ func generate() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := (docs{}).describe(s, reflect.TypeFor[report.Report]()); err != nil {
+		return nil, err
+	}
 	walk(s, func(n *jsonschema.Schema) {
 		switch {
 		case n.Properties != nil: // a struct
@@ -170,6 +173,9 @@ func generateAdvice() ([]byte, error) {
 		reflect.TypeFor[advisor.Evidence](): evidence,
 	}})
 	if err != nil {
+		return nil, err
+	}
+	if err := (docs{}).describe(s, reflect.TypeFor[advisor.Advice]()); err != nil {
 		return nil, err
 	}
 	walk(s, func(n *jsonschema.Schema) {
@@ -244,8 +250,15 @@ func load(path string) (map[string]any, error) {
 	return s, nil
 }
 
-// annotations don't constrain documents, so they may change freely.
-var annotations = map[string]bool{"$schema": true, "$id": true, "title": true, "description": true}
+// annotations don't constrain documents, so they may change freely: a
+// field can be described, given examples, or marked deprecated before a
+// new version removes it.
+var annotations = map[string]bool{"$schema": true, "$id": true, "title": true, "description": true,
+	"$comment": true, "default": true, "deprecated": true, "readOnly": true, "writeOnly": true, "examples": true}
+
+// subschemas are the keywords whose value is a schema applied to part of
+// a document; when absent, everything is allowed, as with {}.
+var subschemas = map[string]string{"items": "[]", "additionalProperties": "{}", "propertyNames": "{key}"}
 
 // compat lists every way cur differs from old other than the two changes
 // ADR 0003 allows within a schema_version: a property added, or a
@@ -274,7 +287,7 @@ func compat(old, cur map[string]any) []string {
 			case annotations[k]:
 			case k == "type":
 				if a, b := typeSet(ov), typeSet(cv); !slices.Equal(a, b) {
-					add("%s: type %s is now %s", path, strings.Join(a, "|"), strings.Join(b, "|"))
+					add("%s: type %s is now %s", path, typeText(a), typeText(b))
 				}
 			case k == "required":
 				for _, r := range strings_(cv) {
@@ -292,12 +305,10 @@ func compat(old, cur map[string]any) []string {
 					}
 					visit(path+"."+name, object(op[name]), object(sub))
 				}
-			case (k == "items" || k == "additionalProperties") && isObject(ov) && isObject(cv):
-				suffix := "[]"
-				if k == "additionalProperties" {
-					suffix = "{}"
-				}
-				visit(path+suffix, object(ov), object(cv))
+			// An absent subschema is {}, so one added or dropped counts
+			// only by the constraints in it.
+			case subschemas[k] != "" && (isObject(ov) || !inOld) && (isObject(cv) || !inCur):
+				visit(path+subschemas[k], object(ov), object(cv))
 			case !inOld:
 				add("%s: %s added (%v)", path, k, jsonText(cv))
 			case !inCur:
@@ -342,6 +353,14 @@ func typeSet(v any) []string {
 	out := strings_(v)
 	slices.Sort(out)
 	return out
+}
+
+// typeText is a type set as compat's problems show it; none is any type.
+func typeText(types []string) string {
+	if len(types) == 0 {
+		return "any"
+	}
+	return strings.Join(types, "|")
 }
 
 func jsonText(v any) string {

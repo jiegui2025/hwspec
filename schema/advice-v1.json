@@ -2,7 +2,8 @@
   "type": "object",
   "properties": {
     "$schema": {
-      "type": "string"
+      "type": "string",
+      "description": "Schema names the advice document's JSON Schema (schema.AdviceURL)."
     },
     "advice_version": {
       "type": "integer"
@@ -11,16 +12,19 @@
       "type": "string"
     },
     "capture_sha256": {
-      "type": "string"
+      "type": "string",
+      "description": "CaptureSHA256 identifies the advised content, not a file: SHA-256 of the capture as this build reads it (fields it doesn't know are dropped), after --redact, encoded as compact JSON. The JSON and YAML of one capture agree; it isn't `sha256sum FILE`."
     },
     "live": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Live is true when the capture is of the machine running advise, so its maintenance state could be used."
     },
     "redacted": {
       "type": "boolean"
     },
     "rules_applied": {
-      "type": "integer"
+      "type": "integer",
+      "description": "RulesApplied and RulesSkipped count the knowledge base's rules: no findings means nothing was found by the applied ones only."
     },
     "rules_skipped": {
       "type": "integer"
@@ -43,7 +47,8 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "the rule's ID"
           },
           "category": {
             "type": "string"
@@ -64,9 +69,11 @@
                 "type": "string"
               },
               "name": {
-                "type": "string"
+                "type": "string",
+                "description": "for people; matching never uses it"
               }
             },
+            "description": "DeviceRef names a device by the key its kind uses in captures: a PCI address, a USB bus-device, a disk's name.",
             "required": [
               "kind",
               "key"
@@ -121,7 +128,8 @@
                   }
                 }
               ]
-            }
+            },
+            "description": "Evidence is a capture value that triggered a finding, by its path in the capture's JSON (e.g. \"pci[16].class_code\"), or a field the capture doesn't have. It is written as exactly {path, value} or {path, absent: true}. Never an identity, serial, UUID, MAC or hostname field."
           },
           "answers": {
             "type": [
@@ -160,7 +168,8 @@
                       "value",
                       "src"
                     ]
-                  }
+                  },
+                  "description": "AnswerClaim is one source's value behind an answer, with the date of its document."
                 }
               },
               "required": [
@@ -168,7 +177,8 @@
                 "known",
                 "text"
               ]
-            }
+            },
+            "description": "Answers are an upgrade finding's answers (#9): memory's are #107's."
           },
           "actions": {
             "type": [
@@ -203,7 +213,8 @@
               "required": [
                 "text"
               ]
-            }
+            },
+            "description": "Action is what the user can do about a finding: what can go wrong, and how to go back. Commands are shown, never run."
           },
           "sources": {
             "type": [
@@ -257,7 +268,8 @@
                 "licence",
                 "confidence"
               ]
-            }
+            },
+            "description": "Source is a document a finding rests on, as the advice shows it."
           },
           "confidence": {
             "type": "string"
@@ -271,7 +283,8 @@
           "sources",
           "confidence"
         ]
-      }
+      },
+      "description": "Finding is one piece of advice about one device, or the whole machine. A finding is identified by its rule ID and its device's kind and key."
     }
   },
   "$id": "https://raw.githubusercontent.com/jiegui2025/hwspec/main/schema/advice-v1.json",
