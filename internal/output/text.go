@@ -30,7 +30,11 @@ func writeText(w io.Writer, r *report.Report) error {
 		}
 	}
 
-	fmt.Fprintf(&b, "%s %s  ·  captured %s", r.Tool.Name, r.Tool.Version, r.CapturedAt.Format("2006-01-02 15:04 MST"))
+	captured := "unknown"
+	if !r.CapturedAt.IsZero() {
+		captured = r.CapturedAt.Format("2006-01-02 15:04 MST")
+	}
+	fmt.Fprintf(&b, "%s  ·  captured %s", join(r.Tool.Name, r.Tool.Version), captured)
 	if r.Hostname != "" {
 		fmt.Fprintf(&b, " on %s", r.Hostname)
 	}
@@ -69,7 +73,7 @@ func writeText(w io.Writer, r *report.Report) error {
 	if boot == "" {
 		boot = "boot mode unknown"
 	}
-	line("OS", "%s, kernel %s (%s, %s%s)", r.OS.PrettyName, r.OS.Kernel, r.OS.Arch, boot, sb)
+	line("OS", "%s, kernel %s (%s, %s%s)", join(r.OS.PrettyName), join(r.OS.Kernel), join(r.OS.Arch), boot, sb)
 	if r.OS.Virtualization != "none" && r.OS.Virtualization != "" {
 		line("Runs in", "%s", r.OS.Virtualization)
 	}

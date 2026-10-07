@@ -437,7 +437,7 @@ func TestRootCaptureReadsDriveHealth(t *testing.T) {
 	if h := c.diskHealth("nvme1n1", "nvme"); h != nil || !hasWarning(c.r, "drive health nvme1n1: permission denied") {
 		t.Errorf("nvme error: %+v, %v", h, c.r.Warnings)
 	}
-	for _, tr := range []string{"mmc", "virtio"} {
+	for _, tr := range []string{"mmc", "virtio", "xen"} {
 		if h := c.diskHealth("x", tr); h != nil {
 			t.Errorf("%s has SMART? %+v", tr, h)
 		}
@@ -725,6 +725,11 @@ func TestMonitorsFromTheirEDID(t *testing.T) {
 		b[8], b[9] = 0x10, 0xAC // DEL
 		b[12], b[13], b[14], b[15] = byte(serial), byte(serial>>8), byte(serial>>16), byte(serial>>24)
 		b[16], b[17], b[18], b[19], b[21], b[22] = week, year, 1, 4, 60, 34
+		var sum byte
+		for _, v := range b[:127] {
+			sum += v
+		}
+		b[127] = -sum
 		return string(b)
 	}
 	for conn, data := range map[string]string{

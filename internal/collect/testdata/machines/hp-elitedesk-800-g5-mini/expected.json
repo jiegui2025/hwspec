@@ -588,15 +588,13 @@
           "label": "Sensor 1",
           "kind": "temperature",
           "value": 47.85,
-          "unit": "C",
-          "max": 65261.85
+          "unit": "C"
         },
         {
           "label": "Sensor 2",
           "kind": "temperature",
           "value": 49.85,
-          "unit": "C",
-          "max": 65261.85
+          "unit": "C"
         }
       ]
     },

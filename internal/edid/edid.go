@@ -26,6 +26,11 @@ type Info struct {
 
 var header = []byte{0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00}
 
+// ErrChecksum is a base block whose bytes don't sum to zero: Parse then
+// returns only its vendor and product identification (bytes 8-19), and
+// this error, since the rest can't be trusted.
+var ErrChecksum = errors.New("edid: checksum mismatch, only the vendor and product block is used")
+
 // Parse decodes the 128-byte base block. Extension blocks are ignored.
 func Parse(b []byte) (*Info, error) {
 	if len(b) < 128 {
@@ -36,12 +41,17 @@ func Parse(b []byte) (*Info, error) {
 	}
 	info := &Info{}
 
+	// The manufacturer is three letters, each 1-26 in five bits.
 	m := binary.BigEndian.Uint16(b[8:10])
-	info.ManufacturerID = string([]byte{
-		byte('A' - 1 + (m>>10)&0x1F),
-		byte('A' - 1 + (m>>5)&0x1F),
-		byte('A' - 1 + m&0x1F),
-	})
+	var letters []byte
+	for _, shift := range []uint16{10, 5, 0} {
+		c := m >> shift & 0x1F
+		if c < 1 || c > 26 {
+			return nil, fmt.Errorf("edid: manufacturer ID %#04x isn't three letters", m)
+		}
+		letters = append(letters, byte('A'-1+c))
+	}
+	info.ManufacturerID = string(letters)
 	info.ProductCode = binary.LittleEndian.Uint16(b[10:12])
 	info.SerialNumber = binary.LittleEndian.Uint32(b[12:16])
 	info.Week = int(b[16])
@@ -49,6 +59,13 @@ func Parse(b []byte) (*Info, error) {
 		info.Year = 1990 + int(b[17])
 	}
 	info.Version = fmt.Sprintf("%d.%d", b[18], b[19])
+	var sum byte
+	for _, v := range b[:128] {
+		sum += v
+	}
+	if sum != 0 {
+		return info, ErrChecksum
+	}
 	info.WidthMM = int(b[21]) * 10 // cm in the base block
 	info.HeightMM = int(b[22]) * 10
 
