@@ -172,6 +172,11 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		// package needs root.
 		igpu := find(r.PCI, func(d report.PCIDevice) bool { return d.Address == "0000:00:02.0" })
 		want["UHD 630 is part of the CPU"] = igpu != nil && igpu.Mounting != nil && igpu.Mounting.Kind == "cpu" && igpu.Mounting.Package == ""
+		// #115: the one Type-C port (UCSI), top-left-upper, can't charge.
+		want["USB-C port0 top-left-upper, source only, can't charge, 5 V / 3 A out"] = len(r.USBC) == 1 && r.USBC[0].Name == "port0" &&
+			r.USBC[0].Location != nil && *r.USBC[0].Location == (report.PortLocation{Panel: "top", Horizontal: "left", Vertical: "upper"}) &&
+			slices.Equal(r.USBC[0].PowerRoles, []string{"source"}) && !r.USBC[0].CanCharge &&
+			slices.Equal(r.USBC[0].SourcePDOs, []report.PDO{{Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 3000, PowerMW: 15000}})
 		want["eno1 is ethernet"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Type == "ethernet" }) != nil
 		// Root-only DMI files are replayed as root-only.
 		want["dmi serials need root"] = len(r.Warnings) > 0 && strings.Contains(strings.Join(r.Warnings, "\n"), "dmi product_serial")

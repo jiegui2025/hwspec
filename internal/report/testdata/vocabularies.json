@@ -75,8 +75,19 @@
     "cpu",
     "unknown"
   ],
+  "PDO.Type": [
+    "fixed",
+    "variable",
+    "battery",
+    "pps",
+    "avs"
+  ],
   "RTC.BattStatus": [
     "okay",
     "dead"
+  ],
+  "USBCPort.PowerRole": [
+    "source",
+    "sink"
   ]
 }

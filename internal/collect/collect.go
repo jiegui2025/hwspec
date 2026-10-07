@@ -98,6 +98,7 @@ func collectNow(version string) *report.Report {
 	c.bluetooth()
 	c.audio()
 	c.batteries()
+	c.usbCPorts()
 	c.usb()
 	c.usbCandidates() // after usb and kernelModules
 

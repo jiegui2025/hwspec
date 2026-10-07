@@ -357,6 +357,17 @@ batteries[].health.estimate.what                  kept
 batteries[].health.estimate.unit                  kept
 batteries[].health.estimate.method                kept
 batteries[].health.metrics{key}                   kept
+usb_c_ports[].name                                kept
+usb_c_ports[].location.panel                      kept
+usb_c_ports[].location.horizontal                 kept
+usb_c_ports[].location.vertical                   kept
+usb_c_ports[].power_roles[]                       kept
+usb_c_ports[].power_role                          kept
+usb_c_ports[].pd_revision                         kept
+usb_c_ports[].typec_revision                      kept
+usb_c_ports[].source_pdos[].type                  kept
+usb_c_ports[].sink_pdos[].type                    kept
+usb_c_ports[].partner_source_pdos[].type          kept
 tpm.firmware.name                                 kept
 tpm.firmware.vendor                               kept
 tpm.firmware.version                              kept

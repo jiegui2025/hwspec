@@ -48,6 +48,7 @@ type Report struct {
 	Bluetooth []BluetoothController `json:"bluetooth"`
 	Audio     []SoundCard           `json:"audio"`
 	Batteries []Battery             `json:"batteries"`
+	USBC      []USBCPort            `json:"usb_c_ports"`
 	TPM       *TPM                  `json:"tpm,omitempty"`
 	RTC       *RTC                  `json:"rtc,omitempty"`
 	Sensors   []Sensor              `json:"sensors"`
@@ -271,6 +272,8 @@ var Vocabularies = map[string][]string{
 	"BlacklistedModule.Kind": {BlacklistAlias, BlacklistKernel, BlacklistInstall},
 	"RTC.BattStatus":         {RTCBattOkay, RTCBattDead},
 	"Mounting.Kind":          {MountedOnboard, MountedSocket, MountedSlot, MountedInCPU, MountedUnknown},
+	"USBCPort.PowerRole":     {PowerSource, PowerSink},
+	"PDO.Type":               {PDOFixed, PDOVariable, PDOBattery, PDOPPS, PDOAVS},
 }
 
 // --- Devices ---
@@ -341,6 +344,72 @@ type TPM struct {
 	SpecVersionMajor int       `json:"spec_version_major"`
 	Firmware         *Firmware `json:"firmware,omitempty"`
 }
+
+// USBCPort is a USB Type-C port the kernel's Type-C class manages (a UCSI
+// or TCPM port controller), and whether it can charge the machine (#115).
+// A Type-C connector without a PD controller the kernel sees isn't
+// listed, so there may be more on the chassis.
+type USBCPort struct {
+	Name     string        `json:"name"` // the kernel's name, e.g. port0
+	Location *PortLocation `json:"location,omitempty"`
+	// PowerRoles are the roles the port supports: source (it powers what's
+	// plugged in), sink (it takes power, so it can charge the machine).
+	PowerRoles []string `json:"power_roles"`
+	PowerRole  string   `json:"power_role,omitempty"` // the role it's in now
+	// CanCharge is whether the port can take power: it supports sink.
+	CanCharge bool `json:"can_charge"`
+	// MaxChargeW is the most power its sink PDOs accept, in watts; absent
+	// when it can't charge or the kernel lists no sink PDOs.
+	MaxChargeW    float64 `json:"max_charge_w,omitempty"`
+	PDRevision    string  `json:"pd_revision,omitempty"`    // USB Power Delivery, e.g. 3.0
+	TypeCRevision string  `json:"typec_revision,omitempty"` // USB Type-C, e.g. 1.3
+	// SourcePDOs are what the port offers when it powers a device.
+	SourcePDOs []PDO `json:"source_pdos,omitempty"`
+	// SinkPDOs are what the port accepts when it takes power.
+	SinkPDOs []PDO `json:"sink_pdos,omitempty"`
+	// PartnerSourcePDOs are what a connected charger offers.
+	PartnerSourcePDOs []PDO `json:"partner_source_pdos,omitempty"`
+}
+
+// PortLocation is where a port is on the machine, from the firmware's
+// ACPI _PLD as the kernel gives it (physical_location).
+type PortLocation struct {
+	Panel      string `json:"panel,omitempty"`      // top, bottom, left, right, front, back
+	Horizontal string `json:"horizontal,omitempty"` // left, center, right
+	Vertical   string `json:"vertical,omitempty"`   // upper, center, lower
+	Dock       bool   `json:"dock,omitempty"`       // on a docking station
+	Lid        bool   `json:"lid,omitempty"`        // on the lid
+}
+
+// PDO is one USB Power Delivery power data object: a supply a port
+// offers or accepts.
+type PDO struct {
+	// Type is fixed, variable, battery, pps (programmable) or avs
+	// (adjustable voltage).
+	Type         string `json:"type"`
+	MinVoltageMV int    `json:"min_voltage_mv,omitempty"` // for a range; a fixed supply's is its voltage
+	MaxVoltageMV int    `json:"max_voltage_mv"`           // the highest voltage, in mV; a fixed supply's voltage
+	// CurrentMA is the most current a source offers, or the operating
+	// current a sink draws.
+	CurrentMA int `json:"current_ma,omitempty"`
+	// PowerMW is the power: a battery PDO's own, else voltage × current.
+	PowerMW int `json:"power_mw,omitempty"`
+}
+
+// USBCPort.PowerRole values, and PowerRoles'.
+const (
+	PowerSource = "source"
+	PowerSink   = "sink"
+)
+
+// PDO.Type values.
+const (
+	PDOFixed    = "fixed"
+	PDOVariable = "variable"
+	PDOBattery  = "battery"
+	PDOPPS      = "pps"
+	PDOAVS      = "avs"
+)
 
 // RTC is the real-time clock: what its driver says about the coin cell
 // that keeps it running while the machine is unplugged (#113).

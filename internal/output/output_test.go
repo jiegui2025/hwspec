@@ -707,6 +707,35 @@ func TestMountingTextInCPU(t *testing.T) {
 	}
 }
 
+// One line per USB-C port: whether it charges the machine, up to how
+// much, and a connected charger's offer (#115).
+func TestTextUSBC(t *testing.T) {
+	r := sample()
+	r.USBC = []report.USBCPort{
+		{Name: "port0", Location: &report.PortLocation{Panel: "top", Horizontal: "left"}, PowerRoles: []string{"source"}},
+		{Name: "port1", Location: &report.PortLocation{Panel: "left", Horizontal: "center"}, PowerRoles: []string{"source", "sink"}, CanCharge: true, MaxChargeW: 65,
+			PartnerSourcePDOs: []report.PDO{{PowerMW: 45000}, {PowerMW: 15000}}},
+		{Name: "port2", PowerRoles: []string{"sink"}, CanCharge: true},
+		{Name: "port3", PowerRoles: []string{}},
+	}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"USB-C charging", "top-left   power out only, can't charge",
+		"left       charges this machine up to 65 W; the connected charger offers up to 45 W",
+		"port2      charges this machine (the kernel lists no limit)", "port3      can't charge"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("no %q in:\n%s", want, buf.String())
+		}
+	}
+	r.USBC = []report.USBCPort{}
+	buf.Reset()
+	if err := Write(&buf, r, "text"); err != nil || strings.Contains(buf.String(), "USB-C") {
+		t.Errorf("no ports: %v\n%s", err, buf.String())
+	}
+}
+
 // The display line names what its output offers (#112).
 func TestTextDisplayModes(t *testing.T) {
 	r := sample()
