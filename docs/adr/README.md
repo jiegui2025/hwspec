@@ -14,6 +14,7 @@ Each record captures one significant decision as context → options → decisio
 | [0008](0008-device-detail-blocks.md) | Identity, firmware, driver and health blocks on every device | Accepted |
 | [0009](0009-advisor.md) | Advisor: a separate command over captures, a sourced knowledge base, no network | Accepted |
 | [0010](0010-peripheral-batteries.md) | Peripheral and UPS batteries: kernel interfaces, plus read-only queries to UPower (amends 0002) | Accepted |
+| [0012](0012-firmware-index.md) | Firmware updates: an explicit online command for a verified firmware index (amends 0009) | Accepted |
 
 New records: copy [template.md](template.md) to `NNNN-short-title.md` with the next number, add its row above, and fill its tables and diagram; prefer tables and Mermaid diagrams to prose.
 
