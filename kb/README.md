@@ -9,7 +9,7 @@ flowchart LR
   bin --> advise["hwspec advise"]
 ```
 
-Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (ID → source), `rules` (a list) and the data sections `models`, `devices`, `cpus` and `allowlists` (ID → entry). A rule cites sources by ID; every value in its `data` is a claim list, `[{value: …, src: …}]`. Values are kept as written: quote anything that starts with a zero (`"0403"`), and leave a key out rather than writing `null`.
+Each `.yaml` file (not `.yml`) is one YAML document: a mapping with `sources` (ID → source), `rules` (a list) and the data sections `models`, `devices`, `cpus` and `allowlists` (ID → entry). A rule cites sources by ID; every value in its `data` is a claim list, `[{value: …, src: …}]`. A claim may add a `note`: a caveat in words (the units a value holds for, a page that qualifies it), printed beside its source in the answer. A note never changes what a check does; a condition a check must apply is its own data key. Values are kept as written: quote anything that starts with a zero (`"0403"`), and leave a key out rather than writing `null`.
 
 **Sources**
 

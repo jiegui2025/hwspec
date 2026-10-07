@@ -162,6 +162,10 @@
                       },
                       "published": {
                         "type": "string"
+                      },
+                      "note": {
+                        "type": "string",
+                        "description": "Note is the claim's caveat in the knowledge base, e.g. the units a value holds for."
                       }
                     },
                     "required": [

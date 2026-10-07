@@ -138,9 +138,11 @@ models:
           count: [{value: 1, src: hp-ds-2019-12-wlan}]
           lengths: [{value: [2230], src: hp-ds-2019-12-wlan}]
         # p. 25 has both cables disconnected from the module; p. 42 removes
-        # the front antenna "if the computer has dual antennas", so a unit
-        # with one antenna may have one cable.
-        antennas: [{value: 2, src: hp-msg-2019-09-wlan}]
+        # the front antenna "if the computer has dual antennas".
+        antennas:
+          - value: 2
+            src: hp-msg-2019-09-wlan
+            note: "p. 42 fits the front antenna only on dual-antenna units, so a unit with one antenna may have one cable"
         factory_options:
           - value:
               - {name: "Intel Dual Band Wi-Fi 5 9560", generation: "Wi-Fi 5", chains: "2x2"}

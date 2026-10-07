@@ -230,14 +230,21 @@ func say[V any](b *answerer, cs claims[V], format func(V) string) string {
 			values = append(values, v)
 		}
 		cite, published := c.Src, ""
+		var about []string
 		if s := b.k.Source(c.Src); s != nil && s.Published != "" {
 			published = s.Published
-			cite += " (" + published + ")"
+			about = append(about, published)
+		}
+		if c.Note != "" {
+			about = append(about, c.Note)
+		}
+		if len(about) > 0 {
+			cite += " (" + strings.Join(about, "; ") + ")"
 		}
 		if !slices.Contains(cites[v], cite) {
 			cites[v] = append(cites[v], cite)
 		}
-		b.claims = append(b.claims, AnswerClaim{Value: c.Value, Src: c.Src, Published: published})
+		b.claims = append(b.claims, AnswerClaim{Value: c.Value, Src: c.Src, Published: published, Note: c.Note})
 		b.cite(c.Src)
 	}
 	parts := make([]string, len(values))

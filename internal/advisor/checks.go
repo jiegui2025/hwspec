@@ -107,6 +107,7 @@ type claims[V any] []claim[V]
 type claim[V any] struct {
 	Value V      `json:"value"`
 	Src   string `json:"src"`
+	Note  string `json:"note,omitempty"` // a caveat, printed with the source
 }
 
 // UnmarshalJSON reads a claim's value strictly and its source. Its other
@@ -116,6 +117,7 @@ func (c *claim[V]) UnmarshalJSON(b []byte) error {
 	var raw struct {
 		Value json.RawMessage `json:"value"`
 		Src   string          `json:"src"`
+		Note  string          `json:"note"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
@@ -128,7 +130,7 @@ func (c *claim[V]) UnmarshalJSON(b []byte) error {
 	if err := dec.Decode(&c.Value); err != nil {
 		return err
 	}
-	c.Src = raw.Src
+	c.Src, c.Note = raw.Src, raw.Note
 	return nil
 }
 

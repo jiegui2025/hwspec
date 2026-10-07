@@ -83,6 +83,9 @@ type AnswerClaim struct {
 	Value     any    `json:"value"`
 	Src       string `json:"src"`
 	Published string `json:"published,omitempty"`
+	// Note is the claim's caveat in the knowledge base, e.g. the units a
+	// value holds for.
+	Note string `json:"note,omitempty"`
 }
 
 // DeviceRef names a device by the key its kind uses in captures: a PCI

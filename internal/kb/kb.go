@@ -507,7 +507,8 @@ func (s *Source) validate() []error {
 }
 
 // validateRule checks one rule. strict is for tools/genkb: claims carry
-// exactly {value, src}; at run time a newer claim may carry more.
+// {value, src} and optionally a note; at run time a newer claim may carry
+// more.
 func (k *KB) validateRule(r *Rule, strict bool) []error {
 	var errs []error
 	bad := func(format string, a ...any) { errs = append(errs, fmt.Errorf(format, a...)) }
@@ -603,8 +604,22 @@ func (k *KB) walkClaims(path string, obj map[string]any, strict bool) error {
 				claim, ok := c.(map[string]any)
 				src, okSrc := claim["src"].(string)
 				_, okValue := claim["value"]
-				if !ok || !okSrc || !okValue || strict && len(claim) != 2 {
-					return fmt.Errorf("%s: a claim is {value, src}", at)
+				note, hasNote := claim["note"]
+				extra := len(claim) - 2
+				if hasNote {
+					extra--
+				}
+				if !ok || !okSrc || !okValue || strict && extra != 0 {
+					return fmt.Errorf("%s: a claim is {value, src}, optionally with a note", at)
+				}
+				// A note is descriptive (ADR 0009): a caveat the answer prints
+				// beside the source, never a condition a check applies.
+				if text, isText := note.(string); hasNote && (!isText || strings.TrimSpace(text) == "") {
+					return fmt.Errorf("%s: a claim's note is text", at)
+				} else if hasNote {
+					if err := printable(map[string]string{at + " note": text}); err != nil {
+						return err
+					}
 				}
 				if k.Source(src) == nil {
 					return fmt.Errorf("%s: src %q isn't in sources", at, src)
