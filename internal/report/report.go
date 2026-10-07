@@ -76,6 +76,9 @@ type Identity struct {
 // version and its source, or, when the version can't be read, Status
 // "unknown" and the Reason, never silently absent.
 type Firmware struct {
+	// Name says which firmware of a part this is, where a part has several
+	// (a GPU's firmware_components: "GuC", "HuC", "GuC (gt1)").
+	Name    string `json:"name,omitempty"`
 	Vendor  string `json:"vendor,omitempty"`
 	Version string `json:"version,omitempty"`
 	Date    string `json:"date,omitempty"`
@@ -83,7 +86,8 @@ type Firmware struct {
 	// Source says where the version was read: dmi, microcode, nvme, scsi
 	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the
 	// NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's
-	// tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), hci
+	// tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs
+	// (Intel GuC and HuC, under --full), hci
 	// (a Bluetooth controller: version is the LMP subversion, release the HCI
 	// revision).
 	Source string `json:"source,omitempty"`
@@ -395,8 +399,12 @@ type GPU struct {
 	Link      *PCIeLink  `json:"pcie_link,omitempty"`
 	Outputs   []string   `json:"outputs"` // connectors, e.g. DP-1, HDMI-A-1
 	Identity  *Identity  `json:"identity,omitempty"`
-	Firmware  *Firmware  `json:"firmware,omitempty"`
-	Driver    *Driver    `json:"driver,omitempty"`
+	// Firmware is the video BIOS (amdgpu, NVIDIA).
+	Firmware *Firmware `json:"firmware,omitempty"`
+	// FirmwareComponents are the GPU's other firmware, each named: Intel's
+	// GuC and HuC (debugfs, --full).
+	FirmwareComponents []Firmware `json:"firmware_components,omitempty"`
+	Driver             *Driver    `json:"driver,omitempty"`
 }
 
 type Display struct {

@@ -103,7 +103,7 @@ The owner's rule (#114): a part that has firmware always says so. A missing firm
 | TPM | 2.0: under `--full`, the TPM itself (one `TPM2_GetCapability` through `/dev/tpmrm0`, source `tpm`, [#122](https://github.com/jiegui2025/hwspec/issues/122)); otherwise udev's `tpm2_id` record of the same answer (`ID_TPM2_MODALIAS` `mf…`, `fw…`, readable by anyone, source `udev`), written alike; 1.2: the kernel's `caps` file | "udev didn't record it; asking the TPM needs --full"; under root, "the TPM didn't give it, and udev didn't record it", plus a warning; 1.2: why `caps` gave none |
 | CPU | microcode | x86: `/proc/cpuinfo` gives none; elsewhere the kernel doesn't report it |
 | Disk | NVMe, SCSI, MMC revision | "the drive reports …" for a placeholder, else "the kernel doesn't expose this drive's firmware revision"; a virtual disk, and a block device without a device link (md RAID, zvols), have no block |
-| GPU | VBIOS (amdgpu, NVIDIA); Intel GuC, HuC, DMC ([#43](https://github.com/jiegui2025/hwspec/issues/43)) | after the driver: "no driver is bound", "the driver reports no VBIOS version", "vbios_version can't be read: …", the NVIDIA file's answer, "hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet", or "the DRIVER driver doesn't expose a firmware version" |
+| GPU | VBIOS (amdgpu, NVIDIA) in `firmware`; Intel's GuC and HuC in `firmware_components`, from debugfs under `--full` ([#204](https://github.com/jiegui2025/hwspec/issues/204), amendment below) | after the driver: "no driver is bound", "the driver reports no VBIOS version", "vbios_version can't be read: …", the NVIDIA file's answer, "an Intel GPU has no video BIOS version; its GuC and HuC are firmware components (--full)", or "the DRIVER driver doesn't expose a firmware version". A component the driver gives no version for: "the driver gives no version (status: …)". Without root, one "Intel GPU firmware (GuC, HuC): needs root" warning |
 | Network adapter | ethtool | an empty answer or no support: "the driver reports no firmware version (ethtool)"; any other error: "ethtool can't ask the driver: …", with a warning |
 | Bluetooth controller | HCI *Read Local Version Information* on a raw HCI socket, which needs no privilege for this command ([#202](https://github.com/jiegui2025/hwspec/issues/202)): `version` the LMP subversion, `release` the HCI revision, in hex (`0x21c1`), source `hci` | a controller that is down: "the controller is down (powered off or blocked)"; a refused command: "the kernel refused the HCI command"; anything else: "the controller didn't answer HCI Read Local Version"; each with a warning |
 | USB device | device release (`bcdDevice`, which the kernel always creates) | "bcdDevice can't be read" |
@@ -111,3 +111,14 @@ The owner's rule (#114): a part that has firmware always says so. A missing firm
 | Other PCI devices | some expose one (a Thunderbolt controller's `nvm_version`, some adapters' `fw_ver`) | not read by hwspec yet: no block until they are |
 
 Reasons say what happened in plain words; the issues that will read a missing version are named here, not in the captures.
+
+## Amendment (2026-10-06): a part's several firmware
+
+A GPU runs firmware besides its video BIOS: Intel's GuC and HuC microcontrollers (#204), amdgpu's per-block versions (#205). One `firmware` block can't hold them, and folding them into it would change what `firmware` means for every GPU.
+
+| Aspect | Rule |
+|---|---|
+| Fields | `firmware.name` (optional): which firmware of the part this is. `gpu.firmware_components`: a list of named firmware blocks, `{name, version, source}`, or `{name, status: "unknown", reason}`. Fields only added (ADR 0003) |
+| Meaning | `gpu.firmware` stays the video BIOS. A component is one microcontroller or block: `{name: "GuC", version: "70.1.1", source: "debugfs"}`; a second GT's is named after it, "GuC (gt1)" |
+| Absent vs unknown | `firmware_components` absent: none were read (no such firmware, or not read: the warnings say why). A listed component without a version says why, like any firmware block |
+| Text output | the components on the GPU's line: "firmware GuC 70.1.1, HuC 4.0.0"; an Intel GPU's "no video BIOS" reason is left out there |
