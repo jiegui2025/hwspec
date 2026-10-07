@@ -377,19 +377,22 @@ func Advise(in Input) Advice {
 			}
 		}
 		for _, h := range hits {
-			a.Findings = append(a.Findings, finding(in.KB, rule, h, warn))
+			a.Findings = append(a.Findings, finding(in.KB, rule, h, in.Report.OS, warn))
 		}
 	}
 	slices.SortStableFunc(a.Findings, compareFindings)
 	return a
 }
 
-func finding(k *kb.KB, rule *kb.Rule, h hit, warn func(string)) Finding {
+func finding(k *kb.KB, rule *kb.Rule, h hit, os report.OS, warn func(string)) Finding {
 	f := Finding{
 		ID: rule.ID, Category: rule.Category, Severity: rule.Severity,
 		Device: h.device, Title: rule.Title, Detail: rule.Detail, Evidence: h.evidence, Answers: h.answers,
 	}
 	for _, act := range rule.Actions {
+		if !distroMatches(act.Distro, os) {
+			continue // another distro's way (#214)
+		}
 		filled, missing := fill(Action(act), h.vars)
 		f.Actions = append(f.Actions, filled)
 		for _, name := range missing {
