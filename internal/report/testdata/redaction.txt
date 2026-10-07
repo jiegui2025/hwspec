@@ -365,6 +365,7 @@ tpm.firmware.status                               kept
 tpm.firmware.reason                               kept
 tpm.firmware.instance_ids[].id                    kept
 tpm.firmware.instance_ids[].guid                  kept
+rtc.batt_status                                   kept
 sensors[].chip                                    kept
 sensors[].device                                  kept
 sensors[].readings[].label                        kept

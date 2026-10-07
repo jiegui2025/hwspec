@@ -49,6 +49,7 @@ type Report struct {
 	Audio     []SoundCard           `json:"audio"`
 	Batteries []Battery             `json:"batteries"`
 	TPM       *TPM                  `json:"tpm,omitempty"`
+	RTC       *RTC                  `json:"rtc,omitempty"`
 	Sensors   []Sensor              `json:"sensors"`
 	PCI       []PCIDevice           `json:"pci"`
 	Kernel    *Kernel               `json:"kernel,omitempty"`
@@ -268,6 +269,7 @@ var Vocabularies = map[string][]string{
 		FirmwareFromHCI},
 	"ModuleIndex.Status":     {ModulesFound, ModulesOtherRelease, ModulesNone},
 	"BlacklistedModule.Kind": {BlacklistAlias, BlacklistKernel, BlacklistInstall},
+	"RTC.BattStatus":         {RTCBattOkay, RTCBattDead},
 }
 
 // --- Devices ---
@@ -338,6 +340,24 @@ type TPM struct {
 	SpecVersionMajor int       `json:"spec_version_major"`
 	Firmware         *Firmware `json:"firmware,omitempty"`
 }
+
+// RTC is the real-time clock: what its driver says about the coin cell
+// that keeps it running while the machine is unplugged (#113).
+type RTC struct {
+	// BattStatus is the driver's batt_status in /proc/driver/rtc: okay or
+	// dead, rtc-cmos's reading of the clock chip's "valid RAM and time"
+	// bit (Register D, VRT). Only dead is evidence, of a failed cell.
+	// okay isn't evidence of a good one: Intel's chipsets hardwire VRT to
+	// 1, so they report okay whatever the cell's state. Neither says how
+	// much charge is left.
+	BattStatus string `json:"batt_status"`
+}
+
+// RTC.BattStatus values.
+const (
+	RTCBattOkay = "okay"
+	RTCBattDead = "dead"
+)
 
 // Board is the mainboard (SMBIOS type 2).
 type Board struct {

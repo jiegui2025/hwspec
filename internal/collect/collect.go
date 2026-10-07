@@ -81,6 +81,7 @@ func collectNow(version string) *report.Report {
 	c.memory()
 	c.firmwareTables()
 	c.platformFirmware()
+	c.r.RTC = c.rtc()
 	c.storage()
 	c.pci()
 	c.gpus()          // after pci

@@ -165,6 +165,9 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 			wlan.Radio.Generation == "Wi-Fi 6" && slices.Equal(wlan.Radio.Bands, []string{"2.4 GHz", "5 GHz"}) &&
 			wlan.Radio.TXChains == 2 && wlan.Radio.RXChains == 2 && wlan.Radio.MaxSpatialStreams == 2 && wlan.Radio.Source == "nl80211"
 		want["eno1 has no radio"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Radio == nil }) != nil
+		// #113: /proc/driver/rtc's batt_status. Intel's chipsets hardwire
+		// the bit behind it, so okay here isn't evidence of the cell.
+		want["RTC driver batt_status okay"] = r.RTC != nil && r.RTC.BattStatus == "okay"
 		want["eno1 is ethernet"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Type == "ethernet" }) != nil
 		// Root-only DMI files are replayed as root-only.
 		want["dmi serials need root"] = len(r.Warnings) > 0 && strings.Contains(strings.Join(r.Warnings, "\n"), "dmi product_serial")

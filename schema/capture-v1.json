@@ -3219,6 +3219,23 @@
       },
       "description": "TPM is the machine's Trusted Platform Module."
     },
+    "rtc": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "batt_status": {
+          "type": "string",
+          "description": "BattStatus is the driver's batt_status in /proc/driver/rtc: okay or dead, rtc-cmos's reading of the clock chip's \"valid RAM and time\" bit (Register D, VRT). Only dead is evidence, of a failed cell. okay isn't evidence of a good one: Intel's chipsets hardwire VRT to 1, so they report okay whatever the cell's state. Neither says how much charge is left.",
+          "examples": [
+            "okay",
+            "dead"
+          ]
+        }
+      },
+      "description": "RTC is the real-time clock: what its driver says about the coin cell that keeps it running while the machine is unplugged (#113)."
+    },
     "sensors": {
       "type": [
         "null",

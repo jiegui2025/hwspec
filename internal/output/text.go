@@ -65,6 +65,13 @@ func writeText(w io.Writer, r *report.Report) error {
 	if r.TPM != nil {
 		line("TPM", "%s", withParts(fmt.Sprintf("TPM %d (TCG spec major version)", r.TPM.SpecVersionMajor), fwText(r.TPM.Firmware)))
 	}
+	switch {
+	case r.RTC == nil:
+	case r.RTC.BattStatus == report.RTCBattDead:
+		line("RTC", "coin cell dead: the clock lost its valid-time bit (driver batt_status)")
+	default:
+		line("RTC", "driver batt_status %s: not evidence of a good coin cell (Intel chipsets always report okay)", r.RTC.BattStatus)
+	}
 	sb := ""
 	if r.OS.SecureBoot != nil {
 		sb = map[bool]string{true: ", Secure Boot on", false: ", Secure Boot off"}[*r.OS.SecureBoot]
