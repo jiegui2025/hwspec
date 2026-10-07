@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,55 +18,69 @@ import (
 	"github.com/jiegui2025/hwspec/schema"
 )
 
-var update = flag.Bool("update", false, "rewrite schema/capture-v1.json")
+var update = flag.Bool("update", false, "rewrite schema/capture-v1.json and schema/advice-v1.json")
 
 // committed is the schema file schema.URL names.
 var committed = "../../schema/" + path.Base(schema.URL)
 
-// The committed schema is what the structs generate: a changed json tag
+// Each committed schema is what its Go types generate: a changed json tag
 // fails here until `go generate ./schema` (or -update) is run.
 func TestCommittedSchemaIsCurrent(t *testing.T) {
-	want, err := generate()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if *update {
-		if err := os.WriteFile(committed, want, 0o644); err != nil {
+	embedded := map[string][]byte{"capture": schema.JSON, "advice": schema.AdviceJSON}
+	for _, f := range families {
+		file := "../../schema/" + path.Base(f.url)
+		want, err := f.generate()
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	got, err := os.ReadFile(committed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("%s is stale: run go generate ./schema (or go test ./tools/genschema -update)", committed)
-	}
-	if !bytes.Equal(schema.JSON, got) {
-		t.Error("package schema doesn't embed the committed file")
+		if *update {
+			if err := os.WriteFile(file, want, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		got, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("%s is stale: run go generate ./schema (or go test ./tools/genschema -update)", file)
+		}
+		if !bytes.Equal(embedded[f.name], got) {
+			t.Errorf("package schema doesn't embed the committed %s", file)
+		}
 	}
 }
 
-// The newest capture-vN.json is the one for report.SchemaVersion: bumping
-// the version needs a new file, so older ones can stay frozen.
+// Each format's newest <format>-vN.json is the one for its version:
+// bumping a version needs a new file, so older ones can stay frozen.
 func TestSchemaVersionHasTheNewestFile(t *testing.T) {
-	v, err := versions("../../schema")
-	if err != nil {
-		t.Fatal(err)
+	for _, f := range families {
+		v, err := versions("../../schema", f.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		newest := 0
+		for n := range v {
+			newest = max(newest, n)
+		}
+		if newest != f.version || path.Base(f.url) != filepath.Base(v[newest]) {
+			t.Errorf("%s: newest schema file is v%d (%s), the version is %d, its URL is %s", f.name, newest, v[newest], f.version, f.url)
+		}
 	}
-	newest := 0
-	for n := range v {
-		newest = max(newest, n)
-	}
-	if newest != report.SchemaVersion || path.Base(schema.URL) != filepath.Base(v[newest]) {
-		t.Errorf("newest schema file is v%d (%s), SchemaVersion is %d, schema.URL is %s", newest, v[newest], report.SchemaVersion, schema.URL)
+	if report.SchemaVersion != families[0].version {
+		t.Error("the capture family isn't first")
 	}
 }
 
 func resolved(t *testing.T) *jsonschema.Resolved {
 	t.Helper()
+	return resolve(t, schema.JSON)
+}
+
+func resolve(t *testing.T, js []byte) *jsonschema.Resolved {
+	t.Helper()
 	var s jsonschema.Schema
-	if err := json.Unmarshal(schema.JSON, &s); err != nil {
+	if err := json.Unmarshal(js, &s); err != nil {
 		t.Fatal(err)
 	}
 	rs, err := s.Resolve(nil)
@@ -197,12 +212,17 @@ func TestCompat(t *testing.T) {
 	}
 }
 
-// writeSchemas creates dir with capture-vN.json files (N → content).
+// writeSchemas creates dir with capture-vN.json files (N → content), and
+// advice-vN.json ones for N above 10 (N-10).
 func writeSchemas(t *testing.T, files map[int]string) string {
 	t.Helper()
 	dir := t.TempDir()
 	for n, s := range files {
-		if err := os.WriteFile(filepath.Join(dir, "capture-v"+string(rune('0'+n))+".json"), []byte(s), 0o644); err != nil {
+		name := "capture-v" + strconv.Itoa(n)
+		if n > 10 {
+			name = "advice-v" + strconv.Itoa(n-10)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+".json"), []byte(s), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -223,6 +243,14 @@ func TestCheck(t *testing.T) {
 		"bumped to v2":            {map[int]string{1: v1}, map[int]string{1: v1, 2: v1broken}, ""},
 		"bumped, v1 still edited": {map[int]string{1: v1}, map[int]string{1: v1grown, 2: v1broken}, "older schemas are frozen"},
 		"v1 deleted":              {map[int]string{1: v1}, map[int]string{2: v1}, "was removed"},
+		// The advice format is checked on its own (11 = advice-v1).
+		"first advice schema": {map[int]string{1: v1}, map[int]string{1: v1, 11: v1}, ""},
+		"advice v1 grows":     {map[int]string{1: v1, 11: v1}, map[int]string{1: v1, 11: v1grown}, ""},
+		"advice v1 breaks":    {map[int]string{1: v1, 11: v1}, map[int]string{1: v1, 11: v1broken}, "$.a: removed"},
+		"advice v1 deleted":   {map[int]string{1: v1, 11: v1}, map[int]string{1: v1}, "advice-v1.json was removed"},
+		"advice bumped alone": {map[int]string{1: v1, 11: v1}, map[int]string{1: v1grown, 11: v1, 12: v1broken}, ""},
+		"advice v1 frozen":    {map[int]string{1: v1, 11: v1}, map[int]string{1: v1, 11: v1grown, 12: v1}, "advice-v1.json changed, but v2 is newer"},
+		"capture breaks, too": {map[int]string{1: v1, 11: v1}, map[int]string{1: v1broken, 11: v1grown}, "$.a: removed"},
 	} {
 		base := filepath.Join(t.TempDir(), "absent")
 		if c.base != nil {
@@ -275,11 +303,85 @@ func TestRun(t *testing.T) {
 			t.Errorf("%s isn't the committed schema (%v)", f, err)
 		}
 	}
+	// -dir writes every format's schema.
+	if b, err := os.ReadFile(filepath.Join(dir, path.Base(schema.AdviceURL))); err != nil || !bytes.Equal(b, schema.AdviceJSON) {
+		t.Errorf("-dir didn't write the committed advice schema (%v)", err)
+	}
 	bad := filepath.Join(dir, "bad.json")
 	if err := os.WriteFile(bad, []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if code := run([]string{"compat", bad, committed}, &bytes.Buffer{}, &bytes.Buffer{}); code != 1 {
 		t.Errorf("compat with malformed JSON exited %d", code)
+	}
+}
+
+// #83's acceptance: removing or retyping a field of the committed advice
+// schema fails genschema check.
+func TestAdviceSchemaChangesAreChecked(t *testing.T) {
+	committedAdvice := "../../schema/" + path.Base(schema.AdviceURL)
+	for name, c := range map[string]struct {
+		edit func(map[string]any)
+		want string
+	}{
+		"kb_version removed": {func(s map[string]any) { delete(object(s["properties"]), "kb_version") }, "$.kb_version: removed"},
+		"advice_version retyped": {func(s map[string]any) {
+			object(object(s["properties"])["advice_version"])["type"] = "string"
+		}, "$.advice_version: type integer is now string"},
+		"a finding's severity removed": {func(s map[string]any) {
+			items := object(object(object(s["properties"])["findings"])["items"])
+			delete(object(items["properties"]), "severity")
+		}, "$.findings[].severity: removed"},
+		"evidence path pattern changed": {func(s map[string]any) {
+			items := object(object(object(s["properties"])["findings"])["items"])
+			ev := object(object(object(items["properties"])["evidence"])["items"])
+			object(object(ev["properties"])["path"])["pattern"] = ".*"
+		}, "$.findings[].evidence[].path: pattern changed"},
+	} {
+		head := t.TempDir()
+		if err := os.WriteFile(filepath.Join(head, path.Base(schema.URL)), schema.JSON, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		s, err := load(committedAdvice)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.edit(s)
+		b, _ := json.Marshal(s)
+		if err := os.WriteFile(filepath.Join(head, path.Base(schema.AdviceURL)), b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := check(&bytes.Buffer{}, "../../schema", head); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: %v, want %q", name, err, c.want)
+		}
+	}
+}
+
+// The advice schema accepts what ADR 0003's rules allow (fields added by
+// newer builds, open category, severity and confidence values) and pins
+// what readers rely on: evidence is {path, value} or {path, absent: true},
+// with a path in the capture's grammar.
+func TestAdviceSchemaFollowsTheRules(t *testing.T) {
+	rs := resolve(t, schema.AdviceJSON)
+	finding := func(evidence string) string {
+		return `{"advice_version": 1, "kb_version": "x", "capture_sha256": "x", "live": false, "redacted": false, "rules_applied": 1, "rules_skipped": 0,
+			"warnings": null, "findings": [{"id": "a", "category": "a-new-category", "severity": "a-new-severity", "title": "t", "sources": [],
+			"confidence": "unknown", "evidence": [` + evidence + `], "a_new_field": 1}], "a_new_field": {}}`
+	}
+	for doc, ok := range map[string]bool{
+		finding(`{"path": "pci[16].class_code", "value": "0108"}`):            true,
+		finding(`{"path": "system.esrt.entries[0].fw_version", "value": 1}`):  true,
+		finding(`{"path": "memory.slot_usage", "absent": true}`):              true,
+		finding(`{"path": "pci[16].class_code"}`):                             false,
+		finding(`{"path": "pci[16].class_code", "value": 1, "absent": true}`): false,
+		finding(`{"path": "pci[16].class_code", "absent": false}`):            false,
+		finding(`{"path": "PCI[16].Class", "value": 1}`):                      false,
+		finding(`{"path": "pci[x].class_code", "value": 1}`):                  false,
+		`{"advice_version": 1}`:                                               false,
+		`{"advice_version": "1", "kb_version": "x", "capture_sha256": "x", "live": false, "redacted": false, "rules_applied": 1, "rules_skipped": 0, "warnings": [], "findings": []}`: false,
+	} {
+		if err := validate(t, rs, doc, []byte(doc)); (err == nil) != ok {
+			t.Errorf("%s: valid = %v, want %v (%v)", doc, err == nil, ok, err)
+		}
 	}
 }

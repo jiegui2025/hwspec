@@ -170,7 +170,7 @@ Tests whose coverage depends on the machine's hardware are named `TestHost*` and
 
 ## File format
 
-The capture format is a public interface. Adding fields is fine; renaming, removing or changing the meaning of a field needs a `schema_version` bump and an ADR.
+The capture format is a public interface, and so is the advice document `hwspec advise -f json` writes. Adding fields is fine; renaming, removing or changing the meaning of a field needs a version bump (`schema_version`, `advice_version`) and an ADR. Each has its own schema: `schema/capture-vN.json` from `internal/report`, `schema/advice-vN.json` from `internal/advisor`.
 
 ```mermaid
 flowchart LR
@@ -183,11 +183,11 @@ flowchart LR
 
 | When you | Do |
 |---|---|
-| change a struct or `json` tag in `internal/report` | run `go generate ./schema` and commit `schema/capture-v1.json` (the drift test fails until you do) |
+| change a struct or `json` tag in `internal/report`, or in the advice document's types (`internal/advisor`'s `Advice`, `Finding` and what they hold, `internal/kb`'s `Action` and `Source`) | run `go generate ./schema` and commit the changed `schema/capture-v1.json` or `schema/advice-v1.json` (the drift test fails until you do) |
 | add a field | nothing else: the schema allows unknown fields, so older v1 readers keep working |
-| rename, remove or retype a field | that's a new format: bump `report.SchemaVersion` to N, add `schema/capture-vN.json` (point `schema.URL` and the embed at it), and write an ADR. Older `capture-v*.json` files are frozen from then on |
+| rename, remove or retype a field | that's a new format: bump `report.SchemaVersion` (or `advisor.Version`) to N, add `schema/capture-vN.json` (or `advice-vN.json`; point `schema.URL` or `schema.AdviceURL` and the embed at it), and write an ADR. Older files of that format are frozen from then on |
 
-The CI step ("The capture format stays compatible") runs `go run ./tools/genschema check BASE/schema schema`. Within a version only two changes pass: an added property and a dropped requirement. Everything else fails: a removed property, a changed type set (a field that may now be `null` included), a newly required property, any other keyword added, removed or changed (`minimum`, `enum`, `format`, …, known or not), and any change to an older `capture-vN.json`. "Changes meaning" can't be seen in a schema: that stays a review item ([ADR 0003](docs/adr/0003-capture-format.md), amendment).
+The CI step ("The capture and advice formats stay compatible") runs `go run ./tools/genschema check BASE/schema schema`. Within a version only two changes pass: an added property and a dropped requirement. Everything else fails: a removed property, a changed type set (a field that may now be `null` included), a newly required property, any other keyword added, removed or changed (`minimum`, `enum`, `format`, …, known or not), and any change to an older `capture-vN.json` or `advice-vN.json`; each format is compared on its own. "Changes meaning" can't be seen in a schema: that stays a review item ([ADR 0003](docs/adr/0003-capture-format.md), amendment).
 
 ## Dependencies
 

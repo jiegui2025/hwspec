@@ -110,7 +110,7 @@ flowchart TD
 
 | Rule | In practice | Enforced by |
 |---|---|---|
-| **The file format is a public interface** | additive changes only, unless `schema_version` is bumped with an ADR (CI compares the JSON Schema with the base's); raw IDs always stored next to names | CI step "The capture format stays compatible" (`genschema check`); `TestCommittedSchemaIsCurrent` (schema matches the structs); review for changes in meaning (PR template checkbox) |
+| **The file format is a public interface** | additive changes only, unless `schema_version` is bumped with an ADR (CI compares the JSON Schema with the base's); raw IDs always stored next to names | CI step "The capture and advice formats stay compatible" (`genschema check`, each format apart); `TestCommittedSchemaIsCurrent` (each schema matches its types); `TestAdviceValidatesAgainstItsSchema`; review for changes in meaning (PR template checkbox) |
 | **Never guess** | unreadable values are omitted, empty or "unknown", never a plausible default; the reason goes in `warnings` | review; `TestIdenticalModulesAreNotGuessed`, `TestUnreadableSMBIOSIsReported`, the recorded machines' `expected.json` |
 | **Collectors degrade, they don't fail** | a missing file, permission error or absent subsystem leaves fields empty; only a broken invariant is an error | `TestBareSystemReportsWhatIsMissing`, the scenario tests |
 | **No external tools in the capture path** | kernel interfaces only, except optional `smartctl` (from root-owned system directories, with a timeout) for SATA health | depguard `no-subprocesses` (`os/exec` only in `collect/health.go` and the CLI); `TestCapturesRunNoProgramButSmartctl`, `TestSmartctlIsOnlyTakenFromRootOwnedPlaces` |

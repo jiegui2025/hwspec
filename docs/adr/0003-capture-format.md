@@ -1,6 +1,6 @@
 # 3. JSON capture format with raw IDs, additive schema
 
-**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged · amended 2026-10-06: published JSON Schema (#37)
+**Status:** Accepted (2026-10-05) · reformatted as tables and diagrams on 2026-10-05, decision unchanged · amended 2026-10-06: published JSON Schema (#37) · amended 2026-10-07: the advice document follows the same rules (#83)
 
 ## Context
 
@@ -40,3 +40,5 @@ The structs stay the specification; a JSON Schema generated from them is publish
 | Breaking, within a version | anything but adding a property or dropping a requirement: a removed property, a changed type set (adding `null` included), a newly required property, or any other keyword added, removed or changed. `genschema check` fails the PR on these |
 | Not visible in a schema | a field that "changes meaning": still a review item |
 | Freeze | bumping `SchemaVersion` to N adds `capture-vN.json`; every older file is frozen from then on (CI fails if one changes or disappears) |
+
+**Amendment (2026-10-07, #83):** the advice document `hwspec advise -f json` writes (ADR 0009) is a public interface under the same rules. Its schema is `schema/advice-vN.json`, generated from `internal/advisor` by `tools/genschema` and printed by `hwspec schema advice`. The document names it in `$schema`, and `advice_version` is its version. `genschema check` compares each format's files on its own. One difference: the fields Go always writes stay required, since the document is never hand-made; a requirement may still be dropped, never added. Evidence is pinned as exactly `{path, value}` or `{path, absent: true}`, with the path in the capture's JSON grammar (`pci[16].class_code`). `category`, `severity` and `confidence` are open strings: newer builds may add values, which readers rank last.

@@ -141,7 +141,7 @@ Each run checks the capture's schema and the names it resolves; the VMs also che
 | `hwspec ids lookup pci 8086:3e92` | resolve one ID |
 | `hwspec ids update [--check]` | install the latest signed databases |
 | `hwspec firmware update [--dry-run]` | fetch the firmware index into `~/.cache/hwspec/firmware`: LVFS's catalogue, verified against the LVFS CA built into hwspec, and linux-firmware's `WHENCE` at its latest release ([ADR 0012](docs/adr/0012-firmware-index.md)); `advise` compares NVMe drives' and the UEFI ESRT's firmware with LVFS (or with fwupd's copy of the catalogue, verified the same way) and the Wi-Fi firmware iwlwifi loaded with that release, offline |
-| `hwspec schema` | print the capture format's JSON Schema |
+| `hwspec schema [advice]` | print the capture format's JSON Schema, or the advice document's |
 
 ### Root access
 
@@ -228,7 +228,7 @@ oui 04:0E:3C = HP Inc.
 | Units | bytes, °C, or named in the field (`_mhz`, `_mts`, `_mbps`) |
 | Missing data | omitted, empty or "unknown", with the reason in `warnings`; never guessed |
 | Before v0.1.0 | captures from `v0.1.0-rc.1` and earlier hold a partition's GPT partition UUID in `uuid`, and labels and filesystem types with `_` turned into spaces. From v0.1.0, `uuid` is the filesystem UUID (`lsblk`'s UUID column), the new `partuuid` is the partition UUID, and values are as udev records them ([#142](https://github.com/jiegui2025/hwspec/issues/142)) |
-| Reference | the Go structs in [internal/report/report.go](internal/report/report.go), published as a JSON Schema (draft 2020-12): [schema/capture-v1.json](schema/capture-v1.json), also printed by `hwspec schema`. Captures from this version on name it in a `$schema` key, so editors can validate them; older v1 captures lack the key and still validate. Unknown fields are allowed, so v1 readers accept files from newer v1 builds. CI fails a schema change other than an added field or a dropped requirement; a field that changes meaning is a review item ([ADR 0003](docs/adr/0003-capture-format.md)) |
+| Reference | the Go structs in [internal/report/report.go](internal/report/report.go), published as a JSON Schema (draft 2020-12): [schema/capture-v1.json](schema/capture-v1.json), also printed by `hwspec schema`. The advice document has its own: [schema/advice-v1.json](schema/advice-v1.json), `hwspec schema advice`. Captures from this version on name it in a `$schema` key, so editors can validate them; older v1 captures lack the key and still validate. Unknown fields are allowed, so v1 readers accept files from newer v1 builds. CI fails a schema change other than an added field or a dropped requirement; a field that changes meaning is a review item ([ADR 0003](docs/adr/0003-capture-format.md)) |
 
 ## Roadmap
 

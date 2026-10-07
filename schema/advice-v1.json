@@ -1,0 +1,292 @@
+{
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "advice_version": {
+      "type": "integer"
+    },
+    "kb_version": {
+      "type": "string"
+    },
+    "capture_sha256": {
+      "type": "string"
+    },
+    "live": {
+      "type": "boolean"
+    },
+    "redacted": {
+      "type": "boolean"
+    },
+    "rules_applied": {
+      "type": "integer"
+    },
+    "rules_skipped": {
+      "type": "integer"
+    },
+    "warnings": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "findings": {
+      "type": [
+        "null",
+        "array"
+      ],
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "device": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "key"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "absent": {
+                  "type": "boolean",
+                  "const": true
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*(\\[[0-9]+\\])?(\\.[a-z][a-z0-9_]*(\\[[0-9]+\\])?)*$"
+                },
+                "value": true
+              },
+              "required": [
+                "path"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "value"
+                  ],
+                  "not": {
+                    "required": [
+                      "absent"
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "absent"
+                  ],
+                  "not": {
+                    "required": [
+                      "value"
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "answers": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "topic": {
+                  "type": "string"
+                },
+                "known": {
+                  "type": "boolean"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "claims": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "value": true,
+                      "src": {
+                        "type": "string"
+                      },
+                      "published": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "src"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "topic",
+                "known",
+                "text"
+              ]
+            }
+          },
+          "actions": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "distro": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "commands": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "risk": {
+                  "type": "string"
+                },
+                "undo": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          },
+          "sources": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "mirror": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "doc": {
+                  "type": "string"
+                },
+                "edition": {
+                  "type": "string"
+                },
+                "published": {
+                  "type": "string"
+                },
+                "retrieved": {
+                  "type": "string"
+                },
+                "licence": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "string"
+                },
+                "quote": {
+                  "type": "string"
+                },
+                "locator": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "url",
+                "retrieved",
+                "licence",
+                "confidence"
+              ]
+            }
+          },
+          "confidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "severity",
+          "title",
+          "sources",
+          "confidence"
+        ]
+      }
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/jiegui2025/hwspec/main/schema/advice-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "hwspec advice, advice_version 1",
+  "description": "Generated from internal/advisor by tools/genschema: don't edit by hand.",
+  "required": [
+    "advice_version",
+    "kb_version",
+    "capture_sha256",
+    "live",
+    "redacted",
+    "rules_applied",
+    "rules_skipped",
+    "warnings",
+    "findings"
+  ]
+}

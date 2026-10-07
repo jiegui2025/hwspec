@@ -1,13 +1,17 @@
-// Command genschema generates the capture format's JSON Schema from
-// internal/report's structs, and checks that a change to it is compatible
-// (ADR 0003: fields may be added; renaming, removing or retyping one needs
-// a new schema_version).
+// Command genschema generates the JSON Schemas of hwspec's two document
+// formats from their Go types: the capture (internal/report) and the
+// advice document (internal/advisor, ADR 0009). It checks that a change to
+// either is compatible (ADR 0003: fields may be added; renaming, removing or
+// retyping one needs a new version).
 //
-//	genschema [-o FILE | -dir DIR]     write the schema (stdout by default;
-//	                                   -dir: DIR/<schema.URL's file name>)
-//	genschema compat OLD NEW           fail if NEW breaks captures OLD accepts
-//	genschema check BASEDIR HEADDIR    compat for every capture-vN.json:
-//	                                   the newest may grow, older ones are frozen
+//	genschema [-o FILE]                write the capture schema (stdout by
+//	                                   default)
+//	genschema -dir DIR                 write every format's schema, each to
+//	                                   DIR/<its URL's file name>
+//	genschema compat OLD NEW           fail if NEW breaks documents OLD accepts
+//	genschema check BASEDIR HEADDIR    compat for every <format>-vN.json, each
+//	                                   format apart: the newest may grow, older
+//	                                   ones are frozen
 package main
 
 import (
@@ -29,9 +33,24 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 
+	"github.com/jiegui2025/hwspec/internal/advisor"
 	"github.com/jiegui2025/hwspec/internal/report"
 	"github.com/jiegui2025/hwspec/schema"
 )
+
+// family is one document format: its schema files are <name>-vN.json, the
+// newest generated from Go types for version.
+type family struct {
+	name     string
+	url      string
+	version  int
+	generate func() ([]byte, error)
+}
+
+var families = []family{
+	{"capture", schema.URL, report.SchemaVersion, generate},
+	{"advice", schema.AdviceURL, advisor.Version, generateAdvice},
+}
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -45,7 +64,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case len(args) == 2 && args[0] == "-o":
 		err = write(stdout, args[1])
 	case len(args) == 2 && args[0] == "-dir":
-		err = write(stdout, filepath.Join(args[1], path.Base(schema.URL)))
+		err = writeAll(args[1])
 	case len(args) == 3 && args[0] == "compat":
 		err = compatFiles(stdout, args[1], args[2])
 	case len(args) == 3 && args[0] == "check":
@@ -59,6 +78,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// writeAll writes every format's schema to dir.
+func writeAll(dir string) error {
+	for _, f := range families {
+		b, err := f.generate()
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(dir, path.Base(f.url)), b, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func write(stdout io.Writer, file string) error {
@@ -100,6 +133,57 @@ func generate() ([]byte, error) {
 	s.ID = schema.URL
 	s.Title = "hwspec capture, schema_version " + strconv.Itoa(report.SchemaVersion)
 	s.Description = "Generated from internal/report by tools/genschema: don't edit by hand."
+	b, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
+}
+
+// evidencePath is the grammar of an evidence path: the capture's JSON keys
+// from its root, dot-separated, each optionally indexed into a list, e.g.
+// "pci[16].class_code" or "system.esrt.entries[0].fw_version".
+const evidencePath = `^[a-z][a-z0-9_]*(\[[0-9]+\])?(\.[a-z][a-z0-9_]*(\[[0-9]+\])?)*$`
+
+// generateAdvice returns the schema for advisor.Advice (ADR 0009), with the
+// same compatibility rules as captures: objects allow unknown properties,
+// maps may be null. Go always writes the fields it requires here, so they
+// stay required; a requirement may be dropped later, never added. Evidence,
+// written by its own MarshalJSON, is exactly {path, value} or {path,
+// absent: true}. category, severity and confidence are plain strings:
+// newer builds may add values, which readers rank last.
+func generateAdvice() ([]byte, error) {
+	evidence := &jsonschema.Schema{
+		Type: "object",
+		Properties: map[string]*jsonschema.Schema{
+			"path":   {Type: "string", Pattern: evidencePath},
+			"value":  {},
+			"absent": {Type: "boolean", Const: jsonschema.Ptr[any](true)},
+		},
+		Required: []string{"path"},
+		OneOf: []*jsonschema.Schema{
+			{Required: []string{"value"}, Not: &jsonschema.Schema{Required: []string{"absent"}}},
+			{Required: []string{"absent"}, Not: &jsonschema.Schema{Required: []string{"value"}}},
+		},
+	}
+	s, err := jsonschema.For[advisor.Advice](&jsonschema.ForOptions{TypeSchemas: map[reflect.Type]*jsonschema.Schema{
+		reflect.TypeFor[advisor.Evidence](): evidence,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	walk(s, func(n *jsonschema.Schema) {
+		switch {
+		case n.Properties != nil: // a struct
+			n.AdditionalProperties = nil
+		case n.AdditionalProperties != nil && n.Type == "object": // a map
+			n.Type, n.Types = "", []string{"null", "object"}
+		}
+	})
+	s.Schema = "https://json-schema.org/draft/2020-12/schema"
+	s.ID = schema.AdviceURL
+	s.Title = "hwspec advice, advice_version " + strconv.Itoa(advisor.Version)
+	s.Description = "Generated from internal/advisor by tools/genschema: don't edit by hand."
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return nil, err
@@ -265,18 +349,18 @@ func jsonText(v any) string {
 	return string(b)
 }
 
-var versioned = regexp.MustCompile(`^capture-v([0-9]+)\.json$`)
+var versioned = regexp.MustCompile(`^([a-z]+)-v([0-9]+)\.json$`)
 
-// versions maps N to dir/capture-vN.json.
-func versions(dir string) (map[int]string, error) {
+// versions maps N to dir/<name>-vN.json.
+func versions(dir, name string) (map[int]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	out := map[int]string{}
 	for _, e := range entries {
-		if m := versioned.FindStringSubmatch(e.Name()); m != nil {
-			n, _ := strconv.Atoi(m[1])
+		if m := versioned.FindStringSubmatch(e.Name()); m != nil && m[1] == name {
+			n, _ := strconv.Atoi(m[2])
 			out[n] = filepath.Join(dir, e.Name())
 		}
 	}
@@ -284,14 +368,24 @@ func versions(dir string) (map[int]string, error) {
 }
 
 // check compares the schema files in base (the schema directory before a
-// change, possibly absent) with head: none may disappear, the newest may
-// grow compatibly, and older ones may not change at all.
+// change, possibly absent) with head, each format apart: none may
+// disappear, the newest may grow compatibly, and older ones may not change
+// at all.
 func check(stdout io.Writer, base, head string) error {
-	before, err := versions(base)
+	for _, f := range families {
+		if err := checkFamily(stdout, f.name, base, head); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkFamily(stdout io.Writer, name, base, head string) error {
+	before, err := versions(base, name)
 	if err != nil {
 		return err
 	}
-	after, err := versions(head)
+	after, err := versions(head, name)
 	if err != nil {
 		return err
 	}
@@ -300,7 +394,7 @@ func check(stdout io.Writer, base, head string) error {
 		newest = max(newest, n)
 	}
 	if len(before) == 0 {
-		fmt.Fprintln(stdout, "no schema before this change: nothing to compare")
+		fmt.Fprintf(stdout, "no %s schema before this change: nothing to compare\n", name)
 	}
 	for _, n := range slices.Sorted(func(yield func(int) bool) {
 		for n := range before {
@@ -312,7 +406,7 @@ func check(stdout io.Writer, base, head string) error {
 		cur, ok := after[n]
 		switch {
 		case !ok:
-			return fmt.Errorf("capture-v%d.json was removed: published schemas stay", n)
+			return fmt.Errorf("%s-v%d.json was removed: published schemas stay", name, n)
 		case n == newest:
 			if err := compatFiles(stdout, before[n], cur); err != nil {
 				return err
@@ -324,9 +418,9 @@ func check(stdout io.Writer, base, head string) error {
 				return err
 			}
 			if !bytes.Equal(a, b) {
-				return fmt.Errorf("capture-v%d.json changed, but v%d is newer: older schemas are frozen", n, newest)
+				return fmt.Errorf("%s-v%d.json changed, but v%d is newer: older schemas are frozen", name, n, newest)
 			}
-			fmt.Fprintf(stdout, "capture-v%d.json is unchanged\n", n)
+			fmt.Fprintf(stdout, "%s-v%d.json is unchanged\n", name, n)
 		}
 	}
 	return nil

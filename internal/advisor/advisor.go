@@ -19,6 +19,7 @@ import (
 
 	"github.com/jiegui2025/hwspec/internal/kb"
 	"github.com/jiegui2025/hwspec/internal/report"
+	"github.com/jiegui2025/hwspec/schema"
 )
 
 // Version is the advice document's format version.
@@ -27,6 +28,8 @@ const Version = 1
 // Advice is the document `hwspec advise` prints. It is never part of a
 // capture: it changes whenever the knowledge base does.
 type Advice struct {
+	// Schema names the advice document's JSON Schema (schema.AdviceURL).
+	Schema        string `json:"$schema,omitempty"`
 	AdviceVersion int    `json:"advice_version"`
 	KBVersion     string `json:"kb_version"`
 	// CaptureSHA256 identifies the advised content, not a file: SHA-256 of
@@ -348,6 +351,7 @@ func placeholders(command string) []string {
 // warnings are carried over: what it couldn't read can hide findings.
 func Advise(in Input) Advice {
 	a := Advice{
+		Schema:        schema.AdviceURL,
 		AdviceVersion: Version,
 		KBVersion:     in.KB.Version,
 		Live:          in.Live,

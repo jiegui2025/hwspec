@@ -39,7 +39,7 @@ Usage:
   hwspec advise [FILE] [--full] [--redact] [-o FILE] [-f text|json|yaml]
   hwspec ids [update [--check] | lookup KIND ID | template]
   hwspec firmware update [--dry-run] [--allow-older]
-  hwspec schema
+  hwspec schema [capture | advice]
   hwspec version
 
 capture:
@@ -81,8 +81,9 @@ firmware:
   writing. Only this and "ids update" use the network.
 
 schema:
-  Prints the JSON Schema (draft 2020-12) of the capture format, which every
-  capture names in its "$schema" key.
+  Prints the JSON Schema (draft 2020-12) of the capture format (the default),
+  which every capture names in its "$schema" key, or of the advice document
+  "advise -f json" writes, which names it the same way.
 
 Examples:
   hwspec capture -o myspec.json
@@ -145,7 +146,15 @@ func run(args []string, c cli) int {
 	case "firmware":
 		err = c.firmwareCmd(args[1:])
 	case "schema":
-		_, err = c.stdout.Write(schema.JSON)
+		switch {
+		case len(args) == 1 || len(args) == 2 && args[1] == "capture":
+			_, err = c.stdout.Write(schema.JSON)
+		case len(args) == 2 && args[1] == "advice":
+			_, err = c.stdout.Write(schema.AdviceJSON)
+		default:
+			fmt.Fprintf(c.stderr, "hwspec: usage: hwspec schema [capture | advice]\n")
+			return 2
+		}
 	case "version", "--version", "-v":
 		fmt.Fprintln(c.stdout, "hwspec", fullVersion())
 	case "help", "--help", "-h":
