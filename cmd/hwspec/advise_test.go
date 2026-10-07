@@ -53,6 +53,7 @@ func setupAdvise(t *testing.T) (machineID, statePath string) {
 	// linux-firmware 20260916 as `hwspec firmware update` caches it.
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, "cache"))
 	firmwareIndex(t, "74.8dbafb52.0")
+	lvfsCatalogue(t, dir)
 	return machineID, filepath.Join(stateHome, "hwspec/machines", testStateKey+".json")
 }
 
@@ -352,7 +353,7 @@ func TestAdviseWritesPrivateFilesAndExplainsMistakes(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "advice.json")
 	_, stderr := mustRun(t, "", "advise", "--redact", "-o", file)
 	st, err := os.Stat(file)
-	if err != nil || st.Mode().Perm() != 0o600 || !strings.Contains(stderr, "(json, 3 findings, ") {
+	if err != nil || st.Mode().Perm() != 0o600 || !strings.Contains(stderr, "(json, 4 findings, ") {
 		t.Errorf("-o: %v, mode %v, %q", err, st, stderr)
 	}
 	if data, _ := os.ReadFile(file); readAdvice(t, string(data)).AdviceVersion != 1 {

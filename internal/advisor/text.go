@@ -98,6 +98,7 @@ func WriteText(w io.Writer, a Advice) error {
 var topics = map[string]string{
 	"slots": "Slots", "channels": "Channels", "pairs": "Pairs", "speed": "Speed", "faster": "Faster",
 	"minimum_speed": "Min speed", "max_capacity": "Max total", "fits": "Fits",
+	"lvfs": "LVFS", "linux-firmware": "WHENCE",
 }
 
 func rules(n int) string {

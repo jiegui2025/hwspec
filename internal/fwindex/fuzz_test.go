@@ -43,3 +43,17 @@ func FuzzParseWhence(f *testing.F) {
 		_, _, _ = latestRelease(b, testNow)
 	})
 }
+
+func FuzzParseCatalogue(f *testing.F) {
+	f.Add([]byte(catalogueXML))
+	f.Add([]byte("<components/>"))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		if c, err := ParseCatalogue(b); err == nil {
+			for _, comp := range c.Components {
+				for _, g := range comp.GUIDs {
+					_ = c.ByGUID(g)
+				}
+			}
+		}
+	})
+}

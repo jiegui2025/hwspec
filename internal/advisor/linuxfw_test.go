@@ -90,7 +90,7 @@ func TestLinuxFirmwareNeedsANamedFileAndABuild(t *testing.T) {
 func TestLinuxFirmwareWithoutTheIndex(t *testing.T) {
 	r := &report.Report{Network: []report.NIC{iwlNIC("wlan0", "77.8dbafb52.0 cc-a0-77.ucode")}}
 	a := Advise(Input{Report: r, KB: linuxFirmwareKB(), Now: noon})
-	if len(a.Findings) != 0 || !slices.Equal(a.Warnings, []string{firmwareIndexMissing}) || a.RulesSkipped != 2 || !strings.Contains(a.Warnings[0], "hwspec firmware update") {
+	if len(a.Findings) != 0 || !slices.Equal(a.Warnings, []string{firmwareIndexWarning(&Input{})}) || a.RulesSkipped != 2 || !strings.Contains(a.Warnings[0], "hwspec firmware update") {
 		t.Errorf("findings %+v, warnings %q, skipped %d", a.Findings, a.Warnings, a.RulesSkipped)
 	}
 	usb := iwlNIC("wlan1", "")

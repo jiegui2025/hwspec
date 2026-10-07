@@ -194,6 +194,9 @@ type Input struct {
 	// LinuxFirmware is linux-firmware's WHENCE at its latest release, from
 	// `hwspec firmware update`'s cache (ADR 0012); nil without one.
 	LinuxFirmware *LinuxFirmware
+	// LVFS is LVFS's verified catalogue, from hwspec's cache or fwupd's
+	// (ADR 0012); nil without one.
+	LVFS *LVFS
 }
 
 // LinuxFirmware is what linux-firmware's WHENCE says at one release.
@@ -233,8 +236,8 @@ type check struct {
 	available func(in *Input) bool
 	// unavailable is the warning when available is false, for an input
 	// that isn't the capture's (the firmware index); several rules
-	// needing it give it once.
-	unavailable string
+	// giving the same warning give it once.
+	unavailable func(in *Input) string
 	// provides names the {placeholders} the check can fill in a rule's
 	// commands.
 	provides []string
@@ -371,10 +374,10 @@ func Advise(in Input) Advice {
 			continue
 		case c.available != nil && !c.available(&in):
 			switch {
-			case c.unavailable == "":
+			case c.unavailable == nil:
 				a.Warnings = append(a.Warnings, fmt.Sprintf("rule %s can't evaluate this capture: it needs %s, which the capture doesn't have", rule.ID, strings.Join(c.needs, ", ")))
-			case !slices.Contains(a.Warnings, c.unavailable):
-				a.Warnings = append(a.Warnings, c.unavailable)
+			case !slices.Contains(a.Warnings, c.unavailable(&in)):
+				a.Warnings = append(a.Warnings, c.unavailable(&in))
 			}
 			a.RulesSkipped++
 			continue

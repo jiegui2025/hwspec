@@ -31,9 +31,6 @@ const (
 	otherBuild
 )
 
-// firmwareIndexMissing is the one warning when there is no index.
-const firmwareIndexMissing = "no firmware index: run `hwspec firmware update` to compare firmware with linux-firmware's latest release"
-
 func init() {
 	for _, c := range []struct {
 		name string
@@ -47,7 +44,7 @@ func init() {
 			run:         linuxFirmwareCheck(c.want),
 			needs:       []string{"network[].firmware", "the firmware index"},
 			available:   func(in *Input) bool { return in.LinuxFirmware != nil },
-			unavailable: firmwareIndexMissing,
+			unavailable: firmwareIndexWarning,
 			example: func() (kb.Rule, *report.Report) {
 				r := c.rule
 				r.Check, r.Category, r.Severity, r.Src = c.name, "firmware", "info", []string{"kernel"}

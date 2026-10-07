@@ -85,7 +85,7 @@ linters:
         fwindex:
           list-mode: strict
           files: ["**/internal/fwindex/*.go", "!$test"]
-          allow: [$gostd, github.com/klauspost/compress/zstd]
+          allow: [$gostd, github.com/klauspost/compress/zstd, github.com/jiegui2025/hwspec/internal/trust]
         trust:
           list-mode: strict
           files: ["**/internal/trust/*.go", "!$test"]

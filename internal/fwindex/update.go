@@ -119,10 +119,11 @@ type updater struct {
 }
 
 // How old a signed catalogue may be. LVFS publishes several a day, so an
-// older one means a CDN serving a stale copy, or a replay.
+// older one means a CDN serving a stale copy, or a replay. `advise` holds
+// a cached one to the same limits.
 const (
-	staleAfter = 7 * 24 * time.Hour  // warned about
-	tooOld     = 30 * 24 * time.Hour // refused without AllowOlder
+	StaleAfter = 7 * 24 * time.Hour  // warned about
+	TooOld     = 30 * 24 * time.Hour // refused (fetching: without AllowOlder)
 )
 
 func (u updater) lvfs(ctx context.Context) (Result, *Source, map[string][]byte) {
@@ -157,7 +158,7 @@ func (u updater) lvfs(ctx context.Context) (Result, *Source, map[string][]byte) 
 	case cached != nil && signedAt.Before(cached.SignedAt) && !u.opt.AllowOlder:
 		return refused(r, fmt.Errorf("signed %s, before the cached catalogue (%s); --allow-older replaces it",
 			stamp(signedAt), stamp(cached.SignedAt))), nil, nil
-	case u.opt.now.Sub(signedAt) > tooOld && !u.opt.AllowOlder:
+	case u.opt.now.Sub(signedAt) > TooOld && !u.opt.AllowOlder:
 		return refused(r, fmt.Errorf("signed %s, %d days ago; LVFS publishes several a day, so this is a stale or replayed copy; --allow-older accepts it",
 			stamp(signedAt), days(u.opt.now.Sub(signedAt)))), nil, nil
 	}
@@ -190,7 +191,7 @@ func (u updater) lvfs(ctx context.Context) (Result, *Source, map[string][]byte) 
 // staleness warns about a catalogue signed more than a week ago.
 func (u updater) staleness(signedAt time.Time) string {
 	age := u.opt.now.Sub(signedAt)
-	if age <= staleAfter {
+	if age <= StaleAfter {
 		return ""
 	}
 	return fmt.Sprintf("the newest catalogue offered was signed %d days ago, though LVFS publishes several a day: the CDN may be serving a stale copy", days(age))
