@@ -99,6 +99,7 @@ var topics = map[string]string{
 	"slots": "Slots", "channels": "Channels", "pairs": "Pairs", "speed": "Speed", "faster": "Faster",
 	"minimum_speed": "Min speed", "max_capacity": "Max total", "fits": "Fits",
 	"lvfs": "LVFS", "linux-firmware": "WHENCE", "bus": "Bus", "allowlist": "Allow-list",
+	"card": "Card", "antennas": "Antennas", "upgrade": "Upgrade",
 }
 
 func rules(n int) string {

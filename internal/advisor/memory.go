@@ -156,6 +156,11 @@ func ValidateModel(m *kb.Model, source func(string) *kb.Source) []error {
 			errs = append(errs, fmt.Errorf("data.storage_slots: %w", err))
 		}
 	}
+	if raw, ok := m.Data["wlan_slot"]; ok {
+		if _, err := decodeWLAN(raw); err != nil {
+			errs = append(errs, fmt.Errorf("data.wlan_slot: %w", err))
+		}
+	}
 	if raw, ok := m.Data["vendor_firmware"]; ok {
 		if err := validateVendorFirmware(raw, source); err != nil {
 			errs = append(errs, fmt.Errorf("data.vendor_firmware: %w", err))

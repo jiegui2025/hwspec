@@ -60,6 +60,28 @@ sources:
     confidence: oem-doc
     link_only: true
     locator: "p. 4, Computer major components, item 7: solid-state drives, NVMe, M.2 2280/2230, PCIe"
+  hp-ds-2019-12-wlan:
+    url: https://www8.hp.com/h20195/v2/GetDocument.aspx?docname=4AA7-5436EEAP
+    mirror: https://objects.icecat.biz/objects/mmo_73305915_1576357194_921_21430.pdf
+    title: HP EliteDesk 800 G5 Desktop Mini datasheet
+    doc: 4AA7-5436EEAP
+    published: "2019-12"
+    retrieved: "2026-10-07"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "p. 2, specifications table: Expansion slots (1 M.2 slot for WLAN, M.2 2230), Communications (WLAN options and their chains)"
+  hp-msg-2019-09-wlan:
+    url: https://h10032.www1.hp.com/ctg/Manual/c06439994.pdf
+    title: Maintenance and Service Guide, HP EliteDesk 800 G5 Desktop Mini
+    doc: L21594-002
+    edition: "2"
+    published: "2019-09"
+    retrieved: "2026-10-07"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "p. 25, WLAN module: disconnect both antenna cables; p. 42, Internal WLAN antenna cables (to the front and rear connectors); p. 2, external antenna connector (optional)"
   hp-sp174287-notes:
     url: https://ftp.hp.com/pub/softpaq/sp174001-174500/sp174287.html
     title: HP BIOS and System Firmware (R21), SoftPaq release notes
@@ -109,6 +131,22 @@ models:
           count: [{value: 2, src: hp-ds-2019-12-storage}]
           lengths: [{value: [2230, 2280], src: hp-ds-2019-12-storage}, {value: [2230, 2280], src: hp-msg-2019-09-storage}]
           interfaces: [{value: [nvme], src: hp-ds-2019-12-storage}, {value: [nvme], src: hp-msg-2019-09-storage}]
+      # The WLAN's M.2 2230 slot (#25 part 3, for #110). Neither document
+      # gives its M.2 key, so none is recorded.
+      wlan_slot:
+        m2:
+          count: [{value: 1, src: hp-ds-2019-12-wlan}]
+          lengths: [{value: [2230], src: hp-ds-2019-12-wlan}]
+        # p. 25 has both cables disconnected from the module; p. 42 removes
+        # the front antenna "if the computer has dual antennas", so a unit
+        # with one antenna may have one cable.
+        antennas: [{value: 2, src: hp-msg-2019-09-wlan}]
+        factory_options:
+          - value:
+              - {name: "Intel Dual Band Wi-Fi 5 9560", generation: "Wi-Fi 5", chains: "2x2"}
+              - {name: "Intel Wi-Fi 6 AX200", generation: "Wi-Fi 6", chains: "2x2"}
+              - {name: "Realtek RTL8822BE-CG", generation: "Wi-Fi 5", chains: "2x2"}
+            src: hp-ds-2019-12-wlan
       # The latest BIOS HP lists, as read on the retrieved date: HP
       # publishes it only on its own site (not on LVFS, #10), so a newer
       # one may exist; the finding says to check.

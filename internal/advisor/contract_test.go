@@ -75,7 +75,7 @@ func TestRulesMustFitTheirCheck(t *testing.T) {
 		{fwKey, `data: json: unknown field "latestt"`},
 		{fwNone, "data: no data"},
 		{badCommand, `command "modprobe {modallias}" uses {modallias}, which check "pci-without-driver" doesn't fill (it fills: modalias)`},
-		{unknown, `unknown check "magic" (have firmware-load-failed, firmware-test, kernel-modules-missing, linux-firmware-differs, linux-firmware-matches, lvfs-differs, lvfs-other-vendor, lvfs-up-to-date, lvfs-update, lvfs-update-urgent, memory-below-minimum, memory-upgrade, pci-driver-blacklisted, pci-driver-did-not-bind, pci-driver-not-loaded, pci-without-driver, storage-upgrade, usb-driver-blacklisted, usb-driver-did-not-bind, usb-driver-not-loaded, usb-without-driver, vendor-firmware)`},
+		{unknown, `unknown check "magic" (have firmware-load-failed, firmware-test, kernel-modules-missing, linux-firmware-differs, linux-firmware-matches, lvfs-differs, lvfs-other-vendor, lvfs-up-to-date, lvfs-update, lvfs-update-urgent, memory-below-minimum, memory-upgrade, pci-driver-blacklisted, pci-driver-did-not-bind, pci-driver-not-loaded, pci-without-driver, storage-upgrade, usb-driver-blacklisted, usb-driver-did-not-bind, usb-driver-not-loaded, usb-without-driver, vendor-firmware, wifi-upgrade)`},
 	}
 	for _, c := range cases {
 		errs := ValidateRule(&c.rule)
