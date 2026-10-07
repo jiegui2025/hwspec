@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"text/tabwriter"
 	"time"
 
@@ -30,9 +29,7 @@ func (c cli) firmwareCmd(args []string) error {
 	if fs.NArg() > 0 {
 		return errors.New(use)
 	}
-	// Nothing here needs root, and as root the index would land in root's
-	// cache, or (sudo -E) make the user's own cache root's.
-	if geteuid() == 0 && os.Getenv("SUDO_UID") != "" {
+	if underSudo() {
 		return errors.New("run `hwspec firmware update` without sudo: the index is kept in your own cache and needs no root")
 	}
 	dir := fwindex.CacheDir()
