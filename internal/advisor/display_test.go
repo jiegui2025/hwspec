@@ -300,17 +300,24 @@ func TestDisplayDiscreteGPU(t *testing.T) {
 	if got := wifiAnswers(t, r, k)["gpu"].Text; got != "card1-DP-3: GPU 1002:67ff drives up to 3840×2160 @ 60 Hz on DisplayPort per example-datasheet (2019-12)" {
 		t.Errorf("subsystem entry: %q", got)
 	}
-	// Another vendor's GPU at 00:02.0 isn't the processor's.
-	r = displayExample()
-	r.GPUs[0].VendorID = "1002"
-	if got := wifiAnswers(t, r, displayKB("", ""))["gpu"].Text; got != "card1-DP-3: GPU maximum unknown: the knowledge base has no entry for GPU 1002:3e92" {
-		t.Errorf("another vendor at 00:02.0: %q", got)
-	}
-	// An Intel GPU behind a port is discrete (Arc).
-	r = displayExample()
-	r.GPUs[0].PCIAddress = "0000:03:00.0"
-	if got := wifiAnswers(t, r, displayKB("", ""))["gpu"].Text; got != "card1-DP-3: GPU maximum unknown: the knowledge base has no entry for GPU 8086:3e92" {
-		t.Errorf("Intel behind a port: %q", got)
+	// Only a GPU the capture mounts "cpu" is the processor's (#271): a
+	// chipset's at 00:02.0 (a Core 2 with G41 graphics, onboard), one the
+	// capture gives no mounting (from before #269), and an Intel GPU behind
+	// a port (Arc) are looked up as devices.
+	for name, edit := range map[string]func(r *report.Report){
+		"G41 at 00:02.0, onboard": func(r *report.Report) {
+			r.GPUs[0].DeviceID, r.PCI[0].DeviceID = "2e22", "2e22"
+			r.PCI[0].Mounting = &report.Mounting{Kind: report.MountedOnboard, Confidence: "high"}
+		},
+		"no mounting":         func(r *report.Report) { r.GPUs[0].DeviceID, r.PCI[0].Mounting = "2e22", nil },
+		"no PCI device":       func(r *report.Report) { r.GPUs[0].DeviceID, r.PCI = "2e22", nil },
+		"Intel behind a port": func(r *report.Report) { r.GPUs[0].DeviceID, r.GPUs[0].PCIAddress = "2e22", "0000:03:00.0" },
+	} {
+		r = displayExample()
+		edit(r)
+		if got := wifiAnswers(t, r, displayKB("", ""))["gpu"].Text; got != "card1-DP-3: GPU maximum unknown: the knowledge base has no entry for GPU 8086:2e22" {
+			t.Errorf("%s: %q", name, got)
+		}
 	}
 }
 

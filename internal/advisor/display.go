@@ -167,10 +167,13 @@ func modelPorts(k *kb.KB, r *report.Report) (*portsData, string) {
 	return d, ""
 }
 
-// integrated says whether a GPU is an Intel processor's own: Intel puts
-// it at 00:02.0, and a discrete Intel GPU (Arc) sits behind a port.
-func integrated(g *report.GPU) bool {
-	return strings.EqualFold(g.VendorID, "8086") && strings.HasSuffix(g.PCIAddress, ":00:02.0")
+// integrated says whether a GPU is the processor's own: the capture
+// mounts it "cpu" (#269), which it does only for processor generations
+// whose Intel datasheet places their graphics at 00:02.0. Any other GPU,
+// a chipset's at 00:02.0 included, is looked up as a device (#271).
+func integrated(r *report.Report, g *report.GPU) bool {
+	p, _ := pciOf(r, g.PCIAddress)
+	return p != nil && p.Mounting != nil && p.Mounting.Kind == report.MountedInCPU
 }
 
 // gpuOutputsFor returns a GPU's display_outputs group, or why there is
@@ -179,7 +182,7 @@ func integrated(g *report.GPU) bool {
 func gpuOutputsFor(k *kb.KB, r *report.Report, g *report.GPU) (*gpuOutputsData, string) {
 	var data map[string]json.RawMessage
 	var of string
-	if integrated(g) {
+	if integrated(r, g) {
 		n := ""
 		if r.CPU.Identity != nil {
 			n = kb.ProcessorNumber(r.CPU.Identity.Model)
@@ -257,6 +260,8 @@ func displayExample() *report.Report {
 	return &report.Report{
 		System: report.System{Identity: &report.Identity{Vendor: "HP", Model: "HP EliteDesk 800 G5 Desktop Mini"}},
 		CPU:    report.CPU{Identity: &report.Identity{Vendor: "GenuineIntel", Model: "Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz"}},
+		PCI: []report.PCIDevice{{Address: "0000:00:02.0", VendorID: "8086", DeviceID: "3e92", ClassCode: "030000",
+			Mounting: &report.Mounting{Kind: report.MountedInCPU, Confidence: "high"}}},
 		GPUs: []report.GPU{{PCIAddress: "0000:00:02.0", VendorID: "8086", DeviceID: "3e92", DRMCard: "card1",
 			Outputs:  []string{"DP-1", "DP-2", "DP-3", "HDMI-A-1"},
 			Identity: &report.Identity{Vendor: "Intel Corporation", Model: "CoffeeLake-S GT2 [UHD Graphics 630]"}}},

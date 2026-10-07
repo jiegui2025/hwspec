@@ -723,8 +723,8 @@ func TestTextUSBC(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"USB-C charging", "top-left   power out only, can't charge",
-		"left       charges this machine up to 65 W; the connected charger offers up to 45 W",
-		"port2      charges this machine (the kernel lists no limit)", "port3      can't charge"} {
+		"left       can power or charge this machine, up to 65 W; the connected charger offers up to 45 W",
+		"port2      can power or charge this machine; how much isn't in the capture", "port3      can't charge"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("no %q in:\n%s", want, buf.String())
 		}
