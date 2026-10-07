@@ -295,18 +295,27 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 	// Firmware load failures need the root-only kernel log (#213): an
 	// unprivileged capture can't be evaluated for them, and says so. The
 	// linux-firmware comparisons need the firmware index (#225).
-	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules)-3 || a.RulesSkipped != 3 ||
+	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules)-8 || a.RulesSkipped != 8 ||
 		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") ||
-		!slices.Contains(a.Warnings, firmwareIndexMissing) {
+		!slices.Contains(a.Warnings, firmwareIndexWarning(&Input{})) {
 		t.Errorf("findings %+v, warnings %q", a.Findings, a.Warnings)
 	}
 	// Against linux-firmware 20260916, whose WHENCE lists the AX200's
 	// iwlwifi-cc-a0-77.ucode as 74.8dbafb52.0, the loaded 77.8dbafb52.0 is
-	// that build (#225).
+	// that build (#225); against LVFS (2026-10-06), the drive runs the
+	// latest of Lenovo's PM981 firmware (#226).
 	lf := &LinuxFirmware{Tag: "20260916", FetchedAt: noon, Versions: map[string]string{"iwlwifi-cc-a0-77.ucode": "74.8dbafb52.0"}}
-	a = Advise(Input{Report: r, KB: k, Now: noon, LinuxFirmware: lf})
-	if len(a.Findings) != 2 || a.Findings[1].ID != "firmware.linux-firmware-matches" || a.Findings[1].Device.Key != "0000:02:00.0" || a.RulesSkipped != 1 {
-		t.Errorf("with the index: findings %+v", a.Findings)
+	a = Advise(Input{Report: r, KB: k, Now: noon, LinuxFirmware: lf, LVFS: lvfsWith(modelGUID, pm981())})
+	var ids []string
+	for _, f := range a.Findings {
+		key := ""
+		if f.Device != nil {
+			key = f.Device.Kind + " " + f.Device.Key
+		}
+		ids = append(ids, f.ID+" "+key)
+	}
+	if !slices.Equal(ids, []string{"memory.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1"}) || a.RulesSkipped != 1 {
+		t.Errorf("with the index: findings %q, skipped %d", ids, a.RulesSkipped)
 	}
 }
 

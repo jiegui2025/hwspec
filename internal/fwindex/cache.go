@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/jiegui2025/hwspec/internal/trust"
 )
 
 // Files in the cache directory.
@@ -18,7 +20,10 @@ const (
 	manifestName = "manifest.json"
 )
 
-const manifestFormat = 1
+const (
+	manifestFormat   = 1
+	maxManifestBytes = 1 << 20
+)
 
 // Manifest describes what `hwspec firmware update` cached, per source. It
 // is written last, so after a crash it describes older files, which a
@@ -60,7 +65,7 @@ func CacheDir() string {
 // ReadManifest reads dir's manifest: nil without an error when nothing has
 // been cached.
 func ReadManifest(dir string) (*Manifest, error) {
-	b, err := os.ReadFile(filepath.Join(dir, manifestName))
+	b, err := trust.ReadRegular(filepath.Join(dir, manifestName), maxManifestBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -89,7 +94,7 @@ func ReadWhence(dir string) (*Whence, *Source, error) {
 	if err != nil || m == nil || m.LinuxFirmware == nil {
 		return nil, nil, err
 	}
-	b, err := os.ReadFile(filepath.Join(dir, WhenceName))
+	b, err := trust.ReadRegular(filepath.Join(dir, WhenceName), maxWhenceBytes)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,7 +114,7 @@ func (s *Source) intact(dir string) bool {
 		return false
 	}
 	for name, sum := range s.Files {
-		b, err := os.ReadFile(filepath.Join(dir, name))
+		b, err := trust.ReadRegular(filepath.Join(dir, name), maxCatalogueBytes)
 		if err != nil || sha(b) != sum {
 			return false
 		}

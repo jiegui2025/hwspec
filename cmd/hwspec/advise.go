@@ -10,9 +10,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -89,6 +91,9 @@ func (c cli) advise(args []string) error {
 	if in.LinuxFirmware, warn = linuxFirmwareIndex(); warn != "" {
 		warnings = append(warnings, warn)
 	}
+	var lvfsWarnings []string
+	in.LVFS, lvfsWarnings = lvfsIndex(in.Now)
+	warnings = append(warnings, lvfsWarnings...)
 	if file == "" {
 		in.Live = true
 		var warn string
@@ -154,6 +159,101 @@ func linuxFirmwareIndex() (*advisor.LinuxFirmware, string) {
 		}
 	}
 	return &advisor.LinuxFirmware{Tag: src.Tag, FetchedAt: src.FetchedAt, Versions: versions}, ""
+}
+
+// catalogueFile is a verified catalogue on disk (fwindex.CatalogueFile).
+type catalogueFile interface {
+	Signed() time.Time
+	Matches(*fwindex.Source) error
+	Parse() (*fwindex.Catalogue, error)
+}
+
+// fwupd's copy of LVFS's catalogue, and the opener; tests replace them.
+var (
+	fwupdCatalogue = fwindex.FwupdCatalogue
+	openCatalogue  = func(path string, now time.Time) (catalogueFile, error) { return fwindex.OpenCatalogue(path, now) }
+)
+
+// lvfsIndex is LVFS's catalogue for the advisor (ADR 0012): hwspec's own
+// copy or fwupd's, whichever was signed later, each verified as a
+// download would be. hwspec's must be the one its last update installed
+// (the manifest's checksums and signing time), so an older copy put back
+// isn't used. A catalogue signed over 30 days ago isn't used, as `hwspec
+// firmware update` wouldn't install it; over 7 days, it is used with a
+// warning. Without one, the advisor says how to get one.
+func lvfsIndex(now time.Time) (*advisor.LVFS, []string) {
+	var warnings []string
+	type candidate struct {
+		f            catalogueFile
+		source, name string
+	}
+	var found []candidate
+	open := func(path, source, name string) {
+		f, err := openCatalogue(path, now)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("%s LVFS catalogue can't be used (%v); run `hwspec firmware update`", name, err))
+			return
+		}
+		found = append(found, candidate{f, source, name})
+	}
+	if dir := fwindex.CacheDir(); dir != "" {
+		m, err := fwindex.ReadManifest(dir)
+		switch {
+		case err != nil:
+			warnings = append(warnings, fmt.Sprintf("the firmware index can't be used (%v); run `hwspec firmware update --allow-older`", err))
+		case m != nil && m.LVFS != nil:
+			if open(filepath.Join(dir, fwindex.CatalogueName), "hwspec", "hwspec's"); len(found) > 0 {
+				if err := found[0].f.Matches(m.LVFS); err != nil {
+					warnings = append(warnings, fmt.Sprintf("hwspec's LVFS catalogue can't be used (%v); run `hwspec firmware update`", err))
+					found = nil
+				}
+			}
+		}
+	}
+	switch _, err := os.Stat(fwupdCatalogue); {
+	case err == nil:
+		open(fwupdCatalogue, "fwupd", "fwupd's")
+	case !errors.Is(err, fs.ErrNotExist):
+		warnings = append(warnings, fmt.Sprintf("fwupd's LVFS catalogue can't be used (%v)", err))
+	}
+	// The latest signed first; an equal one from hwspec's own cache.
+	slices.SortStableFunc(found, func(a, b candidate) int { return b.f.Signed().Compare(a.f.Signed()) })
+	for _, c := range found {
+		age := now.Sub(c.f.Signed())
+		if age > fwindex.TooOld {
+			warnings = append(warnings, fmt.Sprintf("%s LVFS catalogue was signed %d days ago, over 30: run `hwspec firmware update` for a current one", c.name, int(age.Hours()/24)))
+			return nil, warnings
+		}
+		cat, err := c.f.Parse()
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("%s LVFS catalogue can't be used (%v); run `hwspec firmware update`", c.name, err))
+			continue
+		}
+		if age > fwindex.StaleAfter {
+			warnings = append(warnings, fmt.Sprintf("%s LVFS catalogue was signed %d days ago; run `hwspec firmware update` for a current one", c.name, int(age.Hours()/24)))
+		}
+		return lvfsInput(cat, c.source, c.f.Signed()), warnings
+	}
+	return nil, warnings
+}
+
+// lvfsInput hands the catalogue to the advisor by GUID.
+func lvfsInput(c *fwindex.Catalogue, source string, signedAt time.Time) *advisor.LVFS {
+	lv := &advisor.LVFS{Source: source, SignedAt: signedAt, Components: map[string][]advisor.LVFSComponent{}}
+	for _, comp := range c.Components {
+		a := advisor.LVFSComponent{ID: comp.ID, Name: comp.Name, Developer: comp.Developer, VersionFormat: comp.VersionFormat}
+		var requires []advisor.LVFSRequirement
+		for _, q := range comp.Requires {
+			requires = append(requires, advisor.LVFSRequirement{Kind: q.Kind, Compare: q.Compare, Version: q.Version, Text: q.Text})
+		}
+		for _, r := range comp.Releases {
+			a.Releases = append(a.Releases, advisor.LVFSRelease{Version: r.Version, Date: r.Date, Urgency: r.Urgency, CVEs: r.CVEs, Requires: requires})
+		}
+		for _, g := range comp.GUIDs {
+			lv.Components[g] = append(lv.Components[g], a)
+		}
+	}
+	return lv
 }
 
 // count says "1 finding", "2 findings".

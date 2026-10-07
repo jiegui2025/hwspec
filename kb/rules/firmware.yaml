@@ -21,6 +21,30 @@ sources:
     quote: >-
       "%u.%08x.%u %s", pieces->major, minor, local_comp,
       iwl_reduced_fw_name(drv));
+  lvfs-metainfo-urgency:
+    url: https://lvfs.readthedocs.io/en/latest/metainfo.html
+    title: Metadata for a firmware release (LVFS documentation)
+    retrieved: "2026-10-07"
+    licence: "LVFS documentation: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Release Urgency"
+  fwupd-version-compare:
+    url: https://github.com/fwupd/fwupd/blob/2.1.8/libfwupdplugin/fu-version-common.c
+    title: fu-version-common.c (fwupd 2.1.8)
+    retrieved: "2026-10-07"
+    licence: LGPL-2.1-or-later
+    confidence: upstream-doc
+    quote: >-
+      Compares version numbers for sorting taking into account the version
+      format if required.
+  fwupdmgr-man:
+    url: https://man.archlinux.org/man/fwupdmgr.1
+    title: fwupdmgr(1)
+    retrieved: "2026-10-07"
+    licence: LGPL-2.1-or-later
+    confidence: upstream-doc
+    quote: "update: Update each device in turn to the newest available version."
 
 rules:
   - id: firmware.linux-firmware-matches
@@ -53,3 +77,75 @@ rules:
         text: Update the system, then reboot.
         commands: ["sudo pacman -Syu"]
     src: [linux-firmware-whence, kernel-iwlwifi-fw-version]
+  - id: firmware.lvfs-update-urgent
+    check: lvfs-update-urgent
+    category: firmware
+    severity: warning
+    title: Firmware update with security or urgent fixes
+    detail: >-
+      LVFS, where vendors publish firmware for fwupd, has a newer release
+      for this part than the one it runs, marked high or critical urgency
+      (the CVEs it fixes are listed when LVFS names them). Matched by the
+      GUID fwupd gives the part; versions compared in the format LVFS
+      states, or, where that format doesn't order versions, by the order
+      LVFS published them in. fwupd checks the rest of LVFS's
+      requirements before installing.
+    actions:
+      - text: >-
+          Install it with fwupd, which downloads the release, checks it
+          applies to this machine and installs it (some need a reboot).
+          Keep a laptop on mains power while it runs.
+        commands: ["fwupdmgr refresh", "fwupdmgr get-updates", "fwupdmgr update"]
+        risk: An interrupted firmware update can leave the part unusable.
+    src: [lvfs-metainfo-urgency, fwupd-version-compare, fwupdmgr-man]
+  - id: firmware.lvfs-update
+    check: lvfs-update
+    category: firmware
+    severity: info
+    title: Firmware update available
+    detail: >-
+      LVFS has a newer release for this part than the one it runs, of low
+      or medium urgency (or none stated). Matched by the GUID fwupd gives
+      the part; versions compared in the format LVFS states, or by the
+      order LVFS published them in where it doesn't order them.
+    actions:
+      - text: >-
+          fwupd installs it when you choose, after checking it applies to
+          this machine.
+        commands: ["fwupdmgr refresh", "fwupdmgr get-updates", "fwupdmgr update"]
+        risk: An interrupted firmware update can leave the part unusable.
+    src: [lvfs-metainfo-urgency, fwupd-version-compare, fwupdmgr-man]
+  - id: firmware.lvfs-other-vendor
+    check: lvfs-other-vendor
+    category: firmware
+    severity: info
+    title: Newer firmware from another vendor
+    detail: >-
+      LVFS has a newer release for a part like this one, published by a
+      vendor that is neither this machine's maker nor the part's, and not
+      restricted to this machine's vendor (a DMI vendor ID naming it): an
+      OEM's release for its own systems. It isn't an update for this
+      machine unless its maker publishes one.
+    src: [lvfs-metainfo-urgency, fwupd-version-compare]
+  - id: firmware.lvfs-up-to-date
+    check: lvfs-up-to-date
+    category: firmware
+    severity: info
+    title: No firmware update on LVFS
+    detail: >-
+      LVFS lists nothing newer for this part that fwupd would install over
+      the version it runs, as of the catalogue's date: the part runs the
+      latest release (or newer), or the newer ones require another version
+      to install over.
+    src: [fwupd-version-compare]
+  - id: firmware.lvfs-differs
+    check: lvfs-differs
+    category: firmware
+    severity: info
+    title: Firmware not comparable with LVFS's
+    detail: >-
+      LVFS lists firmware for this part, but the installed version isn't
+      one of its releases and can't be ordered against them (the version
+      format orders nothing, or the version isn't written in it), so
+      hwspec doesn't say which is newer.
+    src: [fwupd-version-compare]

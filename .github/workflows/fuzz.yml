@@ -4,8 +4,8 @@ name: Fuzz
 # and Bluetooth HCI replies, kernel log records, the ID database files and
 # manifest, captures read by show and advise, the advisor knowledge base
 # (also downloaded in the signed bundle), and what `hwspec firmware update`
-# downloads: LVFS's .jcat signature file, the CMS signature in it, and
-# linux-firmware's WHENCE and tag list.
+# downloads: LVFS's .jcat signature file, the CMS signature in it, the
+# catalogue itself, and linux-firmware's WHENCE and tag list.
 # Their seed inputs run in every `go test`; fuzzing itself takes minutes, so
 # it runs weekly and by hand rather than on PRs (#192). A failure uploads
 # the input that broke the parser: add it under the package's
@@ -45,6 +45,7 @@ jobs:
           - internal/fwindex FuzzParseJcat
           - internal/fwindex FuzzVerifyPKCS7
           - internal/fwindex FuzzParseWhence
+          - internal/fwindex FuzzParseCatalogue
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
