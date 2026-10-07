@@ -18,6 +18,92 @@ sources:
     licence: GPL-2.0-or-later
     confidence: upstream-doc
     quote: "Print all module names matching an alias."
+  arch-sof-firmware:
+    url: https://archlinux.org/packages/extra/x86_64/sof-firmware/files/
+    title: sof-firmware package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-amdgpu:
+    url: https://archlinux.org/packages/core/any/linux-firmware-amdgpu/files/
+    title: linux-firmware-amdgpu package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-atheros:
+    url: https://archlinux.org/packages/core/any/linux-firmware-atheros/files/
+    title: linux-firmware-atheros package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-broadcom:
+    url: https://archlinux.org/packages/core/any/linux-firmware-broadcom/files/
+    title: linux-firmware-broadcom package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-intel:
+    url: https://archlinux.org/packages/core/any/linux-firmware-intel/files/
+    title: linux-firmware-intel package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-mediatek:
+    url: https://archlinux.org/packages/core/any/linux-firmware-mediatek/files/
+    title: linux-firmware-mediatek package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-nvidia:
+    url: https://archlinux.org/packages/core/any/linux-firmware-nvidia/files/
+    title: linux-firmware-nvidia package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-radeon:
+    url: https://archlinux.org/packages/core/any/linux-firmware-radeon/files/
+    title: linux-firmware-radeon package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  arch-linux-firmware-realtek:
+    url: https://archlinux.org/packages/core/any/linux-firmware-realtek/files/
+    title: linux-firmware-realtek package contents (Arch Linux)
+    retrieved: "2026-10-07"
+    licence: "Arch Linux website: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Package Contents"
+  kernel-fw-loader:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/base/firmware_loader/main.c
+    title: drivers/base/firmware_loader/main.c (Linux)
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "\"Direct firmware load for %s failed with error %d\\n\""
+  kernel-fw-search-path:
+    url: https://docs.kernel.org/driver-api/firmware/fw_search_path.html
+    title: Firmware search paths (Linux kernel documentation)
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "The following search paths are used to look for firmware on your root filesystem."
   journalctl-grep:
     url: https://man7.org/linux/man-pages/man1/journalctl.1.html
     title: journalctl(1), systemd
@@ -83,6 +169,52 @@ sources:
     quote: "03 USB controller"
 
 rules:
+  - id: firmware.load-failed
+    check: firmware-load-failed
+    category: needs-attention
+    severity: warning
+    title: A driver couldn't load its firmware
+    detail: >-
+      The kernel logged that a driver asked for a firmware file it didn't
+      find. The device may not work at all, or work with less than it can.
+    data:
+      # The file the kernel asks for (a key ending in "/" covers its directory;
+      # the longest key that covers a file wins: intel/sof/ over intel/)
+      # → os-release ID → the package that ships it.
+      packages:
+        "amdgpu/": {arch: [{value: linux-firmware-amdgpu, src: arch-linux-firmware-amdgpu}]}
+        "ath10k/": {arch: [{value: linux-firmware-atheros, src: arch-linux-firmware-atheros}]}
+        "ath11k/": {arch: [{value: linux-firmware-atheros, src: arch-linux-firmware-atheros}]}
+        "ath12k/": {arch: [{value: linux-firmware-atheros, src: arch-linux-firmware-atheros}]}
+        "brcm/": {arch: [{value: linux-firmware-broadcom, src: arch-linux-firmware-broadcom}]}
+        "i915/": {arch: [{value: linux-firmware-intel, src: arch-linux-firmware-intel}]}
+        "intel/": {arch: [{value: linux-firmware-intel, src: arch-linux-firmware-intel}]}
+        "intel/sof/": {arch: [{value: sof-firmware, src: arch-sof-firmware}]}
+        "intel/sof-ace-tplg/": {arch: [{value: sof-firmware, src: arch-sof-firmware}]}
+        "intel/sof-ipc4/": {arch: [{value: sof-firmware, src: arch-sof-firmware}]}
+        "intel/sof-ipc4-lib/": {arch: [{value: sof-firmware, src: arch-sof-firmware}]}
+        "intel/sof-ipc4-tplg/": {arch: [{value: sof-firmware, src: arch-sof-firmware}]}
+        "intel/sof-tplg/": {arch: [{value: sof-firmware, src: arch-sof-firmware}]}
+        "iwlwifi-*.ucode": {arch: [{value: linux-firmware-intel, src: arch-linux-firmware-intel}]}
+        "mediatek/": {arch: [{value: linux-firmware-mediatek, src: arch-linux-firmware-mediatek}]}
+        "nvidia/": {arch: [{value: linux-firmware-nvidia, src: arch-linux-firmware-nvidia}]}
+        "radeon/": {arch: [{value: linux-firmware-radeon, src: arch-linux-firmware-radeon}]}
+        "rtl_bt/": {arch: [{value: linux-firmware-realtek, src: arch-linux-firmware-realtek}]}
+        "rtl_nic/": {arch: [{value: linux-firmware-realtek, src: arch-linux-firmware-realtek}]}
+        "rtlwifi/": {arch: [{value: linux-firmware-realtek, src: arch-linux-firmware-realtek}]}
+        "rtw88/": {arch: [{value: linux-firmware-realtek, src: arch-linux-firmware-realtek}]}
+        "rtw89/": {arch: [{value: linux-firmware-realtek, src: arch-linux-firmware-realtek}]}
+    actions:
+      - text: >-
+          The kernel looks for the file (the evidence names it) in
+          /lib/firmware and its updates/ directory. Install the firmware
+          package your distribution ships it in, then reboot (or reload
+          the driver).
+      - distro: arch
+        text: Install the package that ships this file, then reboot.
+        commands:
+          - sudo pacman -S {package}
+    src: [kernel-fw-loader, kernel-fw-search-path]
   - id: kernel.modules-missing
     check: kernel-modules-missing
     category: needs-attention

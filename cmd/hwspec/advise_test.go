@@ -69,6 +69,10 @@ func readAdvice(t *testing.T, js string) advisor.Advice {
 	return a
 }
 
+// firmwareSkipped begins the warning of an unprivileged capture: firmware
+// load failures are in the root-only kernel log (#213).
+const firmwareSkipped = "rule firmware.load-failed can't evaluate this capture"
+
 // noDriver returns the advice's pci.no-driver findings: the test machine
 // has one driverless Wi-Fi card. Other rules (#107's memory answers) add
 // findings of their own, which these tests don't count.
@@ -156,13 +160,15 @@ func TestAdviseThisMachine(t *testing.T) {
 		}
 	}
 	a := readAdvice(t, out(t, "", "advise", "-f", "json"))
-	if !a.Live || len(noDriver(a)) != 1 || a.RulesApplied == 0 || a.RulesSkipped != 0 {
+	// An unprivileged capture can't be evaluated for firmware load
+	// failures (the root-only kernel log, #213): the one rule skipped.
+	if !a.Live || len(noDriver(a)) != 1 || a.RulesApplied == 0 || a.RulesSkipped != 1 {
 		t.Errorf("live %v, %d findings, applied %d, skipped %d", a.Live, len(noDriver(a)), a.RulesApplied, a.RulesSkipped)
 	}
 	// The capture's own warnings are carried over: what it couldn't read
 	// can hide findings.
 	for _, w := range a.Warnings {
-		if !strings.HasPrefix(w, "capture: ") {
+		if !strings.HasPrefix(w, "capture: ") && !strings.HasPrefix(w, firmwareSkipped) {
 			t.Errorf("unexpected warning %q", w)
 		}
 	}
@@ -264,7 +270,7 @@ func TestAdviceWithoutStateSaysWhy(t *testing.T) {
 			a := readAdvice(t, stdout)
 			var got []string
 			for _, w := range a.Warnings {
-				if !strings.HasPrefix(w, "capture: ") {
+				if !strings.HasPrefix(w, "capture: ") && !strings.HasPrefix(w, firmwareSkipped) {
 					got = append(got, w)
 				}
 			}
