@@ -154,6 +154,7 @@ memory.modules[].health.metrics{key}              kept
 memory.modules[].mounting.kind                    kept
 memory.modules[].mounting.slot                    kept
 memory.modules[].mounting.slot_type               kept
+memory.modules[].mounting.package                 kept
 memory.modules[].mounting.confidence              kept
 memory.modules[].mounting.evidence[]              kept
 memory.modules[].mounting.reason                  kept
@@ -198,6 +199,7 @@ storage[].health.metrics{key}                     kept
 storage[].mounting.kind                           kept
 storage[].mounting.slot                           kept
 storage[].mounting.slot_type                      kept
+storage[].mounting.package                        kept
 storage[].mounting.confidence                     kept
 storage[].mounting.evidence[]                     kept
 storage[].mounting.reason                         kept
@@ -388,6 +390,7 @@ pci[].label_source                                kept
 pci[].mounting.kind                               kept
 pci[].mounting.slot                               kept
 pci[].mounting.slot_type                          kept
+pci[].mounting.package                            kept
 pci[].mounting.confidence                         kept
 pci[].mounting.evidence[]                         kept
 pci[].mounting.reason                             kept

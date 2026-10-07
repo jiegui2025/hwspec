@@ -110,8 +110,8 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		for _, addr := range []string{"0000:00:02.0", "0000:00:1f.6"} {
 			d := pciDev(addr)
 			want["label from smbios "+addr] = d != nil && d.LabelSource == "smbios" && strings.HasPrefix(d.Label, "Onboard ")
-			want["onboard "+addr] = mount(addr).Kind == "onboard" && mount(addr).Confidence == "high"
 		}
+		want["onboard 0000:00:1f.6"] = mount("0000:00:1f.6").Kind == "onboard" && mount("0000:00:1f.6").Confidence == "high"
 		want["wi-fi needs root"] = mount("0000:02:00.0").Kind == "unknown" && mount("0000:02:00.0").Reason == needsRoot
 		want["nvme needs root"] = mount("0000:01:00.0").Kind == "unknown" && mount("0000:01:00.0").Reason == needsRoot
 		want["sodimm in a slot, from its SPD"] = len(r.Memory.Modules) == 1 && r.Memory.Modules[0].Mounting != nil &&
@@ -168,6 +168,10 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		// #113: /proc/driver/rtc's batt_status. Intel's chipsets hardwire
 		// the bit behind it, so okay here isn't evidence of the cell.
 		want["RTC driver batt_status okay"] = r.RTC != nil && r.RTC.BattStatus == "okay"
+		// #137: the UHD 630 is the processor's, not soldered on; its
+		// package needs root.
+		igpu := find(r.PCI, func(d report.PCIDevice) bool { return d.Address == "0000:00:02.0" })
+		want["UHD 630 is part of the CPU"] = igpu != nil && igpu.Mounting != nil && igpu.Mounting.Kind == "cpu" && igpu.Mounting.Package == ""
 		want["eno1 is ethernet"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Type == "ethernet" }) != nil
 		// Root-only DMI files are replayed as root-only.
 		want["dmi serials need root"] = len(r.Warnings) > 0 && strings.Contains(strings.Join(r.Warnings, "\n"), "dmi product_serial")

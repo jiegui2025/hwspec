@@ -115,8 +115,8 @@ func recordedAsRoot(t *testing.T) *report.Report {
 	return r
 }
 
-// The reference machine with its tables readable: the IGD and LAN are
-// onboard. The NVMe is in an M.2 SSD slot of type Gen 3 x4, which one is
+// The reference machine with its tables readable: the LAN is onboard, and
+// the IGD the firmware lists onboard is part of the socketed CPU (#137). The NVMe is in an M.2 SSD slot of type Gen 3 x4, which one is
 // unknown: the port it sits behind is listed for Slot4 as available, and
 // the occupied Slot3 names a port that doesn't exist. That leaves the
 // Wi-Fi's slot open too: if the NVMe is in Slot4, the Wi-Fi could be in
@@ -126,7 +126,7 @@ func TestTheReferenceMachinesMountings(t *testing.T) {
 	r := recordedAsRoot(t)
 	c := &collector{r: r}
 	check(t, c, map[string]want{
-		"0000:00:02.0": {"onboard", "", "", "high", ""},
+		"0000:00:02.0": {"cpu", "", "", "high", ""},
 		"0000:00:1f.6": {"onboard", "", "", "high", ""},
 		"0000:02:00.0": {"slot", "", "", "medium", "holds it is unknown"},
 		"0000:01:00.0": {"slot", "", "PCI Express Gen 3 x4", "medium", "holds it is unknown"},
@@ -140,8 +140,9 @@ func TestTheReferenceMachinesMountings(t *testing.T) {
 	if e := strings.Join(mountingOf(c, "0000:02:00.0").Evidence, "\n"); !strings.Contains(e, `"Slot2 / M2 WLAN/BT"`) || !strings.Contains(e, `"Slot3 / M2 SSD"`) {
 		t.Errorf("wi-fi evidence %q", e)
 	}
-	if e := mountingOf(c, "0000:00:02.0").Evidence; len(e) != 1 || e[0] != `SMBIOS type 41 lists "Onboard IGD" (Video) at 0000:00:02.0` {
-		t.Errorf("igd evidence %q", e)
+	if m := mountingOf(c, "0000:00:02.0"); m.Package != "Socket LGA1151" || !slices.Equal(m.Evidence, []string{coffeeLake,
+		"the processor's package is Socket LGA1151 (SMBIOS type 4)", `SMBIOS type 41 lists "Onboard IGD" (Video) at 0000:00:02.0`}) {
+		t.Errorf("igd: %q, evidence %q", m.Package, m.Evidence)
 	}
 	if !hasWarning(r, `smbios slots: the firmware's addresses for "Slot1 / DGPU PCIEXP" (0000:00:01.0), "Slot2 / M2 WLAN/BT" (0000:00:1c.7), "Slot3 / M2 SSD" (0000:00:1b.4), "Slot5 / TBT Fiber Combo" (0000:00:1d.0) name no device`) {
 		t.Errorf("warnings %q", r.Warnings)

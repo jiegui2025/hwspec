@@ -618,6 +618,12 @@ func mountingText(m *report.Mounting) string {
 		s = "soldered on"
 	case "socket":
 		s = "in a socket"
+	case "cpu":
+		s = "part of the CPU"
+		if m.Package != "" {
+			s += " (" + m.Package + ")"
+		}
+		s += ": it changes only with the processor"
 	case "slot":
 		switch {
 		case m.Slot != "":
