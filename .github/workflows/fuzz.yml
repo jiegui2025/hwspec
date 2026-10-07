@@ -1,7 +1,8 @@
 name: Fuzz
 
 # Fuzzes every parser of untrusted input: SPD, EDID and SMBIOS bytes, the
-# ID database files and manifest, and captures read by show and advise.
+# ID database files and manifest, captures read by show and advise, and
+# the advisor knowledge base (also downloaded in the signed bundle).
 # Their seed inputs run in every `go test`; fuzzing itself takes minutes, so
 # it runs weekly and by hand rather than on PRs (#192). A failure uploads
 # the input that broke the parser: add it under the package's
@@ -34,6 +35,7 @@ jobs:
           - internal/ids FuzzValidate
           - internal/ids FuzzParseManifest
           - internal/output FuzzRead
+          - internal/kb FuzzParse
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
