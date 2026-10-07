@@ -151,7 +151,12 @@ func TestValidateNamesEveryProblem(t *testing.T) {
 		{"bare value", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":64}`) }, "max: a value without a source"},
 		{"empty claims", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":[]}`) }, "max: empty claim list"},
 		{"claim shape", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"a":{"max":[{"value":64}]}}`) }, "a.max: a claim is {value, src}"},
-		{"claim extra", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":[{"value":64,"src":"kernel","note":"x"}]}`) }, "max: a claim is {value, src}"},
+		{"claim extra", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":[{"value":64,"src":"kernel","page":3}]}`) }, "max: a claim is {value, src}, optionally with a note"},
+		{"claim note type", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":[{"value":64,"src":"kernel","note":3}]}`) }, "max: a claim's note is text"},
+		{"claim note empty", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":[{"value":64,"src":"kernel","note":" "}]}`) }, "max: a claim's note is text"},
+		{"claim note control", func(k *KB) {
+			k.Rules[0].Data = json.RawMessage(`{"max":[{"value":64,"src":"kernel","note":"a\u0007b"}]}`)
+		}, "max note"},
 		{"claim src", func(k *KB) { k.Rules[0].Data = json.RawMessage(`{"max":[{"value":64,"src":"hp"}]}`) }, `max: src "hp" isn't in sources`},
 		{"source id", func(k *KB) { k.Sources[1].ID = "Kernel Docs" }, `source "Kernel Docs": id`},
 		{"duplicate source", func(k *KB) { k.Sources = append(k.Sources, k.Sources[1]) }, `source "kernel": duplicate id`},

@@ -387,7 +387,9 @@ func (b *answerer) wifiAntennas(r *report.Report, nics []int, d *wlanData) {
 		return
 	}
 	parts := []string{say(b, d.Antennas, ints("%d antenna cables reach the WLAN slot"))}
-	ants := slices.MinFunc(d.Antennas, func(a, c claim[int]) int { return a.Value - c.Value }).Value
+	// Sources may disagree: a card is compared with the range they give.
+	byValue := func(a, c claim[int]) int { return a.Value - c.Value }
+	lo, hi := slices.MinFunc(d.Antennas, byValue).Value, slices.MaxFunc(d.Antennas, byValue).Value
 	for _, i := range nics {
 		n := r.Network[i]
 		place := wlanPlace(r, &n)
@@ -397,10 +399,13 @@ func (b *answerer) wifiAntennas(r *report.Report, nics []int, d *wlanData) {
 			parts = append(parts, n.Name+" "+notInSlot(place))
 		case rd == nil || !chainsKnown(rd):
 			parts = append(parts, "how many of them "+n.Name+" uses is unknown: its chains aren't in the capture")
-		case max(rd.TXChains, rd.RXChains) > ants:
+		case max(rd.TXChains, rd.RXChains) > hi:
 			parts = append(parts, fmt.Sprintf("%s has %d chains, more than the antennas serve%s", n.Name, max(rd.TXChains, rd.RXChains), ifInSlot(place)))
-		case max(rd.TXChains, rd.RXChains) < ants:
+		case max(rd.TXChains, rd.RXChains) < lo:
 			parts = append(parts, fmt.Sprintf("%s uses %d of them%s", n.Name, max(rd.TXChains, rd.RXChains), ifInSlot(place)))
+		case lo < hi:
+			parts = append(parts, fmt.Sprintf("%s has %d chains: whether it uses them all depends on which source is right (%d to %d cables)%s",
+				n.Name, max(rd.TXChains, rd.RXChains), lo, hi, ifInSlot(place)))
 		default:
 			parts = append(parts, fmt.Sprintf("%s's %d×%d uses them all%s", n.Name, rd.TXChains, rd.RXChains, ifInSlot(place)))
 		}
@@ -438,6 +443,9 @@ func (b *answerer) wifiFactory(r *report.Report, nics []int, d *wlanData, why st
 	})
 	text = strings.ToUpper(text[:1]) + text[1:]
 	gained := false
+	// What isn't in the documents is newer than both the newest card listed
+	// and the newest that may be in the slot.
+	newest := generationRank(best.Generation)
 	for _, i := range nics {
 		n := r.Network[i]
 		place := wlanPlace(r, &n)
@@ -446,6 +454,9 @@ func (b *answerer) wifiFactory(r *report.Report, nics []int, d *wlanData, why st
 			continue
 		}
 		rd := n.Radio
+		if rd != nil {
+			newest = max(newest, generationRank(rd.Generation))
+		}
 		if rd == nil {
 			text += "; what they would gain over " + n.Name + " is unknown: its radio isn't in the capture"
 			continue
@@ -481,7 +492,7 @@ func (b *answerer) wifiFactory(r *report.Report, nics []int, d *wlanData, why st
 	if gained {
 		text += "; what a card gains in use depends on the access point"
 	}
-	if newer := wifiGenerations[generationRank(best.Generation)+1:]; len(newer) > 0 {
+	if newer := wifiGenerations[newest+1:]; len(newer) > 0 {
 		text += ". Whether a newer card (" + orList(newer) + ") fits isn't in the documents: it needs the slot's key, a bus the chipset supports and suitable antennas (6 GHz-capable for Wi-Fi 6E and 7)"
 	}
 	b.add("upgrade", false, text)

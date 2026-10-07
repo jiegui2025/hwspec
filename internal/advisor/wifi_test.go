@@ -292,14 +292,59 @@ func TestWiFiPartialRadio(t *testing.T) {
 	}
 }
 
-// Two sources disagreeing on the antennas: the fewer is what a card can
-// count on. A radio nl80211 described with nothing is "no details". A NIC
+// #263's follow-ups to #262: antenna claims that disagree, the generations
+// left unknown above a 6E card, a slot the firmware gives without
+// confidence or reason, and a claim's note printed with its source.
+func TestWiFiFollowUps(t *testing.T) {
+	k := wifiKB(`{"antennas": [{"value": 4, "src": "example-datasheet"}, {"value": 2, "src": "example-guide"}]}`)
+	for chains, want := range map[int]string{
+		1: "wlan0 uses 1 of them",
+		3: "wlan0 has 3 chains: whether it uses them all depends on which source is right (2 to 4 cables)",
+		4: "wlan0 has 4 chains: whether it uses them all depends on which source is right (2 to 4 cables)",
+		5: "wlan0 has 5 chains, more than the antennas serve",
+	} {
+		r := wifiExample()
+		r.Network[0].Radio.TXChains, r.Network[0].Radio.RXChains = chains, chains
+		if got := wifiAnswers(t, r, k)["antennas"].Text; !strings.HasSuffix(got, "; "+want) {
+			t.Errorf("%d chains: %q", chains, got)
+		}
+	}
+
+	r := wifiExample()
+	r.Network[0].Radio.Generation = "Wi-Fi 6E"
+	if got := wifiAnswers(t, r, wifiKB(""))["upgrade"].Text; !strings.HasSuffix(got, ". Whether a newer card (Wi-Fi 7) fits isn't in the documents: it needs the slot's key, a bus the chipset supports and suitable antennas (6 GHz-capable for Wi-Fi 6E and 7)") {
+		t.Errorf("a 6E card: %q", got)
+	}
+	r.Network[0].Radio.Generation = "Wi-Fi 7"
+	if got := wifiAnswers(t, r, wifiKB(""))["upgrade"].Text; strings.Contains(got, "Whether a newer card") {
+		t.Errorf("a Wi-Fi 7 card: %q", got)
+	}
+
+	r = wifiExample()
+	r.PCI[0].Mounting = &report.Mounting{Kind: "slot", Slot: "Slot2 / M2 WLAN/BT"}
+	if got := wifiAnswers(t, r, wifiKB(""))["slots"].Text; !strings.HasSuffix(got, "; wlan0 is likely in Slot2 / M2 WLAN/BT, though which slot isn't certain") {
+		t.Errorf("no confidence or reason: %q", got)
+	}
+	r.PCI[0].Mounting.Reason = "the only slot it can be in"
+	if got := wifiAnswers(t, r, wifiKB(""))["slots"].Text; !strings.HasSuffix(got, "; wlan0 is likely in Slot2 / M2 WLAN/BT, with unstated confidence: the only slot it can be in") {
+		t.Errorf("a reason, no confidence: %q", got)
+	}
+
+	got := wifiAnswers(t, wifiExample(), wifiKB(`{"antennas": [{"value": 2, "src": "example-guide", "note": "on dual-antenna units"}]}`))["antennas"]
+	if !strings.HasPrefix(got.Text, "2 antenna cables reach the WLAN slot per example-guide (2019-09; on dual-antenna units);") ||
+		len(got.Claims) != 1 || got.Claims[0].Note != "on dual-antenna units" {
+		t.Errorf("a note: %+v", got)
+	}
+}
+
+// Two sources disagreeing on the antennas: a card is compared with the
+// range they give (#263). A radio nl80211 described with nothing is "no details". A NIC
 // without a bus address matches no PCI device, even a malformed one. The
 // allow-list answer reads Wi-Fi policies, not SSD ones.
 func TestWiFiEdges(t *testing.T) {
 	r := wifiExample()
 	k := wifiKB(`{"antennas": [{"value": 4, "src": "example-datasheet"}, {"value": 2, "src": "example-guide"}]}`)
-	if got := wifiAnswers(t, r, k)["antennas"].Text; !strings.HasSuffix(got, "wlan0's 2×2 uses them all") {
+	if got := wifiAnswers(t, r, k)["antennas"].Text; !strings.HasSuffix(got, "; wlan0 has 2 chains: whether it uses them all depends on which source is right (2 to 4 cables)") {
 		t.Errorf("disagreeing antenna claims: %q", got)
 	}
 

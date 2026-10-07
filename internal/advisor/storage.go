@@ -461,6 +461,9 @@ func (b *answerer) placement(at, name string, m *report.Mounting) string {
 	case m.Kind == "slot" && m.Slot != "" && m.Confidence == "high":
 		b.capture(Present(at+".slot", m.Slot))
 		return fmt.Sprintf("%s is in %s", name, slotWords(m))
+	case m.Kind == "slot" && m.Slot != "" && m.Confidence == "" && m.Reason == "":
+		b.capture(Present(at+".slot", m.Slot), Absent(at+".confidence"))
+		return fmt.Sprintf("%s is likely in %s, though which slot isn't certain", name, slotWords(m))
 	case m.Kind == "slot" && m.Slot != "":
 		b.capture(Present(at+".slot", m.Slot), Present(at+".confidence", m.Confidence))
 		return fmt.Sprintf("%s is likely in %s, with %s confidence: %s", name, slotWords(m), cmpOr(m.Confidence, "unstated"), cmpOr(m.Reason, "no reason given"))

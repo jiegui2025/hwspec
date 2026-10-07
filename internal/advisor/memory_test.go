@@ -528,9 +528,10 @@ func TestUnknownMemoryAnswers(t *testing.T) {
 	got, _ = adviseMemory(t, referenceFull(), `{"constraints": [{"value": ["unbuffered", "cl-16"], "src": "guide"}]}`)
 	wantAnswer(t, got, "fits", false, "unbuffered, cl-16 per guide (2019-09); the knowledge base has a rule this build can't apply (update hwspec): cl-16")
 	// Review of #200, 15: a claim's descriptive keys are read past (ADR
-	// 0009); a value's own unknown keys, or a claim without a source, aren't.
+	// 0009), but its note is printed with its source (#263); a value's own
+	// unknown keys, or a claim without a source, aren't read past.
 	got, _ = adviseMemory(t, referenceFull(), `{"type": [{"value": "DDR4", "src": "guide", "note": "p. 3", "page": 3}]}`)
-	wantAnswer(t, got, "fits", true, "DDR4 per guide (2019-09)")
+	wantAnswer(t, got, "fits", true, "DDR4 per guide (2019-09; p. 3)")
 	for memory, want := range map[string]string{
 		`{"type": [{"value": "DDR4"}]}`:            "a claim is {value, src}",
 		`{"type": [{"src": "guide"}]}`:             "a claim is {value, src}",
