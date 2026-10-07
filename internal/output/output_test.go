@@ -672,6 +672,29 @@ func TestUnknownFieldNamesAFieldFromANewerBuild(t *testing.T) {
 	}
 }
 
+// The RTC line (#113, #268 round 1): dead is said as a dead cell; okay
+// only as the driver's word, which can't show a dead cell on Intel; no
+// RTC block, no line.
+func TestTextRTC(t *testing.T) {
+	for status, want := range map[string]string{
+		report.RTCBattDead: "coin cell dead: the clock lost its valid-time bit (driver batt_status)",
+		report.RTCBattOkay: "driver batt_status okay: not evidence of a good coin cell (Intel chipsets always report okay)",
+		"":                 "",
+	} {
+		r := sample()
+		if status != "" {
+			r.RTC = &report.RTC{BattStatus: status}
+		}
+		var buf bytes.Buffer
+		if err := Write(&buf, r, "text"); err != nil {
+			t.Fatal(err)
+		}
+		if want != "" && !strings.Contains(buf.String(), want) || want == "" && strings.Contains(buf.String(), "batt_status") {
+			t.Errorf("%q:\n%s", status, buf.String())
+		}
+	}
+}
+
 // The display line names what its output offers (#112).
 func TestTextDisplayModes(t *testing.T) {
 	r := sample()

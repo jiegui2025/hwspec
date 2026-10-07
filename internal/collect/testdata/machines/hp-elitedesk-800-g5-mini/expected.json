@@ -572,6 +572,9 @@
       "source": "udev"
     }
   },
+  "rtc": {
+    "batt_status": "okay"
+  },
   "sensors": [
     {
       "chip": "acpitz",
