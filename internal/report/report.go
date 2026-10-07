@@ -87,7 +87,7 @@ type Firmware struct {
 	// (SATA, SAS and USB disks), mmc, ethtool, usb, vbios (amdgpu, and the
 	// NVIDIA driver's /proc file), mei, udev (a TPM 2.0, from systemd's
 	// tpm2_id), tpm (a TPM 2.0 asked under --full), caps (a TPM 1.2), debugfs
-	// (Intel GuC and HuC, under --full), hci
+	// (Intel GuC and HuC, under --full), amdgpu (an AMD GPU's blocks), hci
 	// (a Bluetooth controller: version is the LMP subversion, release the HCI
 	// revision).
 	Source string `json:"source,omitempty"`
@@ -402,7 +402,7 @@ type GPU struct {
 	// Firmware is the video BIOS (amdgpu, NVIDIA).
 	Firmware *Firmware `json:"firmware,omitempty"`
 	// FirmwareComponents are the GPU's other firmware, each named: Intel's
-	// GuC and HuC (debugfs, --full).
+	// GuC and HuC (debugfs, --full), amdgpu's blocks (smc, sos, vcn, …).
 	FirmwareComponents []Firmware `json:"firmware_components,omitempty"`
 	Driver             *Driver    `json:"driver,omitempty"`
 }
