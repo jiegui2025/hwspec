@@ -236,6 +236,16 @@ func compile(dir, version string) (*kb.KB, error) {
 			errs = append(errs, fmt.Errorf("models entry %q: %w", k.Models[i].ID, err))
 		}
 	}
+	for i := range k.Devices {
+		for _, err := range advisor.ValidateDevice(&k.Devices[i]) {
+			errs = append(errs, fmt.Errorf("devices entry %q: %w", k.Devices[i].ID, err))
+		}
+	}
+	for i := range k.CPUs {
+		for _, err := range advisor.ValidateCPU(&k.CPUs[i]) {
+			errs = append(errs, fmt.Errorf("cpus entry %q: %w", k.CPUs[i].ID, err))
+		}
+	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}

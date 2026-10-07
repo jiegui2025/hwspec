@@ -83,7 +83,7 @@ var Sections = map[string][]string{
 	"models": {"allowlist", "chipset", "cpu_support", "display_ports", "form_factor", "gpu_slot", "launch", "memory",
 		"overclocking", "parts", "power", "rtc_battery", "storage_slots", "vendor_firmware", "wlan_slot"},
 	"devices":    {"display_outputs", "rated", "wifi"},
-	"cpus":       {"launch", "memory_channels", "memory_max_gb", "memory_max_mts", "memory_types", "package", "socket", "tdp_w", "unlocked"},
+	"cpus":       {"display_outputs", "launch", "memory_channels", "memory_max_gb", "memory_max_mts", "memory_types", "package", "socket", "tdp_w", "unlocked"},
 	"allowlists": {"approved", "behaviour", "checks", "error_text", "restricted", "restricts", "soft"},
 }
 

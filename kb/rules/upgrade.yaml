@@ -50,6 +50,21 @@ rules:
       card beyond the vendor's is left unknown: it needs the slot's key,
       a bus the chipset supports and suitable antennas.
     src: [capture]
+  - id: display.upgrade
+    check: display-upgrade
+    category: upgrade
+    severity: info
+    title: "Display: native mode, best offered mode and the GPU's maximum"
+    detail: >-
+      Each connected display's native mode comes from its EDID and the
+      best mode its output offers from the kernel's connector modes. The
+      most the GPU drives on that output type comes from the documents of
+      its processor (an integrated GPU) or the card, and the model's
+      display ports from its own, every claim with its source. A display
+      at that maximum can't be bettered; a larger one is possible only if
+      the port and cable carry it, which isn't recorded, so that stays
+      unknown. An internal panel needs the model's parts data.
+    src: [capture]
   - id: memory.below-minimum
     check: memory-below-minimum
     category: upgrade

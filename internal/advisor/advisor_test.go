@@ -297,12 +297,13 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 	// linux-firmware comparisons need the firmware index (#225). Its
 	// BIOS is HP's latest R21 as HP's page listed it (#227). Its NVMe
 	// drive's path and M.2 slots get the storage answers (#108); its AX200
-	// the Wi-Fi answers (#110).
-	if len(a.Findings) != 4 || a.Findings[0].ID != "memory.upgrade" || a.Findings[1].ID != "storage.upgrade" || a.Findings[2].ID != "wifi.upgrade" ||
-		a.Findings[3].ID != "firmware.vendor-only" ||
-		a.Findings[2].Answers[0].Text != "wlan0 (Intel Corporation Wi-Fi 6 AX200): Wi-Fi 6 (802.11ax), 2.4 + 5 GHz, 2×2, 2 streams" ||
-		!strings.Contains(a.Findings[3].Answers[0].Text, "lists R21 02.27.00 (2026-08-11) as the latest, as of 2026-10-07; this machine runs R21 Ver. 02.27.00, the same") ||
-		!strings.HasPrefix(a.Findings[1].Answers[0].Text, "NVMe 01:00.0 (Samsung Electronics Co Ltd NVMe SSD Controller SM981/PM981/PM983) at PCIe 3.0 x4 (8.0 GT/s ×4, ≈3.9 GB/s) via 00:1b.0") ||
+	// the Wi-Fi answers (#110); its 4K monitor the display answers (#109).
+	if len(a.Findings) != 5 || a.Findings[0].ID != "display.upgrade" || a.Findings[1].ID != "memory.upgrade" || a.Findings[2].ID != "storage.upgrade" ||
+		a.Findings[3].ID != "wifi.upgrade" || a.Findings[4].ID != "firmware.vendor-only" ||
+		a.Findings[3].Answers[0].Text != "wlan0 (Intel Corporation Wi-Fi 6 AX200): Wi-Fi 6 (802.11ax), 2.4 + 5 GHz, 2×2, 2 streams" ||
+		a.Findings[0].Answers[2].Text != "card1-DP-3: CoffeeLake-S GT2 [UHD Graphics 630] drives up to 4096×2304 @ 60 Hz on DisplayPort per intel-ark-191052-graphics; CoffeeLake-S GT2 [UHD Graphics 630] drives 3 displays at once per intel-ark-191052-graphics" ||
+		!strings.Contains(a.Findings[4].Answers[0].Text, "lists R21 02.27.00 (2026-08-11) as the latest, as of 2026-10-07; this machine runs R21 Ver. 02.27.00, the same") ||
+		!strings.HasPrefix(a.Findings[2].Answers[0].Text, "NVMe 01:00.0 (Samsung Electronics Co Ltd NVMe SSD Controller SM981/PM981/PM983) at PCIe 3.0 x4 (8.0 GT/s ×4, ≈3.9 GB/s) via 00:1b.0") ||
 		a.RulesApplied != len(k.Rules)-8 || a.RulesSkipped != 8 ||
 		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") ||
 		!slices.Contains(a.Warnings, firmwareIndexWarning(&Input{})) {
@@ -322,7 +323,7 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 		}
 		ids = append(ids, f.ID+" "+key)
 	}
-	if !slices.Equal(ids, []string{"memory.upgrade ", "storage.upgrade ", "wifi.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1", "firmware.vendor-only system firmware"}) || a.RulesSkipped != 1 {
+	if !slices.Equal(ids, []string{"display.upgrade ", "memory.upgrade ", "storage.upgrade ", "wifi.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1", "firmware.vendor-only system firmware"}) || a.RulesSkipped != 1 {
 		t.Errorf("with the index: findings %q, skipped %d", ids, a.RulesSkipped)
 	}
 }

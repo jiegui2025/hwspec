@@ -141,9 +141,9 @@ func decodeMemory(raw json.RawMessage, strict bool) (*memoryData, error) {
 }
 
 // ValidateModel reports what the checks can't read in a model entry's
-// groups they use (memory, storage_slots, vendor_firmware), so genkb refuses a misspelt
-// leaf or code, or a release without its date, rather than a binary
-// leaving the group out.
+// groups they use (memory, storage_slots, wlan_slot, display_ports,
+// vendor_firmware), so genkb refuses a misspelt leaf or code, or a
+// release without its date, rather than a binary leaving the group out.
 func ValidateModel(m *kb.Model, source func(string) *kb.Source) []error {
 	var errs []error
 	if raw, ok := m.Data["memory"]; ok {
@@ -159,6 +159,11 @@ func ValidateModel(m *kb.Model, source func(string) *kb.Source) []error {
 	if raw, ok := m.Data["wlan_slot"]; ok {
 		if _, err := decodeWLAN(raw); err != nil {
 			errs = append(errs, fmt.Errorf("data.wlan_slot: %w", err))
+		}
+	}
+	if raw, ok := m.Data["display_ports"]; ok {
+		if _, err := decodePorts(raw); err != nil {
+			errs = append(errs, fmt.Errorf("data.display_ports: %w", err))
 		}
 	}
 	if raw, ok := m.Data["vendor_firmware"]; ok {
