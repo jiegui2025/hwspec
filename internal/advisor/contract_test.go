@@ -75,7 +75,7 @@ func TestRulesMustFitTheirCheck(t *testing.T) {
 		{fwKey, `data: json: unknown field "latestt"`},
 		{fwNone, "data: no data"},
 		{badCommand, `command "modprobe {modallias}" uses {modallias}, which check "pci-without-driver" doesn't fill (it fills: modalias)`},
-		{unknown, `unknown check "magic" (have firmware-load-failed, firmware-test, kernel-modules-missing, memory-below-minimum, memory-upgrade, pci-driver-blacklisted, pci-driver-did-not-bind, pci-driver-not-loaded, pci-without-driver, usb-driver-blacklisted, usb-driver-did-not-bind, usb-driver-not-loaded, usb-without-driver)`},
+		{unknown, `unknown check "magic" (have firmware-load-failed, firmware-test, kernel-modules-missing, linux-firmware-differs, linux-firmware-matches, memory-below-minimum, memory-upgrade, pci-driver-blacklisted, pci-driver-did-not-bind, pci-driver-not-loaded, pci-without-driver, usb-driver-blacklisted, usb-driver-did-not-bind, usb-driver-not-loaded, usb-without-driver)`},
 	}
 	for _, c := range cases {
 		errs := ValidateRule(&c.rule)
@@ -151,15 +151,24 @@ func tryExample(name string) (Advice, error) {
 	if errs := ValidateRule(&rule); errs != nil {
 		return Advice{}, fmt.Errorf("check %s: its example rule doesn't fit it: %v", name, errs)
 	}
-	k := exampleKnowledge(name, rule)
-	if err := k.Validate(); err != nil {
+	if err := exampleKnowledge(name, rule).Validate(); err != nil {
 		return Advice{}, fmt.Errorf("check %s: its example rule isn't valid: %w", name, err)
 	}
-	a := Advise(Input{Report: r, KB: k, Now: noon})
+	a := Advise(exampleInput(name, rule, r))
 	if len(a.Findings) == 0 || len(a.Warnings) != 0 {
 		return Advice{}, fmt.Errorf("check %s: its example gives findings %+v, warnings %q", name, a.Findings, a.Warnings)
 	}
 	return a, nil
+}
+
+// exampleInput is a check's example as Advise takes it: the capture, the
+// knowledge base and whatever else the example needs.
+func exampleInput(name string, rule kb.Rule, r *report.Report) Input {
+	in := Input{Report: r, KB: exampleKnowledge(name, rule), Now: noon}
+	if add := checks[name].exampleInput; add != nil {
+		add(&in)
+	}
+	return in
 }
 
 // exampleKnowledge is the test sources with a check's example rule and
@@ -237,7 +246,7 @@ func TestEvidencePathsResolve(t *testing.T) {
 		if err := json.Unmarshal(js, &doc); err != nil {
 			t.Fatal(err)
 		}
-		a := Advise(Input{Report: r, KB: exampleKnowledge(name, rule), Now: noon})
+		a := Advise(exampleInput(name, rule, r))
 		for _, f := range a.Findings {
 			for _, e := range f.Evidence {
 				got, found := resolve(doc, e.Path())
@@ -300,7 +309,7 @@ func TestEvidenceNeverCopiesIdentifiers(t *testing.T) {
 		rule, r := checks[name].example()
 		r.Hostname = "host"
 		fillIdentities(reflect.ValueOf(r).Elem())
-		a := Advise(Input{Report: r, KB: exampleKnowledge(name, rule), Now: noon})
+		a := Advise(exampleInput(name, rule, r))
 		if len(a.Findings) == 0 {
 			t.Errorf("%s: no findings to look at", name)
 		}
@@ -354,7 +363,7 @@ func TestEveryCheckIsTerminalSafe(t *testing.T) {
 	for _, name := range Checks() {
 		rule, r := checks[name].example()
 		poison(reflect.ValueOf(r).Elem())
-		a := Advise(Input{Report: r, KB: exampleKnowledge(name, rule), Now: noon})
+		a := Advise(exampleInput(name, rule, r))
 		var buf bytes.Buffer
 		if err := WriteText(&buf, a); err != nil {
 			t.Fatal(err)

@@ -140,7 +140,7 @@ Each run checks the capture's schema and the names it resolves; the VMs also che
 | `hwspec ids` | which ID database sources are in use |
 | `hwspec ids lookup pci 8086:3e92` | resolve one ID |
 | `hwspec ids update [--check]` | install the latest signed databases |
-| `hwspec firmware update [--dry-run]` | fetch the firmware index into `~/.cache/hwspec/firmware`: LVFS's catalogue, verified against the LVFS CA built into hwspec, and linux-firmware's `WHENCE` at its latest release ([ADR 0012](docs/adr/0012-firmware-index.md); advice will compare it with the installed firmware) |
+| `hwspec firmware update [--dry-run]` | fetch the firmware index into `~/.cache/hwspec/firmware`: LVFS's catalogue, verified against the LVFS CA built into hwspec, and linux-firmware's `WHENCE` at its latest release ([ADR 0012](docs/adr/0012-firmware-index.md)); `advise` compares the Wi-Fi firmware iwlwifi loaded with that release, offline |
 | `hwspec schema` | print the capture format's JSON Schema |
 
 ### Root access

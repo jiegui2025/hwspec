@@ -62,7 +62,8 @@ advise:
   advice rests on. Advice about this machine also uses its maintenance
   record. --full captures this machine as root first (not with FILE);
   --redact works as for capture. It makes no network calls; the knowledge
-  base is built in.
+  base is built in, and firmware is compared with the index "hwspec
+  firmware update" last fetched.
 
 ids:
   Without arguments, lists the ID databases and where their names come
