@@ -45,7 +45,11 @@ while read -r sha; do
 	else
 		breaking=${BASH_REMATCH[3]}
 		type=${BASH_REMATCH[1]}
-		(( ${#subject} <= 72 )) || fail "the subject is ${#subject} characters; at most 72"
+		# Dependabot writes its own subjects ("chore(deps): bump … in the
+		# go-modules group") and can't wrap them; it gets 100 (#192).
+		max=72
+		[[ $(git log -1 --format=%ae "$sha") == *'dependabot[bot]@users.noreply.github.com' ]] && max=100
+		(( ${#subject} <= max )) || fail "the subject is ${#subject} characters; at most $max"
 		[[ $subject == *. ]] && fail "no full stop at the end of the subject"
 		first=${subject#*: }; first=${first%% *}
 		[[ ${first,,} =~ ^($not_imperative)$ ]] && fail "start the summary with an imperative verb (\"add\", not \"$first\")"

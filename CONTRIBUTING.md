@@ -70,7 +70,7 @@ Set the template once: `git config commit.template .github/commit-template.txt`.
 
 | Part | Rule | Checked |
 |---|---|---|
-| Subject | `type(scope): summary`, at most 72 characters in all, no full stop | ✅ error |
+| Subject | `type(scope): summary`, at most 72 characters in all (100 for Dependabot, which writes its own), no full stop | ✅ error |
 | Mood | imperative: "add", not "added", "adds" or "the …" | partly: a word list catches articles and past or third-person verbs, not noun phrases |
 | Types | `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, `style`, `revert`; `fix` is a bug users see (a CI bug is `ci`, a test-only change `test`); a revert is `revert: <the reverted subject>`, not git's `Revert "…"` | ✅ error |
 | Scope | the package or area: `cli`, `collect`, `report`, `output`, `ids`, `genids`, `advisor`, `kb`, … `release`, `edge`, `vm`, `readme`, `contributing`, `adr` ([template](.github/commit-template.txt)) | review |
