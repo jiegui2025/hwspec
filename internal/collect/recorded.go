@@ -42,6 +42,16 @@ type MachineBT struct {
 	ManufacturerID int    `json:"manufacturer_id"`
 	Powered        bool   `json:"powered"`
 	Name           string `json:"name"`
+	// Firmware is the controller's answer to HCI Read Local Version
+	// Information (#202); absent when it gave none.
+	Firmware *MachineBTFirmware `json:"firmware,omitempty"`
+}
+
+// MachineBTFirmware is the firmware part of an HCI Read Local Version
+// reply.
+type MachineBTFirmware struct {
+	HCIRevision   uint16 `json:"hci_revision"`
+	LMPSubversion uint16 `json:"lmp_subversion"`
 }
 
 // Paths runs a capture of the running machine and returns every path the
@@ -77,6 +87,7 @@ func CollectRecorded(dir, version string) (*report.Report, error) {
 		return nil, err
 	}
 	bt := map[uint16]*mgmtInfo{}
+	btFirmware := map[uint16]*hciVersion{}
 	for name, b := range m.Bluetooth {
 		rest, isHCI := strings.CutPrefix(name, "hci")
 		n, err := strconv.ParseUint(rest, 10, 16)
@@ -97,6 +108,9 @@ func CollectRecorded(dir, version string) (*report.Report, error) {
 			info.settings = 1
 		}
 		bt[index] = info
+		if f := b.Firmware; f != nil {
+			btFirmware[index] = &hciVersion{hciRevision: f.HCIRevision, lmpSubver: f.LMPSubversion}
+		}
 	}
 	failing := map[string]error{}
 	for path, errno := range m.Unreadable {
@@ -132,6 +146,12 @@ func CollectRecorded(dir, version string) (*report.Report, error) {
 	readBTInfo = func(index uint16) (*mgmtInfo, error) {
 		if info, ok := bt[index]; ok {
 			return info, nil
+		}
+		return nil, errors.New("not recorded")
+	}
+	readBTVersion = func(index uint16) (*hciVersion, error) {
+		if v, ok := btFirmware[index]; ok {
+			return v, nil
 		}
 		return nil, errors.New("not recorded")
 	}

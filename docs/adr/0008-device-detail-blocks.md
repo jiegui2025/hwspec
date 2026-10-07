@@ -58,7 +58,7 @@ classDiagram
 | GPU | ✅ | ✅ VBIOS / driver-provided | ✅ | — |
 | Display | ✅ incl. EDID manufacture date (or `model_year` when that is all the EDID gives) | — | — | — |
 | Network | ✅ | ✅ (ethtool) | ✅ | ✅ error and drop counters |
-| Bluetooth | ✅ | — | ✅ | — |
+| Bluetooth | ✅ | ✅ (HCI) | ✅ | — |
 | Audio codec | ✅ | — | — (on the card) | — |
 | Battery | ✅ incl. manufacture date | — | — | ✅ wear, cycles, estimate |
 | USB device | ✅ | ✅ device release (`bcdDevice`) | ✅ per interface | — |
@@ -105,7 +105,7 @@ The owner's rule (#114): a part that has firmware always says so. A missing firm
 | Disk | NVMe, SCSI, MMC revision | "the drive reports …" for a placeholder, else "the kernel doesn't expose this drive's firmware revision"; a virtual disk, and a block device without a device link (md RAID, zvols), have no block |
 | GPU | VBIOS (amdgpu, NVIDIA); Intel GuC, HuC, DMC ([#43](https://github.com/jiegui2025/hwspec/issues/43)) | after the driver: "no driver is bound", "the driver reports no VBIOS version", "vbios_version can't be read: …", the NVIDIA file's answer, "hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet", or "the DRIVER driver doesn't expose a firmware version" |
 | Network adapter | ethtool | an empty answer or no support: "the driver reports no firmware version (ethtool)"; any other error: "ethtool can't ask the driver: …", with a warning |
-| Bluetooth controller | HCI revision ([#43](https://github.com/jiegui2025/hwspec/issues/43)) | "hwspec doesn't read the controller's HCI revision yet" |
+| Bluetooth controller | HCI *Read Local Version Information* on a raw HCI socket, which needs no privilege for this command ([#202](https://github.com/jiegui2025/hwspec/issues/202)): `version` the LMP subversion, `release` the HCI revision, in hex (`0x21c1`), source `hci` | a controller that is down: "the controller is down (powered off or blocked)"; a refused command: "the kernel refused the HCI command"; anything else: "the controller didn't answer HCI Read Local Version"; each with a warning |
 | USB device | device release (`bcdDevice`, which the kernel always creates) | "bcdDevice can't be read" |
 | Display, battery, memory module, audio codec | not exposed by the kernel | no block |
 | Other PCI devices | some expose one (a Thunderbolt controller's `nvm_version`, some adapters' `fw_ver`) | not read by hwspec yet: no block until they are |

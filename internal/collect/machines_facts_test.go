@@ -71,7 +71,11 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["tpm firmware IFX 7.85.1166080 from udev"] = r.TPM != nil && r.TPM.Firmware.Known() &&
 			r.TPM.Firmware.Vendor == "IFX" && r.TPM.Firmware.Version == "7.85.1166080" && r.TPM.Firmware.Source == "udev"
 		want["igpu firmware: GuC/HuC not read yet (#43)"] = len(r.GPUs) == 1 && unknown(r.GPUs[0].Firmware, "GuC, HuC, DMC")
-		want["bluetooth firmware: HCI revision not read yet (#43)"] = len(r.Bluetooth) == 1 && unknown(r.Bluetooth[0].Firmware, "HCI revision")
+		// The AX200's HCI Read Local Version reply, as an unprivileged
+		// socket gets it (#202); btintel logs the same build: "Firmware
+		// revision 0.3 build 193 week 33 2024" (0x21 = 33, 0xc1 = 193).
+		want["bluetooth firmware 0x21c1 from hci"] = len(r.Bluetooth) == 1 && r.Bluetooth[0].Firmware.Known() &&
+			r.Bluetooth[0].Firmware.Version == "0x21c1" && r.Bluetooth[0].Firmware.Release == "0x21c1" && r.Bluetooth[0].Firmware.Source == "hci"
 		// Mounting without root: the kernel's labels for the IGD and the
 		// LAN come from SMBIOS type 41 (index files present), so both are
 		// onboard; the Wi-Fi and NVMe need the root-only slot table. A

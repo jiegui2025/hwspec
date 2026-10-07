@@ -29,6 +29,7 @@ func asMachine(t *testing.T, arch string, euid int) {
 	geteuid = func() int { return euid }
 	hostname = func() (string, error) { return "scenario", nil }
 	readBTInfo = func(uint16) (*mgmtInfo, error) { return nil, errors.New("no controller") }
+	readBTVersion = func(uint16) (*hciVersion, error) { return nil, errors.New("no controller") }
 	ethtoolDrvinfo = func(string) (string, error) { return "", syscall.EOPNOTSUPP }
 	nvmeHealthFn = func(string) (*report.Health, error) { return nil, errors.New("no NVMe") }
 	findSmartctl = func() string { return "" }

@@ -454,7 +454,8 @@ func fakeMachine(t *testing.T, src string, cloneErr error) {
 		return &report.Report{OS: report.OS{Arch: "riscv64"},
 			Network: []report.NIC{{Name: "enx00e04c680123", Firmware: &report.Firmware{Version: "1.0"}}, {Name: "lo"},
 				{Name: "eth1", Firmware: report.UnknownFirmware("the driver reports no firmware version (ethtool)")}},
-			Bluetooth: []report.BluetoothController{{Name: "hci0", Address: "60:F2:62:12:34:56", Version: "5.2", ManufacturerID: 2, Powered: &on}, {Name: "hci1"}}}
+			Bluetooth: []report.BluetoothController{{Name: "hci0", Address: "60:F2:62:12:34:56", Version: "5.2", ManufacturerID: 2, Powered: &on,
+				Firmware: &report.Firmware{Version: "0x21c1", Release: "0x21c0", Source: "hci"}}, {Name: "hci1"}}}
 	}
 }
 
@@ -479,6 +480,7 @@ func TestRecordWritesTheTreeAndMachineJSON(t *testing.T) {
 	}
 	m := read(t, filepath.Join(dir, "m/machine.json"))
 	wants := []string{`"arch": "riscv64"`, `"enx00e04c000001": "1.0"`, `"address": "60:F2:62:00:00:01"`, `"name": "fixture"`,
+		`"hci_revision": 8640`, `"lmp_subversion": 8641`,
 		`"/sys/class/net/wlan0/wireless"`}
 	if os.Geteuid() != 0 { // root reads the mode-000 file
 		wants = append(wants, filepath.Join(src, "dmi/product_serial")+`": 13`)
@@ -598,6 +600,23 @@ func TestRecordingStopsCleanly(t *testing.T) {
 	}
 	if err := record(context.Background(), filepath.Join(dir, "c", "root"), io.Discard); err == nil || !strings.Contains(err.Error(), "unknown to this hwspec") {
 		t.Errorf("unknown version: %v", err)
+	}
+	capture = func(string) *report.Report {
+		return &report.Report{Bluetooth: []report.BluetoothController{{Name: "hci0", Address: "60:F2:62:12:34:56", Version: "5.2",
+			Firmware: &report.Firmware{Version: "0x121c1", Release: "0x21c1", Source: "hci"}}}}
+	}
+	if err := record(context.Background(), filepath.Join(dir, "d", "root"), io.Discard); err == nil || !strings.Contains(err.Error(), "isn't two 16-bit numbers") {
+		t.Errorf("bad firmware: %v", err)
+	}
+	// Only an HCI answer is recorded: it is what replays.
+	capture = func(string) *report.Report {
+		return &report.Report{Bluetooth: []report.BluetoothController{{Name: "hci0", Address: "60:F2:62:12:34:56", Version: "5.2",
+			Firmware: &report.Firmware{Version: "1.0", Source: "other"}}}}
+	}
+	if err := record(context.Background(), filepath.Join(dir, "e", "root"), io.Discard); err != nil {
+		t.Errorf("another source: %v", err)
+	} else if m := read(t, filepath.Join(dir, "e", "machine.json")); strings.Contains(m, "firmware") {
+		t.Errorf("another source recorded:\n%s", m)
 	}
 }
 

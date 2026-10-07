@@ -465,8 +465,9 @@
         "model": "AX200 Bluetooth"
       },
       "firmware": {
-        "status": "unknown",
-        "reason": "hwspec doesn't read the controller's HCI revision yet"
+        "version": "0x21c1",
+        "release": "0x21c1",
+        "source": "hci"
       },
       "driver": {
         "name": "btusb",

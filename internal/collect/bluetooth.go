@@ -22,7 +22,7 @@ func (c *collector) bluetooth() {
 		if !strings.HasPrefix(n, "hci") || err != nil {
 			continue
 		}
-		bt := report.BluetoothController{Name: n, Firmware: report.UnknownFirmware("hwspec doesn't read the controller's HCI revision yet")}
+		bt := report.BluetoothController{Name: n, Firmware: c.btFirmware(n, uint16(idx))}
 		bt.Bus, bt.BusAddress = busOf("/sys/class/bluetooth/" + n + "/device")
 		bt.Driver = c.driverAt("/sys/class/bluetooth/" + n + "/device")
 		info, err := readBTInfo(uint16(idx))
@@ -38,6 +38,26 @@ func (c *collector) bluetooth() {
 		}
 		c.r.Bluetooth = append(c.r.Bluetooth, bt)
 	}
+}
+
+// btFirmware reads a controller's firmware build from HCI Read Local
+// Version Information: the LMP subversion as the version and the HCI
+// revision as the release, in hex as the specification writes them (an
+// Intel AX200: 0x21c1 both, its build 193 of week 33). A controller that
+// is down, or a refused command, gives a warning and the reason.
+func (c *collector) btFirmware(name string, index uint16) *report.Firmware {
+	v, err := readBTVersion(index)
+	if err != nil {
+		c.warn("bluetooth %s: firmware version: %v", name, err)
+		switch {
+		case errors.Is(err, unix.ENETDOWN):
+			return report.UnknownFirmware("the controller is down (powered off or blocked)")
+		case errors.Is(err, unix.EPERM), errors.Is(err, unix.EACCES):
+			return report.UnknownFirmware("the kernel refused the HCI command")
+		}
+		return report.UnknownFirmware("the controller didn't answer HCI Read Local Version")
+	}
+	return &report.Firmware{Version: fmt.Sprintf("0x%04x", v.lmpSubver), Release: fmt.Sprintf("0x%04x", v.hciRevision), Source: "hci"}
 }
 
 type mgmtInfo struct {
