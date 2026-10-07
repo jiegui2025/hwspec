@@ -84,5 +84,12 @@ expect warn "one per issue" "fix(ids): name two CPUs$body"$'\n\nFixes #12, #13'
 expect warn "closing keyword" "fix(ids): name a CPU$body"$'\n\nCLOSES #12'
 expect warn "closing keyword" "fix(ids): name a CPU$body"$'\n\nCloses: #12'
 
+# Dependabot's grouped subjects run long and it can't wrap them: up to 100
+# characters from it, still 72 from anyone else.
+dependabot='chore(deps): bump golang.org/x/sys from 0.47.0 to 0.48.0 in the go-modules group'
+GIT_AUTHOR_EMAIL='49699333+dependabot[bot]@users.noreply.github.com' expect pass "" "$dependabot"
+expect fail "at most 72" "$dependabot"
+GIT_AUTHOR_EMAIL='49699333+dependabot[bot]@users.noreply.github.com' expect fail "at most 100" "chore(deps): $(printf 'x%.0s' {1..90})"
+
 [ "$fail" = 0 ] && echo "check-commits: all cases pass"
 exit "$fail"
