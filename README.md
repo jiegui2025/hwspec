@@ -117,7 +117,7 @@ Install to a root-owned location (as above) if you want `--full`; see [Root acce
 | Distro | How | When |
 |---|---|---|
 | Ubuntu 24.04, Debian 12, Fedora, Arch, Alpine, NixOS | the static binary in the distro's container, amd64 and arm64 (Arch: amd64) | every PR that changes Go code, and every published build |
-| LMDE 7, Devuan 6 (excalibur, no systemd) | container, amd64 | same |
+| LMDE 7, Devuan 6 (excalibur, no systemd), CachyOS | container, amd64 | same |
 | Ubuntu 24.04 and 26.04, Debian 13, Fedora 44, Arch | KVM virtual machine, systemd | every published build, and PRs that change Go code or the VM checks |
 | Alpine 3.24 | VM, OpenRC | same |
 | Debian 13 switched to `sysvinit-core` | VM, sysvinit | same |

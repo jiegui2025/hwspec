@@ -260,6 +260,9 @@ jobs:
             # closest automatable stand-in for MX Linux's userland).
             docker.io/linuxmintd/lmde7-amd64@sha256:c9a7c5c147487db008a46f3b646e6a01fac64c6596490931496486c0f66f0232 # lmde7-amd64
             docker.io/devuan/devuan@sha256:8d0b211d065e8577c3650f476eca2f974a6ee1cc39f87b3cffcc955d1c8d812f # devuan:excalibur
+            # CachyOS (Arch-based, its own kernels and newer hwdata; the
+            # reference machine's distro).
+            docker.io/cachyos/cachyos@sha256:5a0a106e04d1b2af789cff0728881203ca956539a9e9171e9bb37d4bbd1d497b # cachyos:latest (2026-10-06)
           )
           # What one distro must pass, as its own script: a separate bash
           # keeps -e working (it's off inside conditions in this shell).
