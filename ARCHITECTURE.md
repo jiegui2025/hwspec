@@ -47,13 +47,13 @@ flowchart TD
   collect[internal/collect] --> report & resolve & smbios & edid & spd & tpm & trust & schema & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(go.yaml.in/yaml/v3)]
-  advisor[internal/advisor] --> report & kb
+  advisor[internal/advisor] --> report & kb & schema
   fwindex[internal/fwindex] --> zstd[(klauspost/compress/zstd)]
   genkb[tools/genkb] --> kb & advisor & yaml
   kb[internal/kb]
   genids[tools/genids] --> ids & yaml
   snapshot[tools/snapshot] --> collect & ghw
-  genschema[tools/genschema] --> report & schema & jsonschema[(jsonschema-go)]
+  genschema[tools/genschema] --> report & advisor & schema & jsonschema[(jsonschema-go)]
   schema[schema]
   ids[internal/ids]
   report[internal/report]
@@ -74,9 +74,9 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |
 | `internal/ids` | ID databases, overrides, sync, decoders (JEDEC, OUI, CPU) | standard library only |
 | `internal/report` | the file format, redaction, sanitising | standard library only |
-| `schema` | the file format's JSON Schema (`capture-vN.json`, embedded) and its URL | standard library only |
+| `schema` | the JSON Schemas of the capture format and the advice document (`capture-vN.json`, `advice-vN.json`, embedded) and their URLs | standard library only |
 | `internal/output` | serialisation | `report`, `go.yaml.in/yaml/v3` (the maintained fork of `gopkg.in/yaml.v3`, which is archived) |
-| `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb` |
+| `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb`, `schema` (the advice document's `$schema`) |
 | `internal/kb` | the advisor knowledge base: sources, rules, validation, the embedded copy; pure | standard library only |
 | `internal/fwindex` | the firmware index `hwspec firmware update` keeps ([ADR 0012](docs/adr/0012-firmware-index.md)): LVFS's catalogue verified against the built-in LVFS CA (jcat, CMS), linux-firmware's WHENCE, the cache; only `fetch.go` reaches the network | `github.com/klauspost/compress/zstd` |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
@@ -84,7 +84,7 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `go.yaml.in/yaml/v3` |
 | `tools/genkb` | build time: `kb/**/*.yaml` → `internal/kb/data/advisor-v1.json.gz`, validated | `kb`, `advisor`, `go.yaml.in/yaml/v3` |
 | `tools/snapshot` | development: records a machine as a scrubbed test fixture (`internal/collect/testdata/machines`) | `collect`, `ghw` |
-| `tools/genschema` | build time: `report` structs → `schema/capture-vN.json`; CI: the compatibility check | `report`, `schema`, `jsonschema-go` (never linked into `hwspec`) |
+| `tools/genschema` | build time: `report` structs → `schema/capture-vN.json`, `advisor` types → `schema/advice-vN.json`; CI: the compatibility check, each format apart | `report`, `advisor`, `schema`, `jsonschema-go` (never linked into `hwspec`) |
 | `internal/smbios/smbiostest` | tests only: builds SMBIOS tables | standard library only |
 
 ## Choosing an ID database source

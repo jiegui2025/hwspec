@@ -20,7 +20,7 @@ linters:
       rules:
         stdlib-only:
           list-mode: strict
-          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/schema/*.go", "!$test"]
+          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/schema/*.go", "!$test"]
           allow: [$gostd]
         # Only internal/ids/sync.go (hwspec ids update) and
         # internal/fwindex/fetch.go (hwspec firmware update, ADR 0012) reach
@@ -54,7 +54,7 @@ linters:
         # The advisor and its knowledge base are pure too (ADR 0009): the CLI
         # reads files and machine state and passes them in.
         parsers-are-pure:
-          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/internal/advisor/**/*.go", "!$test"]
+          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/internal/advisor/*.go", "**/internal/advisor/**/*.go", "!$test"]
           deny:
             - pkg: os
               desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
@@ -76,8 +76,10 @@ linters:
           allow: [$gostd, github.com/jiegui2025/hwspec/internal/ids, github.com/jiegui2025/hwspec/internal/report]
         advisor:
           list-mode: strict
-          files: ["**/internal/advisor/**/*.go", "!$test"]
-          allow: [$gostd, github.com/jiegui2025/hwspec/internal/report, github.com/jiegui2025/hwspec/internal/kb]
+          files: ["**/internal/advisor/*.go", "**/internal/advisor/**/*.go", "!$test"]
+          # schema: constants and embedded files only (the advice document
+          # names its JSON Schema, as captures do from collect).
+          allow: [$gostd, github.com/jiegui2025/hwspec/internal/report, github.com/jiegui2025/hwspec/internal/kb, github.com/jiegui2025/hwspec/schema]
         genkb:
           list-mode: strict
           files: ["**/tools/genkb/*.go", "!$test"]
