@@ -127,6 +127,30 @@ func TestSchemaPrintsTheCaptureFormat(t *testing.T) {
 	if err := json.Unmarshal([]byte(capture), &r); err != nil || r.Schema != schema.URL {
 		t.Errorf("capture's $schema = %q (%v), want %q", r.Schema, err, schema.URL)
 	}
+	if stdout, _ := mustRun(t, "", "schema", "capture"); stdout != string(schema.JSON) {
+		t.Error("schema capture differs from the embedded schema")
+	}
+}
+
+// `hwspec schema advice` prints the advice schema, which advise's JSON
+// names (#83); anything else is a usage error.
+func TestSchemaPrintsTheAdviceFormat(t *testing.T) {
+	setup(t)
+	if stdout, _ := mustRun(t, "", "schema", "advice"); stdout != string(schema.AdviceJSON) {
+		t.Error("schema advice differs from the embedded advice schema")
+	}
+	advice, _ := mustRun(t, "", "advise", "-f", "json")
+	var a struct {
+		Schema string `json:"$schema"`
+	}
+	if err := json.Unmarshal([]byte(advice), &a); err != nil || a.Schema != schema.AdviceURL {
+		t.Errorf("advice's $schema = %q (%v), want %q", a.Schema, err, schema.AdviceURL)
+	}
+	for _, args := range [][]string{{"schema", "nope"}, {"schema", "advice", "x"}} {
+		if code, _, stderr := hwspec(t, "", args...); code != 2 || !strings.Contains(stderr, "usage: hwspec schema [capture | advice]") {
+			t.Errorf("%q: exit %d, %q", args, code, stderr)
+		}
+	}
 }
 
 func TestCaptureFormatComesFromTheFlagOrTheFileExtension(t *testing.T) {

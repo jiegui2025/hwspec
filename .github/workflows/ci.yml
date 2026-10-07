@@ -146,9 +146,10 @@ jobs:
       - name: Coverage gate
         if: matrix.go == 'stable'
         run: scripts/coverage.sh coverage.out "$COVERAGE_MIN" >> "$GITHUB_STEP_SUMMARY"
-      # ADR 0003: a capture field may be added; renaming, removing or retyping
-      # one needs a new schema_version (and with it a new capture-vN.json).
-      - name: The capture format stays compatible
+      # ADR 0003: a capture or advice field may be added; renaming, removing
+      # or retyping one needs a new version (and with it a new
+      # capture-vN.json or advice-vN.json).
+      - name: The capture and advice formats stay compatible
         if: matrix.go == 'stable' && github.event_name == 'pull_request'
         shell: bash # -o pipefail: a failed git archive must fail the step
         env:
