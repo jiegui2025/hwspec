@@ -18,6 +18,13 @@ import (
 // tunnels, containers) have no backing device and are skipped.
 func (c *collector) network() {
 	c.r.Network = []report.NIC{}
+	wireless := map[string]int{} // name → wiphy index
+	defer func() {
+		radios := c.wifiRadios(wireless)
+		for i := range c.r.Network {
+			c.r.Network[i].Radio = radios[c.r.Network[i].Name]
+		}
+	}()
 	for _, name := range list("/sys/class/net") {
 		d := "/sys/class/net/" + name + "/"
 		if !exists(d + "device") {
@@ -45,6 +52,9 @@ func (c *collector) network() {
 		nic.Health = nicHealth(d + "statistics/")
 		if exists(d+"wireless") || exists(d+"phy80211") {
 			nic.Type = "wireless"
+			if index, ok := readInt32(d + "phy80211/index"); ok {
+				wireless[name] = index
+			}
 		} else if t := readStr(d + "type"); t != "1" {
 			nic.Type = "other (" + t + ")"
 		}

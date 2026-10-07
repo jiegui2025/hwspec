@@ -465,6 +465,17 @@
           "tx_errors": 0,
           "tx_packets": 35
         }
+      },
+      "radio": {
+        "generation": "Wi-Fi 6",
+        "bands": [
+          "2.4 GHz",
+          "5 GHz"
+        ],
+        "tx_chains": 2,
+        "rx_chains": 2,
+        "max_spatial_streams": 2,
+        "source": "nl80211"
       }
     }
   ],

@@ -289,6 +289,9 @@ network[].health.estimate.what                    kept
 network[].health.estimate.unit                    kept
 network[].health.estimate.method                  kept
 network[].health.metrics{key}                     kept
+network[].radio.generation                        kept
+network[].radio.bands[]                           kept
+network[].radio.source                            kept
 bluetooth[].name                                  kept
 bluetooth[].address                               redacted
 bluetooth[].address_vendor                        kept

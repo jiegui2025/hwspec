@@ -38,6 +38,7 @@ import (
 	"github.com/jaypipes/ghw/pkg/snapshot"
 
 	"github.com/jiegui2025/hwspec/internal/collect"
+	"github.com/jiegui2025/hwspec/internal/report"
 )
 
 func main() {
@@ -186,15 +187,19 @@ func record(ctx context.Context, dest string, stderr io.Writer) error {
 }
 
 // answers records what hwspec doesn't read from files (uname, ethtool,
-// Bluetooth), from a real capture, so tests can answer those calls the way
+// Bluetooth, nl80211's Wi-Fi radios), from a real capture, so tests can answer those calls the way
 // this machine did.
 func answers(m *collect.Machine) error {
 	r := capture("snapshot")
 	m.Arch = r.OS.Arch
 	m.Ethtool = map[string]string{}
+	m.WiFi = map[string]report.WiFiRadio{}
 	for _, n := range r.Network {
 		if n.Firmware.Known() {
 			m.Ethtool[macs.text(n.Name)] = n.Firmware.Version
+		}
+		if n.Radio != nil {
+			m.WiFi[macs.text(n.Name)] = *n.Radio
 		}
 	}
 	m.Bluetooth = map[string]collect.MachineBT{}

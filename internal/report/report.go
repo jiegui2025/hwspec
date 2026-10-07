@@ -596,6 +596,30 @@ type NIC struct {
 	Firmware  *Firmware `json:"firmware,omitempty"`
 	Driver    *Driver   `json:"driver,omitempty"`
 	Health    *Health   `json:"health,omitempty"` // error and drop counters since boot
+	// Radio is a wireless NIC's radio, as the kernel's nl80211 describes
+	// it (#111); absent when it doesn't.
+	Radio *WiFiRadio `json:"radio,omitempty"`
+}
+
+// WiFiRadio is what a Wi-Fi radio can do, from nl80211 (the interface
+// `iw phy` uses).
+type WiFiRadio struct {
+	// Generation is "Wi-Fi 4" (HT), "Wi-Fi 5" (VHT), "Wi-Fi 6" (HE),
+	// "Wi-Fi 6E" (HE with a 6 GHz band) or "Wi-Fi 7" (EHT): the highest
+	// capability the radio has; absent for a radio with none of them.
+	Generation string `json:"generation,omitempty"`
+	// Bands are "2.4 GHz", "5 GHz", "6 GHz" and "60 GHz", as present.
+	Bands []string `json:"bands"`
+	// TXChains is how many transmit antennas are available, counted from
+	// nl80211's bitmask.
+	TXChains int `json:"tx_chains,omitempty"`
+	// RXChains is how many receive antennas are available, counted from
+	// nl80211's bitmask.
+	RXChains int `json:"rx_chains,omitempty"`
+	// MaxSpatialStreams is the most spatial streams any band's HT, VHT,
+	// HE or EHT MCS map allows.
+	MaxSpatialStreams int    `json:"max_spatial_streams,omitempty"`
+	Source            string `json:"source"` // "nl80211"
 }
 
 // BluetoothController is a Bluetooth adapter the kernel knows (hciN).
