@@ -31,7 +31,7 @@ func TestUserOwnedFilesAreNotTrusted(t *testing.T) {
 	}
 }
 
-func TestSystemFilesAreTrusted(t *testing.T) {
+func TestHostSystemFilesAreTrusted(t *testing.T) {
 	hostTest(t)
 	for _, sys := range []string{"/usr/bin/env", "/bin/sh"} {
 		st, err := os.Stat(sys)
@@ -51,7 +51,7 @@ func TestSystemFilesAreTrusted(t *testing.T) {
 
 // /nix/store is root-owned, group-writable and sticky; files under it
 // can't be replaced by the group, so Nix-installed hwspec must be trusted.
-func TestStickyWritableDirectoriesAreTrusted(t *testing.T) {
+func TestHostStickyWritableDirectoriesAreTrusted(t *testing.T) {
 	hostTest(t)
 	if _, err := os.Stat("/nix/store"); err != nil {
 		t.Skip("no /nix/store on this system")
@@ -82,7 +82,7 @@ func TestWritableOrMissingFilesAreNotTrusted(t *testing.T) {
 
 // A FUSE filesystem's daemon can claim any owner, so nothing on one is
 // trusted.
-func TestFilesOnFUSEAreNotTrusted(t *testing.T) {
+func TestHostFilesOnFUSEAreNotTrusted(t *testing.T) {
 	hostTest(t)
 	mounts, err := os.ReadFile("/proc/self/mounts")
 	if err != nil {
@@ -108,6 +108,9 @@ func TestFilesOnFUSEAreNotTrusted(t *testing.T) {
 // mounts, who owns system files); CI's coverage run skips them.
 func hostTest(t *testing.T) {
 	t.Helper()
+	if !strings.HasPrefix(t.Name(), "TestHost") {
+		t.Fatalf("%s depends on this machine, so it must be named TestHost*: CI runs host tests by that prefix (-run '^TestHost')", t.Name())
+	}
 	if os.Getenv("HWSPEC_SKIP_HOST_TESTS") != "" {
 		t.Skip("depends on this machine (HWSPEC_SKIP_HOST_TESTS is set)")
 	}
