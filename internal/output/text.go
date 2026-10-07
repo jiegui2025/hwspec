@@ -244,7 +244,11 @@ func writeText(w io.Writer, r *report.Report) error {
 	if len(r.Network) > 0 {
 		section("Network")
 		for _, n := range r.Network {
-			s := product(n.Identity) + ", " + n.Type + ", " + n.State
+			s := product(n.Identity) + ", " + n.Type
+			if r := radioText(n.Radio); r != "" {
+				s += " (" + r + ")"
+			}
+			s += ", " + n.State
 			if n.SpeedMbps > 0 {
 				s += fmt.Sprintf(", %d Mb/s", n.SpeedMbps)
 			}
@@ -623,4 +627,29 @@ func mountingText(m *report.Mounting) string {
 		s += " (medium confidence; " + m.Reason + ")"
 	}
 	return s
+}
+
+// radioText is a Wi-Fi radio in a few words: "Wi-Fi 6, 2.4/5 GHz, 2×2, 2
+// streams".
+func radioText(r *report.WiFiRadio) string {
+	if r == nil {
+		return ""
+	}
+	var parts []string
+	if r.Generation != "" {
+		parts = append(parts, r.Generation)
+	}
+	if len(r.Bands) > 0 {
+		parts = append(parts, strings.ReplaceAll(strings.Join(r.Bands, "/"), " GHz/", "/"))
+	}
+	if r.TXChains > 0 && r.RXChains > 0 {
+		parts = append(parts, fmt.Sprintf("%d×%d", r.TXChains, r.RXChains))
+	}
+	switch {
+	case r.MaxSpatialStreams == 1:
+		parts = append(parts, "1 stream")
+	case r.MaxSpatialStreams > 1:
+		parts = append(parts, fmt.Sprintf("%d streams", r.MaxSpatialStreams))
+	}
+	return strings.Join(parts, ", ")
 }

@@ -41,6 +41,7 @@ jobs:
           - internal/output FuzzRead
           - internal/collect FuzzParseLocalVersion
           - internal/collect FuzzParseFirmwareFailures
+          - internal/collect FuzzParseNetlink
           - internal/kb FuzzParse
           - internal/fwindex FuzzParseJcat
           - internal/fwindex FuzzVerifyPKCS7

@@ -92,7 +92,7 @@ flowchart LR
 | RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank, and every slot used or empty (SMBIOS¹) | — | — | ECC errors (EDAC) |
 | Disks | model, serial | ✅; NVMe: fwupd's instance IDs and GUIDs, which LVFS releases name | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
 | GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS; AMD per-block firmware (SMC, PSP, VCN, …); Intel GuC and HuC¹ | ✅; hardware clock range and the measured clock at capture (i915, amdgpu) | — |
-| Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool; Bluetooth: HCI revision and LMP subversion | ✅ | error and drop rates |
+| Network, Wi-Fi, Bluetooth | model, MAC and its vendor; a Wi-Fi radio's generation (Wi-Fi 4 to 7, 6E), bands, antenna chains and spatial streams (nl80211) | via ethtool; Bluetooth: HCI revision and LMP subversion | ✅ | error and drop rates |
 | Audio | card, codec chips | — | ✅ | — |
 | Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |
 | PCI and USB devices | IDs, names, serial, revision; the bridge each PCI device sits behind (absent on a root bus); each USB interface's class and modalias | USB device release | ✅ per interface, and the modules that could drive one without a driver | — |

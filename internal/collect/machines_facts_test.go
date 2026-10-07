@@ -160,6 +160,11 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		// The Wi-Fi card is told apart by its (empty) wireless/ directory.
 		wlan := find(r.Network, func(n report.NIC) bool { return n.Name == "wlan0" })
 		want["wlan0 is wireless"] = wlan != nil && wlan.Type == "wireless"
+		// #111: the AX200's radio, as `iw phy phy0 info` gives it.
+		want["wlan0 is Wi-Fi 6, 2.4 + 5 GHz, 2x2, 2 streams"] = wlan != nil && wlan.Radio != nil &&
+			wlan.Radio.Generation == "Wi-Fi 6" && slices.Equal(wlan.Radio.Bands, []string{"2.4 GHz", "5 GHz"}) &&
+			wlan.Radio.TXChains == 2 && wlan.Radio.RXChains == 2 && wlan.Radio.MaxSpatialStreams == 2 && wlan.Radio.Source == "nl80211"
+		want["eno1 has no radio"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Radio == nil }) != nil
 		want["eno1 is ethernet"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Type == "ethernet" }) != nil
 		// Root-only DMI files are replayed as root-only.
 		want["dmi serials need root"] = len(r.Warnings) > 0 && strings.Contains(strings.Join(r.Warnings, "\n"), "dmi product_serial")

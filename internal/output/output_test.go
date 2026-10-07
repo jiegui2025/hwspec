@@ -686,3 +686,24 @@ func TestTextDisplayModes(t *testing.T) {
 		t.Errorf("text:\n%s", buf.String())
 	}
 }
+
+// A Wi-Fi radio in the text output: generation, bands, TX×RX chains and
+// streams (#111); a NIC without one says nothing of it.
+func TestTextWiFiRadio(t *testing.T) {
+	r := sample()
+	r.Network = append(r.Network, report.NIC{Name: "wlan0", Type: "wireless", State: "up",
+		Radio: &report.WiFiRadio{Generation: "Wi-Fi 6E", Bands: []string{"2.4 GHz", "5 GHz", "6 GHz"}, TXChains: 1, RXChains: 2, MaxSpatialStreams: 2, Source: "nl80211"}})
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	if out := buf.String(); !strings.Contains(out, "wireless (Wi-Fi 6E, 2.4/5/6 GHz, 1×2, 2 streams), up") || strings.Contains(out, "ethernet (") {
+		t.Errorf("text:\n%s", out)
+	}
+	if got := radioText(&report.WiFiRadio{Bands: []string{}}); got != "" {
+		t.Errorf("an empty radio: %q", got)
+	}
+	if got := radioText(&report.WiFiRadio{Generation: "Wi-Fi 5", Bands: []string{"5 GHz"}, TXChains: 1, RXChains: 1, MaxSpatialStreams: 1}); got != "Wi-Fi 5, 5 GHz, 1×1, 1 stream" {
+		t.Errorf("a 1×1 radio: %q", got)
+	}
+}

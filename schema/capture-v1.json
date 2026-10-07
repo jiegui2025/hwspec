@@ -2537,6 +2537,45 @@
               }
             },
             "description": "error and drop counters since boot"
+          },
+          "radio": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "generation": {
+                "type": "string",
+                "description": "Generation is \"Wi-Fi 4\" (HT), \"Wi-Fi 5\" (VHT), \"Wi-Fi 6\" (HE), \"Wi-Fi 6E\" (HE with a 6 GHz band) or \"Wi-Fi 7\" (EHT): the highest capability the radio has; absent for a radio with none of them."
+              },
+              "bands": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "description": "Bands are \"2.4 GHz\", \"5 GHz\", \"6 GHz\" and \"60 GHz\", as present."
+              },
+              "tx_chains": {
+                "type": "integer",
+                "description": "TXChains is how many transmit antennas are available, counted from nl80211's bitmask."
+              },
+              "rx_chains": {
+                "type": "integer",
+                "description": "RXChains is how many receive antennas are available, counted from nl80211's bitmask."
+              },
+              "max_spatial_streams": {
+                "type": "integer",
+                "description": "MaxSpatialStreams is the most spatial streams any band's HT, VHT, HE or EHT MCS map allows."
+              },
+              "source": {
+                "type": "string",
+                "description": "\"nl80211\""
+              }
+            },
+            "description": "Radio is a wireless NIC's radio, as the kernel's nl80211 describes it (#111); absent when it doesn't."
           }
         }
       },

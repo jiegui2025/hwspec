@@ -26,6 +26,9 @@ type Machine struct {
 	Arch      string               `json:"arch"`
 	Ethtool   map[string]string    `json:"ethtool,omitempty"`   // interface → firmware version
 	Bluetooth map[string]MachineBT `json:"bluetooth,omitempty"` // hci0 → management answer
+	// WiFi is each wireless interface's radio, as nl80211 described it
+	// (#111): interface → radio.
+	WiFi map[string]report.WiFiRadio `json:"wifi,omitempty"`
 	// EmptyDirs are directories that exist only to be tested for (a
 	// network interface's wireless/); git can't store them.
 	EmptyDirs []string `json:"empty_dirs,omitempty"`
@@ -154,6 +157,15 @@ func CollectRecorded(dir, version string) (*report.Report, error) {
 			return v, nil
 		}
 		return nil, errors.New("not recorded")
+	}
+	readRadios = func(ifaces map[string]int) (map[string]*report.WiFiRadio, error) {
+		out := map[string]*report.WiFiRadio{}
+		for name := range ifaces {
+			if r, ok := m.WiFi[name]; ok {
+				out[name] = &r
+			}
+		}
+		return out, nil
 	}
 	nvmeHealthFn = func(string) (*report.Health, error) { return nil, errors.New("not recorded") }
 	tpmTransmit = func(string, []byte) ([]byte, error) { return nil, errors.New("not recorded") }
