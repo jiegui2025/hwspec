@@ -91,7 +91,7 @@ flowchart LR
 | CPU | model, signature, codename, microarchitecture; socket package (LGA, BGA…), socketed or soldered¹ | microcode | frequency scaling | thermal throttling since boot |
 | RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank, and every slot used or empty (SMBIOS¹) | — | — | ECC errors (EDAC) |
 | Disks | model, serial | ✅ | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
-| GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS | ✅; hardware clock range and the measured clock at capture (i915, amdgpu) | — |
+| GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS; Intel GuC and HuC¹ | ✅; hardware clock range and the measured clock at capture (i915, amdgpu) | — |
 | Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool; Bluetooth: HCI revision and LMP subversion | ✅ | error and drop rates |
 | Audio | card, codec chips | — | ✅ | — |
 | Batteries | model, serial, manufacture date | — | — | wear %, cycles, est. cycles until 80% |

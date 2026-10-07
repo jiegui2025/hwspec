@@ -131,6 +131,7 @@ func (c *collector) gpus() {
 		if dev.Identity != nil {
 			g.Identity = &report.Identity{Revision: dev.Identity.Revision}
 		}
+		c.intelUCFirmware(&g)
 		g.VRAMBytes = readUint(pciDir + dev.Address + "/mem_info_vram_total") // amdgpu
 		// Sorted, and the first card only: two cards on one device would
 		// otherwise overwrite each other in map order.
@@ -182,7 +183,7 @@ func gpuFirmware(dev report.PCIDevice) *report.Firmware {
 		return report.UnknownFirmware("the NVIDIA driver's information can't be read: " + err.Error())
 	}
 	if dev.Driver.Name == "i915" || dev.Driver.Name == "xe" {
-		return report.UnknownFirmware("hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet")
+		return report.UnknownFirmware("an Intel GPU has no video BIOS version; its GuC and HuC are firmware components (--full)")
 	}
 	return report.UnknownFirmware("the " + dev.Driver.Name + " driver doesn't expose a firmware version")
 }

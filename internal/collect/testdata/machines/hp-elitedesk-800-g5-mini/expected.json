@@ -336,7 +336,7 @@
       },
       "firmware": {
         "status": "unknown",
-        "reason": "hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet"
+        "reason": "an Intel GPU has no video BIOS version; its GuC and HuC are firmware components (--full)"
       },
       "driver": {
         "name": "i915",
@@ -1235,6 +1235,7 @@
     }
   ],
   "warnings": [
+    "Intel GPU firmware (GuC, HuC): needs root (run with --full)",
     "SMBIOS table (memory modules and slots, CPU sockets, expansion slots, onboard devices): needs root (run with --full)",
     "dmi product_serial, product_uuid, chassis_serial, board_serial: needs root (run with --full)",
     "drive health (SMART): needs root (run with --full)",

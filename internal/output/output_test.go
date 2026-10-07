@@ -301,6 +301,10 @@ func TestTextDescribesAFullyFeaturedMachine(t *testing.T) {
 		{PCIAddress: "0000:00:02.0", Identity: &report.Identity{Model: "UHD Graphics 630"}, Clocks: &report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, ActualFreqMHz: &act, Source: "i915"}},
 		{PCIAddress: "0000:00:02.1", Identity: &report.Identity{Model: "Idle GPU"}, Clocks: &report.GPUClocks{MinFreqMHz: 350, MaxFreqMHz: 1100, ActualFreqMHz: &idle, Source: "i915"}},
 		{PCIAddress: "0000:03:00.0", Identity: &report.Identity{Model: "Radeon"}, Clocks: &report.GPUClocks{MinFreqMHz: 300, MaxFreqMHz: 2100, Source: "amdgpu"}},
+		{PCIAddress: "0000:05:00.0", Identity: &report.Identity{Model: "Arc"}, Firmware: report.UnknownFirmware("no video BIOS"),
+			FirmwareComponents: []report.Firmware{{Name: "GuC", Version: "70.36.0", Source: "debugfs"}, {Name: "HuC", Status: report.FirmwareUnknown, Reason: "r"}}},
+		{PCIAddress: "0000:06:00.0", Identity: &report.Identity{Model: "Both"}, Firmware: &report.Firmware{Version: "113-1", Source: "vbios"},
+			FirmwareComponents: []report.Firmware{{Name: "smc", Version: "0x00415b00"}}},
 		{PCIAddress: "0000:04:00.0", Identity: &report.Identity{Model: "Locked"}, Clocks: &report.GPUClocks{MinFreqMHz: 1000, MaxFreqMHz: 1000, Source: "amdgpu"}}}
 	r.Bluetooth = []report.BluetoothController{{Name: "hci0", Identity: &report.Identity{Model: "AX211"}, Powered: &off}}
 	r.Batteries = []report.Battery{{Name: "BAT0", Health: &report.Health{Status: report.StatusOK, LifeUsedPercent: &used, LifeRemainingPercent: &left,
@@ -319,6 +323,8 @@ func TestTextDescribesAFullyFeaturedMachine(t *testing.T) {
 		"UHD Graphics 630, 350–1100 MHz (883 MHz at capture)",
 		"Idle GPU, 350–1100 MHz (idle at capture)",
 		"Radeon, 300–2100 MHz\n",
+		"Arc, firmware GuC 70.36.0, HuC unknown\n",
+		"Both, fw 113-1, firmware smc 0x00415b00\n",
 		"Locked, 1000 MHz\n",
 		"L1d 48 KiB×24, L2 2 MiB×24",
 		"256 GiB installed, 250 GiB usable",

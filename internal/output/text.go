@@ -208,7 +208,14 @@ func writeText(w io.Writer, r *report.Report) error {
 					s += fmt.Sprintf(" (%d MHz at capture)", *a)
 				}
 			}
-			line("GPU", "%s", withParts(s, fwText(g.Firmware), driverText(g.Driver)))
+			fw := fwText(g.Firmware)
+			if parts := componentsText(g.FirmwareComponents); parts != "" {
+				if !g.Firmware.Known() {
+					fw = "" // an Intel GPU has no VBIOS: its components say it
+				}
+				fw = strings.TrimPrefix(fw+", firmware "+parts, ", ")
+			}
+			line("GPU", "%s", withParts(s, fw, driverText(g.Driver)))
 		}
 		for _, d := range r.Displays {
 			s := product(d.Identity)
@@ -402,6 +409,20 @@ func fwText(fw *report.Firmware) string {
 		return "firmware " + unknownFirmware(fw)
 	}
 	return "fw " + fw.Version
+}
+
+// componentsText lists a part's named firmware: "GuC 70.1.1, HuC 4.0.0";
+// one without a version reads "HuC unknown".
+func componentsText(fws []report.Firmware) string {
+	parts := make([]string, len(fws))
+	for i, fw := range fws {
+		v := fw.Version
+		if !fw.Known() {
+			v = "unknown"
+		}
+		parts[i] = strings.TrimSpace(fw.Name + " " + v)
+	}
+	return strings.Join(parts, ", ")
 }
 
 // unknownFirmware says that a firmware version is unknown, and why.

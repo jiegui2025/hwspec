@@ -71,7 +71,10 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		// The SLB9670's firmware, as udev's tpm2_id records it (no root needed).
 		want["tpm firmware IFX 7.85.1166080 from udev"] = r.TPM != nil && r.TPM.Firmware.Known() &&
 			r.TPM.Firmware.Vendor == "IFX" && r.TPM.Firmware.Version == "7.85.1166080" && r.TPM.Firmware.Source == "udev"
-		want["igpu firmware: GuC/HuC not read yet (#43)"] = len(r.GPUs) == 1 && unknown(r.GPUs[0].Firmware, "GuC, HuC, DMC")
+		// The UHD 630's GuC (70.1.1) and HuC (4.0.0) are in root-only
+		// debugfs (#204): without root, one warning and no components.
+		want["igpu: GuC and HuC need --full"] = len(r.GPUs) == 1 && unknown(r.GPUs[0].Firmware, "GuC and HuC are firmware components") &&
+			r.GPUs[0].FirmwareComponents == nil && slices.Contains(r.Warnings, "Intel GPU firmware (GuC, HuC): needs root (run with --full)")
 		// One SPD EEPROM for two modules: the kernel probed only 0x50
 		// (#203), so the second module's absence is said.
 		want["the missing SPD is said"] = slices.ContainsFunc(r.Warnings, func(w string) bool {

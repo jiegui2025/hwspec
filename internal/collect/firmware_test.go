@@ -79,8 +79,8 @@ func TestGPUFirmware(t *testing.T) {
 			f("/proc/driver/nvidia/gpus/"+addr+"/information", "x")
 			unreadable = map[string]error{"/proc/driver/nvidia/gpus/" + addr + "/information": syscall.EIO}
 		}, "unknown: the NVIDIA driver's information can't be read: open "},
-		{"i915", "i915", nil, "unknown: hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet"},
-		{"xe", "xe", nil, "unknown: hwspec doesn't read Intel GPU firmware (GuC, HuC, DMC) yet"},
+		{"i915", "i915", nil, "unknown: an Intel GPU has no video BIOS version; its GuC and HuC are firmware components (--full)"},
+		{"xe", "xe", nil, "unknown: an Intel GPU has no video BIOS version; its GuC and HuC are firmware components (--full)"},
 		{"nouveau", "nouveau", nil, "unknown: the nouveau driver doesn't expose a firmware version"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
