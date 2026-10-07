@@ -52,12 +52,14 @@ models:
 
 | Section | `match` | `data` groups |
 |---|---|---|
-| `models` | `sys_vendor`, `product_name` (both required), `board_name`, `sku`: DMI names as the kernel gives them | `allowlist`, `chipset`, `cpu_support`, `display_ports`, `form_factor`, `gpu_slot`, `launch`, `memory`, `overclocking`, `parts`, `power`, `rtc_battery`, `storage_slots`, `wlan_slot` |
+| `models` | `sys_vendor`, `product_name` (both required), `board_name`, `sku`: DMI names as the kernel gives them | `allowlist`, `chipset`, `cpu_support`, `display_ports`, `form_factor`, `gpu_slot`, `launch`, `memory`, `overclocking`, `parts`, `power`, `rtc_battery`, `storage_slots`, `vendor_firmware`, `wlan_slot` |
 | `devices` | `bus` (`pci`, `usb`), `id` (`vendor:device[:subvendor:subdevice]`, lower-case hex) | `display_outputs`, `rated`, `wifi` |
 | `cpus` | `vendor` (`intel`), `processor` (e.g. `i5-9500T`) | `launch`, `memory_channels`, `memory_max_gb`, `memory_max_mts`, `memory_types`, `package`, `socket`, `tdp_w`, `unlocked` |
 | `allowlists` | `sys_vendor`, and `product_name` (list), `family` or `board_name` (list); optionally `bios_version: {from, to}` (HP's `"R21 Ver. 02.27.00"` form, three parts; from included, to excluded) | `approved`, `behaviour`, `checks`, `error_text`, `restricted`, `restricts`, `soft` |
 
 A model's `memory` group is read by the `memory-upgrade` and `memory-below-minimum` checks (#107; rules in `rules/upgrade.yaml`), strictly: `genkb` refuses a leaf or code they don't read.
+
+A model's `vendor_firmware` group is firmware LVFS doesn't carry, read by the `vendor-firmware` check (#227; rule in `rules/firmware.yaml`), as strictly: `system_bios` has the BIOS `family` (HP's `R21`) and the `latest` release the vendor's page lists, each value `{version: "02.27.00", date: "2026-08-11"}` (both required). The finding gives the page (the claim's source) and the date it was read (its `retrieved`), and says to check it: newer releases aren't known here. It names the BIOS by the capture's family, says nothing for a BIOS of a family the entry doesn't list, and stands down when LVFS carries the machine's system firmware (an ESRT system entry with an LVFS component). `genkb` refuses a release dated after its source's `retrieved`. Update the claim and `retrieved` when the page changes.
 
 | Leaf | Value |
 |---|---|

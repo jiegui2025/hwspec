@@ -294,8 +294,11 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 	a := Advise(Input{Report: r, KB: k, Now: noon})
 	// Firmware load failures need the root-only kernel log (#213): an
 	// unprivileged capture can't be evaluated for them, and says so. The
-	// linux-firmware comparisons need the firmware index (#225).
-	if len(a.Findings) != 1 || a.Findings[0].ID != "memory.upgrade" || a.RulesApplied != len(k.Rules)-8 || a.RulesSkipped != 8 ||
+	// linux-firmware comparisons need the firmware index (#225). Its
+	// BIOS is HP's latest R21 as HP's page listed it (#227).
+	if len(a.Findings) != 2 || a.Findings[0].ID != "memory.upgrade" || a.Findings[1].ID != "firmware.vendor-only" ||
+		!strings.Contains(a.Findings[1].Answers[0].Text, "lists R21 02.27.00 (2026-08-11) as the latest, as of 2026-10-07; this machine runs R21 Ver. 02.27.00, the same") ||
+		a.RulesApplied != len(k.Rules)-8 || a.RulesSkipped != 8 ||
 		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") ||
 		!slices.Contains(a.Warnings, firmwareIndexWarning(&Input{})) {
 		t.Errorf("findings %+v, warnings %q", a.Findings, a.Warnings)
@@ -314,7 +317,7 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 		}
 		ids = append(ids, f.ID+" "+key)
 	}
-	if !slices.Equal(ids, []string{"memory.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1"}) || a.RulesSkipped != 1 {
+	if !slices.Equal(ids, []string{"memory.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1", "firmware.vendor-only system firmware"}) || a.RulesSkipped != 1 {
 		t.Errorf("with the index: findings %q, skipped %d", ids, a.RulesSkipped)
 	}
 }

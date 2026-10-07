@@ -285,6 +285,17 @@ allowlists:
 
 func modelFile(id string) string { return strings.ReplaceAll(model, "%s", id) }
 
+// vendorFirmware is a model's vendor_firmware group with one latest
+// release, citing src (none when empty).
+func vendorFirmware(release, src string) string {
+	cite := ""
+	if src != "" {
+		cite = ", src: " + src
+	}
+	return "      vendor_firmware:\n        system_bios:\n          family: [{value: R21, src: hp-ds-hp.mini}]\n" +
+		"          latest: [{value: " + release + cite + "}]\n"
+}
+
 // The data sections compile from YAML, keyed by ID like sources, and read
 // back; genkb refuses what #25 says it must.
 func TestSectionsCompile(t *testing.T) {
@@ -334,6 +345,13 @@ func TestSectionsCompile(t *testing.T) {
 			`models entry "hp.mini": data.memory: json: unknown field "max_totl_gb"`},
 		"an unknown memory rule": {map[string]string{"m.yaml": strings.Replace(m, "        max_total_gb:", "        population: [{value: [any-order], src: hp-ds-hp.mini}]\n        max_total_gb:", 1)},
 			`data.memory: population: "any-order" isn't one of`},
+		// Vendor-only firmware: every release with its source and date (#227).
+		"a vendor release without its date": {map[string]string{"m.yaml": strings.Replace(m, "      chipset:", vendorFirmware(`{version: "02.27.00"}`, "hp-ds-hp.mini")+"      chipset:", 1)},
+			`data.vendor_firmware: system_bios.latest: version 02.27.00 needs its release date as YYYY-MM-DD (got "")`},
+		"a vendor release without its source": {map[string]string{"m.yaml": strings.Replace(m, "      chipset:", vendorFirmware(`{version: "02.27.00", date: "2026-08-11"}`, "")+"      chipset:", 1)},
+			`vendor_firmware.system_bios.latest: a claim is {value, src}`},
+		"a vendor family of another form": {map[string]string{"m.yaml": strings.Replace(strings.Replace(m, "      chipset:", vendorFirmware(`{version: "02.27.00", date: "2026-08-11"}`, "hp-ds-hp.mini")+"      chipset:", 1), "value: R21", "value: r21", 1)},
+			`system_bios.family: "r21" isn't a family such as R21`},
 	} {
 		dir := writeFiles(t, c.files)
 		code, _, stderr := genkb(t, "-o", filepath.Join(t.TempDir(), "out.gz"), dir)

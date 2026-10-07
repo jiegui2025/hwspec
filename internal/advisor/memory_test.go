@@ -551,10 +551,10 @@ func TestMemoryDataIsCheckedStrictlyForGenkb(t *testing.T) {
 		}
 		return &m[0]
 	}
-	if errs := ValidateModel(model("")); errs != nil {
+	if errs := ValidateModel(model(""), nil); errs != nil {
 		t.Errorf("no memory group: %v", errs)
 	}
-	if errs := ValidateModel(model("{" + slotMap + "}")); errs != nil {
+	if errs := ValidateModel(model("{"+slotMap+"}"), nil); errs != nil {
 		t.Errorf("a good memory group: %v", errs)
 	}
 	for memory, want := range map[string]string{
@@ -567,7 +567,7 @@ func TestMemoryDataIsCheckedStrictlyForGenkb(t *testing.T) {
 		`{"speed_mts": {"max": [{"value": -1, "src": "guide"}]}}`:                                         "speed_mts.max: -1 isn't positive",
 		`{"slots": "two"}`: "json: cannot unmarshal",
 	} {
-		errs := ValidateModel(model(memory))
+		errs := ValidateModel(model(memory), nil)
 		if len(errs) != 1 || !strings.Contains(errs[0].Error(), want) {
 			t.Errorf("%s: %v, want %q", memory, errs, want)
 		}

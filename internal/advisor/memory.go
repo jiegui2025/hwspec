@@ -141,17 +141,22 @@ func decodeMemory(raw json.RawMessage, strict bool) (*memoryData, error) {
 }
 
 // ValidateModel reports what the checks can't read in a model entry's
-// groups they use (memory), so genkb refuses a misspelt leaf or code
-// rather than a binary leaving the group out.
-func ValidateModel(m *kb.Model) []error {
-	raw, ok := m.Data["memory"]
-	if !ok {
-		return nil
+// groups they use (memory, vendor_firmware), so genkb refuses a misspelt
+// leaf or code, or a release without its date, rather than a binary
+// leaving the group out.
+func ValidateModel(m *kb.Model, source func(string) *kb.Source) []error {
+	var errs []error
+	if raw, ok := m.Data["memory"]; ok {
+		if _, err := decodeMemory(raw, true); err != nil {
+			errs = append(errs, fmt.Errorf("data.memory: %w", err))
+		}
 	}
-	if _, err := decodeMemory(raw, true); err != nil {
-		return []error{fmt.Errorf("data.memory: %w", err)}
+	if raw, ok := m.Data["vendor_firmware"]; ok {
+		if err := validateVendorFirmware(raw, source); err != nil {
+			errs = append(errs, fmt.Errorf("data.vendor_firmware: %w", err))
+		}
 	}
-	return nil
+	return errs
 }
 
 // modelMemory returns the memory group of the capture's model entry, or
