@@ -83,7 +83,10 @@ func (b *bundle) publish(at time.Time, key ed25519.PrivateKey) {
 		if err != nil {
 			b.t.Fatal(err)
 		}
-		m.Files[name] = ManifestFile{SHA256: sha(data), Size: int64(len(data)), Date: "2026-10-05", Entries: 1}
+		// Dated as the embedded copy: a tie goes to the synced copy, and the
+		// date neither goes stale when the embedded databases are refreshed
+		// nor lies in the future.
+		m.Files[name] = ManifestFile{SHA256: sha(data), Size: int64(len(data)), Date: manifestDate(embeddedManifest(), specs[k].file), Entries: 1}
 	}
 	kbs, _ := filepath.Glob(filepath.Join(b.dir, "advisor-v*.json.gz"))
 	for _, path := range kbs {
