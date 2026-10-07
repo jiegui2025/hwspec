@@ -821,3 +821,78 @@ func TestKnownAnswers(t *testing.T) {
 		t.Error("an unknown kind passed")
 	}
 }
+
+// The release guard (#17): embedded databases at most DAYS old, and not
+// from the future.
+func TestFresh(t *testing.T) {
+	old := clock
+	t.Cleanup(func() { clock = old })
+	dir := t.TempDir()
+	at := time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)
+	writeManifest(t, filepath.Join(dir, "manifest.json"), &ids.Manifest{Format: ids.ManifestFormat, GeneratedAt: at, Files: map[string]ids.ManifestFile{}})
+	for _, c := range []struct {
+		now  time.Time
+		days string
+		want string // "" for success
+	}{
+		{at.AddDate(0, 0, 45), "45", ""},
+		{at.AddDate(0, 0, 45).Add(time.Minute), "45", "generated 2026-10-07, 45 days ago (at most 45): run make update-ids"},
+		{at.Add(-23 * time.Hour), "45", ""},
+		{at.Add(-25 * time.Hour), "45", "in the future"},
+		{at, "0", `days "0" isn't a positive number`},
+		{at, "x", `days "x" isn't a positive number`},
+	} {
+		clock = func() time.Time { return c.now }
+		var out bytes.Buffer
+		err := fresh(&out, dir, c.days)
+		if c.want == "" && (err != nil || !strings.Contains(out.String(), "within 45 days")) || c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)) {
+			t.Errorf("now %s, %s days: %v (%q)", c.now, c.days, err, out.String())
+		}
+	}
+	clock = func() time.Time { return at }
+	if err := fresh(io.Discard, t.TempDir(), "45"); err == nil {
+		t.Error("a missing manifest passed")
+	}
+	write(t, filepath.Join(dir, "manifest.json"), "{")
+	if err := fresh(io.Discard, dir, "45"); err == nil {
+		t.Error("a broken manifest passed")
+	}
+	if code := run([]string{"fresh", dir}, io.Discard, io.Discard); code != 1 {
+		t.Errorf("fresh with one argument: exit %d", code)
+	}
+	// Through the command line, as the release workflow runs it.
+	writeManifest(t, filepath.Join(dir, "manifest.json"), &ids.Manifest{Format: ids.ManifestFormat, GeneratedAt: at, Files: map[string]ids.ManifestFile{}})
+	clock = func() time.Time { return at.AddDate(0, 0, 60) }
+	var stderr bytes.Buffer
+	if code := run([]string{"fresh", dir, "45"}, io.Discard, &stderr); code != 1 || !strings.Contains(stderr.String(), "60 days ago") {
+		t.Errorf("stale data through run: exit %d, %q", code, stderr.String())
+	}
+}
+
+// A regenerated file with unchanged content keeps its bytes, so its hash
+// and manifest date don't change (compress/flate's output can differ
+// between Go versions); changed content is written.
+func TestWriteGzipKeepsUnchangedFiles(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "x.ids.gz")
+	var buf bytes.Buffer
+	zw, _ := gzip.NewWriterLevel(&buf, gzip.NoCompression) // other bytes than writeGzip's
+	zw.Write([]byte("same\n"))
+	zw.Close()
+	write(t, path, buf.String())
+	if err := writeGzip(path, []byte("same\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(path); !bytes.Equal(got, buf.Bytes()) {
+		t.Error("unchanged content was rewritten")
+	}
+	if err := writeGzip(path, []byte("changed\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got := gunzip(t, path); got != "changed\n" {
+		t.Errorf("changed content: %q", got)
+	}
+	write(t, path, "not gzip")
+	if err := writeGzip(path, []byte("x\n")); err != nil || gunzip(t, path) != "x\n" {
+		t.Errorf("a broken file wasn't replaced: %v", err)
+	}
+}

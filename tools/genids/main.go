@@ -8,6 +8,7 @@
 //	genids cpu <intel-family.h> <amd.c> <cpu-curated.ids> <out.gz>
 //	genids manifest <dir> [previous.json]   write <dir>/manifest.json
 //	genids verify <dir> [previous.json]     re-check a bundle before signing
+//	genids fresh <dir> <days>               fail if <dir>'s manifest is older
 //	genids sign <manifest.json>             write <manifest.json>.sig; key from
 //	                                        $HWSPEC_IDS_SIGNING_KEY (base64 seed)
 //	genids keygen <private-key-file>        new ed25519 key; prints public key
@@ -49,7 +50,7 @@ func main() {
 // no command, or a command without any arguments.
 func run(argv []string, stdout, stderr io.Writer) int {
 	if len(argv) < 2 {
-		fmt.Fprintln(stderr, "usage: genids jedec|oui|gzip SRC OUT.gz | manifest DIR [PREV] | verify DIR [PREV [COMMITTED-KB-DIR]] | sign MANIFEST | keygen KEYFILE")
+		fmt.Fprintln(stderr, "usage: genids jedec|oui|gzip SRC OUT.gz | manifest DIR [PREV] | verify DIR [PREV [COMMITTED-KB-DIR]] | fresh DIR DAYS | sign MANIFEST | keygen KEYFILE")
 		return 2
 	}
 	var err error
@@ -87,6 +88,12 @@ func run(argv []string, stdout, stderr io.Writer) int {
 		if err == nil && committed != "" {
 			err = sameAsCommitted(args[0], committed)
 		}
+	case "fresh":
+		if len(args) != 2 {
+			err = fmt.Errorf("usage: genids fresh DIR DAYS")
+			break
+		}
+		err = fresh(stdout, args[0], args[1])
 	case "sign":
 		err = sign(args[0])
 	case "keygen":
@@ -124,6 +131,16 @@ func convert(kind, src, out string) error {
 }
 
 func writeGzip(out string, data []byte) error {
+	// An existing file with this content is kept as it is: compress/flate's
+	// output can differ between Go versions, and new bytes for the same
+	// content would change the file's hash and so its manifest date.
+	if old, err := os.ReadFile(out); err == nil {
+		if zr, err := gzip.NewReader(bytes.NewReader(old)); err == nil {
+			if same, err := io.ReadAll(zr); err == nil && bytes.Equal(same, data) {
+				return nil
+			}
+		}
+	}
 	// gzip.Writer leaves the header timestamp zero, so this is deterministic.
 	var buf bytes.Buffer
 	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
