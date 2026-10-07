@@ -83,7 +83,11 @@ func collectNow(version string) *report.Report {
 	c.pci()
 	c.gpus()          // after pci
 	c.kernelModules() // after osInfo and pci
-	c.mountings()     // after pci, memory, storage and the firmware tables
+	if c.r.Kernel == nil {
+		c.r.Kernel = &report.Kernel{}
+	}
+	c.r.Kernel.ModuleBlacklist = c.moduleBlacklist()
+	c.mountings() // after pci, memory, storage and the firmware tables
 	c.displays()
 	c.network()
 	c.bluetooth()

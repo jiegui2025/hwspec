@@ -544,7 +544,35 @@ type Kernel struct {
 	// ModuleIndex says where the running kernel's module index is, or
 	// what was found instead.
 	ModuleIndex *ModuleIndex `json:"module_index,omitempty"`
+	// ModuleBlacklist lists the modules kept from loading, by the three
+	// ways hwspec reads (#212): modprobe.d's blacklist lines and
+	// modprobe.blacklist=, the kernel's module_blacklist=, and modprobe.d
+	// install lines that run a no-op instead. Absent: not read (a capture
+	// from before it). Empty: none of those name a module; another way to
+	// keep one from loading (an install script, a udev rule) isn't read,
+	// so it doesn't mean nothing can.
+	ModuleBlacklist []BlacklistedModule `json:"module_blacklist,omitzero"`
 }
+
+// BlacklistedModule is one module kept from loading, how, and where: the
+// modprobe.d file's path, or "cmdline".
+type BlacklistedModule struct {
+	Module string `json:"module"` // as modprobe names it, "-" read as "_"
+	// Kind is how: "blacklist" (modprobe ignores the module's aliases, so
+	// a device doesn't load it, but "modprobe <module>" still does),
+	// "kernel" (module_blacklist=: the kernel refuses to load it at all),
+	// or "install" (modprobe runs a no-op, /bin/false or /bin/true,
+	// instead of loading it).
+	Kind   string `json:"kind"`
+	Source string `json:"source"`
+}
+
+// The kinds of BlacklistedModule.
+const (
+	BlacklistAlias   = "blacklist"
+	BlacklistKernel  = "kernel"
+	BlacklistInstall = "install"
+)
 
 // ModuleIndex is what the module trees hold for the running kernel, as
 // found, not why: /lib/modules, /usr/lib/modules and NixOS's

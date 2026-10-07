@@ -336,6 +336,18 @@ func TestUdevRecordsKeepOnlyWhatGhwReads(t *testing.T) {
 	}
 }
 
+// The kernel command line keeps only modprobe.blacklist=, the one key
+// hwspec reads (#212): disk UUIDs and everything else go.
+func TestCmdlineKeepsOnlyTheBlacklist(t *testing.T) {
+	in := "BOOT_IMAGE=/vmlinuz-linux root=UUID=3f2a1b9c-0000-4c1e-9a7d-123456789abc rw modprobe.blacklist=nouveau,pcspkr quiet module_blacklist=amdgpu cryptdevice=UUID=deadbeef:root\n"
+	if out, keep := scrubFile("/proc/cmdline", []byte(in)); !keep || string(out) != "modprobe.blacklist=nouveau,pcspkr module_blacklist=amdgpu\n" {
+		t.Errorf("cmdline = %q, kept %v", out, keep)
+	}
+	if out, _ := scrubFile("/proc/cmdline", []byte("root=UUID=1 rw\n")); string(out) != "\n" {
+		t.Errorf("no blacklist: %q", out)
+	}
+}
+
 // Formats scrub doesn't recognise are dropped, not copied: a MAC that
 // isn't six bytes, an EDID shorter than a block, an EEPROM that isn't
 // DDR4 or DDR5. EDID extension blocks (which can carry serials) go too.

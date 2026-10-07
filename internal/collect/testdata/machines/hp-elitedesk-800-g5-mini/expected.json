@@ -1085,7 +1085,19 @@
       "release": "7.2.9-1-cachyos",
       "status": "found",
       "dir": "/lib/modules/7.2.9-1-cachyos"
-    }
+    },
+    "module_blacklist": [
+      {
+        "module": "iTCO_wdt",
+        "kind": "blacklist",
+        "source": "/usr/lib/modprobe.d/blacklist.conf"
+      },
+      {
+        "module": "sp5100_tco",
+        "kind": "blacklist",
+        "source": "/usr/lib/modprobe.d/blacklist.conf"
+      }
+    ]
   },
   "usb": [
     {

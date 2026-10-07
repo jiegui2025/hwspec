@@ -75,6 +75,11 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		// debugfs (#204): without root, one warning and no components.
 		want["igpu: GuC and HuC need --full"] = len(r.GPUs) == 1 && unknown(r.GPUs[0].Firmware, "GuC and HuC are firmware components") &&
 			r.GPUs[0].FirmwareComponents == nil && slices.Contains(r.Warnings, "Intel GPU firmware (GuC, HuC): needs root (run with --full)")
+		// CachyOS's own blacklist (#212); i915.conf's options aren't
+		// blacklists, and the command line has none.
+		want["module blacklist from modprobe.d"] = r.Kernel != nil && len(r.Kernel.ModuleBlacklist) == 2 &&
+			r.Kernel.ModuleBlacklist[0] == report.BlacklistedModule{Module: "iTCO_wdt", Kind: "blacklist", Source: "/usr/lib/modprobe.d/blacklist.conf"} &&
+			r.Kernel.ModuleBlacklist[1] == report.BlacklistedModule{Module: "sp5100_tco", Kind: "blacklist", Source: "/usr/lib/modprobe.d/blacklist.conf"}
 		// One SPD EEPROM for two modules: the kernel probed only 0x50
 		// (#203), so the second module's absence is said.
 		want["the missing SPD is said"] = slices.ContainsFunc(r.Warnings, func(w string) bool {

@@ -426,8 +426,23 @@ func scrubFile(rel string, data []byte) (out []byte, keep bool) {
 		return scrubSPD(data)
 	case rel == "/proc/cpuinfo" || strings.HasPrefix(rel, "/proc/driver/nvidia/"):
 		return serialLine.ReplaceAll(data, []byte("${1} REDACTED")), true
+	case rel == "/proc/cmdline":
+		return scrubCmdline(data), true
 	}
 	return data, true
+}
+
+// scrubCmdline keeps only the kernel command line's modprobe.blacklist=
+// and module_blacklist= words, the keys hwspec reads (#212): the rest names
+// disks by UUID and can carry anything.
+func scrubCmdline(data []byte) []byte {
+	var kept []string
+	for f := range strings.FieldsSeq(string(data)) {
+		if strings.HasPrefix(f, "modprobe.blacklist=") || strings.HasPrefix(f, "module_blacklist=") {
+			kept = append(kept, f)
+		}
+	}
+	return []byte(strings.Join(kept, " ") + "\n")
 }
 
 // binaryFile tells the files whose bytes aren't text.
