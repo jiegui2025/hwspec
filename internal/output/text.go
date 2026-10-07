@@ -663,15 +663,16 @@ func portName(p report.USBCPort) string {
 	return p.Name
 }
 
-// chargeText says whether a USB-C port can charge the machine, and up to
-// how much; and what a connected charger offers.
+// chargeText says whether a USB-C port can power or charge the machine
+// (a machine without a battery is powered, not charged), and up to how
+// much; and what a connected charger offers.
 func chargeText(p report.USBCPort) string {
 	var s string
 	switch {
 	case p.CanCharge && p.MaxChargeW > 0:
-		s = "charges this machine up to " + trimFloat(p.MaxChargeW) + " W"
+		s = "can power or charge this machine, up to " + trimFloat(p.MaxChargeW) + " W"
 	case p.CanCharge:
-		s = "charges this machine (the kernel lists no limit)"
+		s = "can power or charge this machine; how much isn't in the capture"
 	case slices.Contains(p.PowerRoles, report.PowerSource):
 		s = "power out only, can't charge"
 	default:
