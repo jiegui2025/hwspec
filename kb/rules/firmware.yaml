@@ -149,3 +149,19 @@ rules:
       format orders nothing, or the version isn't written in it), so
       hwspec doesn't say which is newer.
     src: [fwupd-version-compare]
+  - id: firmware.vendor-only
+    check: vendor-firmware
+    category: firmware
+    severity: info
+    title: "System firmware: check the vendor's page"
+    detail: >-
+      When the knowledge base's entry was written, this model's BIOS
+      wasn't on LVFS, so fwupd couldn't update it or say what is newer.
+      The entry records the latest release the vendor's page listed, with
+      the date it was read: anything released since isn't known here. If
+      LVFS carries it later, its LVFS finding replaces this one.
+    actions:
+      - text: >-
+          Check the vendor's page (the source below) for a newer release,
+          and update from it as the vendor describes.
+    src: [capture]

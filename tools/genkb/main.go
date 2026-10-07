@@ -232,7 +232,7 @@ func compile(dir, version string) (*kb.KB, error) {
 		}
 	}
 	for i := range k.Models {
-		for _, err := range advisor.ValidateModel(&k.Models[i]) {
+		for _, err := range advisor.ValidateModel(&k.Models[i], k.Source) {
 			errs = append(errs, fmt.Errorf("models entry %q: %w", k.Models[i].ID, err))
 		}
 	}

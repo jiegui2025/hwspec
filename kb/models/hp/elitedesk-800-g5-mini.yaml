@@ -1,5 +1,6 @@
 # HP EliteDesk 800 G5 Desktop Mini (the reference machine): memory (#129,
-# part 2 of #25). Every value cites the page it's on. HP's documents carry
+# part 2 of #25) and its BIOS, which isn't on LVFS (#227, part 6 of #10).
+# Every value cites the page it's on. HP's documents carry
 # no reuse licence that was found, so they are linked, never quoted. Where
 # two documents disagree, both claims are kept.
 
@@ -37,6 +38,16 @@ sources:
     confidence: oem-doc
     link_only: true
     locator: "pp. 30-31, Memory modules: specifications, slots and channels, operating modes"
+  hp-sp174287-notes:
+    url: https://ftp.hp.com/pub/softpaq/sp174001-174500/sp174287.html
+    title: HP BIOS and System Firmware (R21), SoftPaq release notes
+    doc: sp174287
+    published: "2026-08-11"
+    retrieved: "2026-10-07"
+    licence: "HP: no reuse licence found"
+    confidence: oem-doc
+    link_only: true
+    locator: "TITLE (R21), VERSION, EFFECTIVE DATE, HARDWARE PRODUCT MODEL(S): HP EliteDesk 800 G5 DM; listed as the latest in HP's HPIA catalogue for board 8595 (8595_64_11.0.23H2)"
 
 models:
   hp.elitedesk-800-g5-mini:
@@ -70,3 +81,10 @@ models:
         constraints:
           - value: [unbuffered, non-ecc, no-x4-sdram, 1.2-volt, 260-pin]
             src: hp-msg-2019-09-memory
+      # The latest BIOS HP lists, as read on the retrieved date: HP
+      # publishes it only on its own site (not on LVFS, #10), so a newer
+      # one may exist; the finding says to check.
+      vendor_firmware:
+        system_bios:
+          family: [{value: R21, src: hp-sp174287-notes}]
+          latest: [{value: {version: "02.27.00", date: "2026-08-11"}, src: hp-sp174287-notes}]
