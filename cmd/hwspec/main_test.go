@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/jiegui2025/hwspec/internal/output"
 )
 
 // The format comes from -f, else the output file's extension, else the
@@ -26,23 +28,28 @@ func TestFormatComesFromTheFlagOrTheOutputExtension(t *testing.T) {
 		{"", ".hwspec", "json"}, {"", "out/.hwspec", "json"},
 	}
 	for _, c := range cases {
-		if got, err := pickFormat(c.format, c.path, "json"); err != nil || got != c.want {
+		if got, err := pickFormat(c.format, c.path, "json", output.Formats); err != nil || got != c.want {
 			t.Errorf("pickFormat(%q, %q) = %q, %v; want %q", c.format, c.path, got, err, c.want)
 		}
 	}
 	for path, ext := range map[string]string{"spec.xml": ".xml", ".hwspec.xml": ".xml"} {
-		_, err := pickFormat("", path, "json")
+		_, err := pickFormat("", path, "json", output.Formats)
 		if err == nil || !strings.Contains(err.Error(), ext) || !strings.Contains(err.Error(), "use -f json|yaml|text") {
 			t.Errorf("%s: err = %v, want an error naming %s and the -f fix", path, err, ext)
 		}
 	}
+	// Each command accepts only the formats it can write: advice has no
+	// capture-only format, so `advise -f md` can't silently write text.
+	if _, err := pickFormat("yaml", "", "text", []string{"text", "json"}); err == nil || !strings.Contains(err.Error(), "want one of text, json") {
+		t.Errorf("a format outside the command's list: %v", err)
+	}
 	// A directory isn't a file to write: refuse it before capturing.
 	for _, dir := range []string{".", "dir/.", ".."} {
-		if _, err := pickFormat("", dir, "json"); err == nil {
+		if _, err := pickFormat("", dir, "json", output.Formats); err == nil {
 			t.Errorf("%s: accepted as an output file", dir)
 		}
 	}
-	if _, err := pickFormat("csv", "", "json"); err == nil {
+	if _, err := pickFormat("csv", "", "json", output.Formats); err == nil {
 		t.Error("unknown -f accepted")
 	}
 }
