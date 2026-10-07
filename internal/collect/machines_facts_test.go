@@ -148,6 +148,9 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		// Display: EDID identity and manufacture week.
 		want["display made 2020-W38"] = len(r.Displays) == 1 && r.Displays[0].Identity != nil &&
 			r.Displays[0].Identity.Model == "DELL S2721QS" && r.Displays[0].Identity.ManufactureDate == "2020-W38"
+		// #112: what the DisplayPort output offers the monitor.
+		want["card1-DP-3 offers 3840x2160, 42 modes"] = len(r.Displays) == 1 && r.Displays[0].Connector == "card1-DP-3" &&
+			r.Displays[0].BestMode == "3840x2160" && r.Displays[0].ModeCount == 42
 		// Network: firmware via ethtool, driver, health from counters.
 		for name, fw := range map[string]string{"eno1": "0.5-4", "wlan0": "77.8dbafb52.0 cc-a0-77.ucode"} {
 			n := find(r.Network, func(n report.NIC) bool { return n.Name == name })

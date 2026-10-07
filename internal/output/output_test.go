@@ -671,3 +671,18 @@ func TestUnknownFieldNamesAFieldFromANewerBuild(t *testing.T) {
 		t.Errorf("YAML: %q", f)
 	}
 }
+
+// The display line names what its output offers (#112).
+func TestTextDisplayModes(t *testing.T) {
+	r := sample()
+	r.Displays = []report.Display{{Connector: "card1-DP-3", NativeWidth: 3840, NativeHeight: 2160, NativeRefreshHz: 60, BestMode: "3840x2160", ModeCount: 42},
+		{Connector: "card1-HDMI-A-1"}}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "3840×2160 @ 60 Hz, output offers up to 3840×2160 (42 modes), card1-DP-3") ||
+		strings.Count(buf.String(), "output offers") != 1 {
+		t.Errorf("text:\n%s", buf.String())
+	}
+}

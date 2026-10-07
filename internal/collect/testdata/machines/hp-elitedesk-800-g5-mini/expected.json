@@ -377,6 +377,8 @@
       "native_height": 2160,
       "native_refresh_hz": 60,
       "edid_version": "1.4",
+      "best_mode": "3840x2160",
+      "mode_count": 42,
       "identity": {
         "vendor": "Dell Inc.",
         "model": "DELL S2721QS",

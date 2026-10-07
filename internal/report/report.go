@@ -561,6 +561,14 @@ type Display struct {
 	NativeHeight    int     `json:"native_height,omitempty"`     // the preferred mode's pixels down
 	NativeRefreshHz float64 `json:"native_refresh_hz,omitempty"` // the preferred mode's refresh rate
 	EDIDVersion     string  `json:"edid_version,omitempty"`      // e.g. "1.4"
+	// BestMode is the largest mode (by area) the driver offers this
+	// display on its connector, e.g. "3840x2160" (#112). sysfs lists the
+	// display's preferred mode first, which isn't always the largest.
+	BestMode string `json:"best_mode,omitempty"`
+	// ModeCount is how many modes the driver offers it: resolution and
+	// timing pairs, so one resolution at several refresh rates counts
+	// several times.
+	ModeCount int `json:"mode_count,omitempty"`
 	// ModelYear is set instead of a manufacture date when the EDID gives
 	// the model year only.
 	ModelYear int       `json:"model_year,omitempty"`
