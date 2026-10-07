@@ -445,32 +445,36 @@ func (b *answerer) storageSlots(r *report.Report, paths []pciePath, d *storageDa
 	}
 	for _, p := range paths {
 		dev := r.PCI[p.index]
-		m := dev.Mounting
-		at := fmt.Sprintf("pci[%d].mounting", p.index)
-		addr := shortAddr(dev.Address)
-		switch {
-		case m == nil:
-			b.capture(Absent(at))
-			parts = append(parts, fmt.Sprintf("which slot holds %s isn't in the capture", addr))
-		case m.Kind == "slot" && m.Slot != "" && m.Confidence == "high":
-			b.capture(Present(at+".slot", m.Slot))
-			parts = append(parts, fmt.Sprintf("%s is in %s", addr, slotWords(m)))
-		case m.Kind == "slot" && m.Slot != "":
-			b.capture(Present(at+".slot", m.Slot), Present(at+".confidence", m.Confidence))
-			parts = append(parts, fmt.Sprintf("%s is likely in %s, with %s confidence: %s", addr, slotWords(m), m.Confidence, cmpOr(m.Reason, "no reason given")))
-		case m.Kind == "slot":
-			b.capture(Present(at+".kind", m.Kind))
-			slot := "a slot"
-			if m.SlotType != "" {
-				slot += " of type " + m.SlotType
-			}
-			parts = append(parts, fmt.Sprintf("%s is in %s: %s", addr, slot, cmpOr(m.Reason, "which one is unknown")))
-		default:
-			b.capture(Present(at+".kind", m.Kind))
-			parts = append(parts, fmt.Sprintf("which slot holds %s can't be told: %s", addr, cmpOr(m.Reason, m.Kind)))
-		}
+		parts = append(parts, b.placement(fmt.Sprintf("pci[%d].mounting", p.index), shortAddr(dev.Address), dev.Mounting))
 	}
 	b.add("slots", d != nil, strings.Join(parts, "; "))
+}
+
+// placement says which slot holds a device (name), as the firmware's
+// slot table gives it at the capture path at, and records what it read:
+// a slot it's less than sure of is "likely", with the reason.
+func (b *answerer) placement(at, name string, m *report.Mounting) string {
+	switch {
+	case m == nil:
+		b.capture(Absent(at))
+		return fmt.Sprintf("which slot holds %s isn't in the capture", name)
+	case m.Kind == "slot" && m.Slot != "" && m.Confidence == "high":
+		b.capture(Present(at+".slot", m.Slot))
+		return fmt.Sprintf("%s is in %s", name, slotWords(m))
+	case m.Kind == "slot" && m.Slot != "":
+		b.capture(Present(at+".slot", m.Slot), Present(at+".confidence", m.Confidence))
+		return fmt.Sprintf("%s is likely in %s, with %s confidence: %s", name, slotWords(m), cmpOr(m.Confidence, "unstated"), cmpOr(m.Reason, "no reason given"))
+	case m.Kind == "slot":
+		b.capture(Present(at+".kind", m.Kind))
+		slot := "a slot"
+		if m.SlotType != "" {
+			slot += " of type " + m.SlotType
+		}
+		return fmt.Sprintf("%s is in %s: %s", name, slot, cmpOr(m.Reason, "which one is unknown"))
+	default:
+		b.capture(Present(at+".kind", m.Kind))
+		return fmt.Sprintf("which slot holds %s can't be told: %s", name, cmpOr(m.Reason, m.Kind))
+	}
 }
 
 // slotWords is "M2_1 (its type)", the type when the firmware gives one.

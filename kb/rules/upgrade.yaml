@@ -36,6 +36,20 @@ rules:
       slots come from its documents, every claim with its source; which
       slot holds a drive comes from the firmware's slot table (--full).
     src: [capture, kernel-pcie-bandwidth]
+  - id: wifi.upgrade
+    check: wifi-upgrade
+    category: upgrade
+    severity: info
+    title: "Wi-Fi: generation, chains, slot and antennas"
+    detail: >-
+      Each Wi-Fi card's generation, bands, chains and streams come from
+      the kernel's nl80211, its slot from the firmware's slot table
+      (--full). The model's WLAN slot, the antennas that reach it and the
+      cards the vendor fitted come from its documents, every claim with
+      its source; antennas are never inferred from a card's chains. A
+      card beyond the vendor's is left unknown: it needs the slot's key,
+      a bus the chipset supports and suitable antennas.
+    src: [capture]
   - id: memory.below-minimum
     check: memory-below-minimum
     category: upgrade
