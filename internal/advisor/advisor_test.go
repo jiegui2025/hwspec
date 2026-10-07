@@ -295,9 +295,11 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 	// Firmware load failures need the root-only kernel log (#213): an
 	// unprivileged capture can't be evaluated for them, and says so. The
 	// linux-firmware comparisons need the firmware index (#225). Its
-	// BIOS is HP's latest R21 as HP's page listed it (#227).
-	if len(a.Findings) != 2 || a.Findings[0].ID != "memory.upgrade" || a.Findings[1].ID != "firmware.vendor-only" ||
-		!strings.Contains(a.Findings[1].Answers[0].Text, "lists R21 02.27.00 (2026-08-11) as the latest, as of 2026-10-07; this machine runs R21 Ver. 02.27.00, the same") ||
+	// BIOS is HP's latest R21 as HP's page listed it (#227). Its NVMe
+	// drive's path and M.2 slots get the storage answers (#108).
+	if len(a.Findings) != 3 || a.Findings[0].ID != "memory.upgrade" || a.Findings[1].ID != "storage.upgrade" || a.Findings[2].ID != "firmware.vendor-only" ||
+		!strings.Contains(a.Findings[2].Answers[0].Text, "lists R21 02.27.00 (2026-08-11) as the latest, as of 2026-10-07; this machine runs R21 Ver. 02.27.00, the same") ||
+		!strings.HasPrefix(a.Findings[1].Answers[0].Text, "NVMe 01:00.0 (Samsung Electronics Co Ltd NVMe SSD Controller SM981/PM981/PM983) at PCIe 3.0 x4 (8.0 GT/s ×4, ≈3.9 GB/s) via 00:1b.0") ||
 		a.RulesApplied != len(k.Rules)-8 || a.RulesSkipped != 8 ||
 		!slices.Contains(a.Warnings, "rule firmware.load-failed can't evaluate this capture: it needs kernel.firmware_failures, which the capture doesn't have") ||
 		!slices.Contains(a.Warnings, firmwareIndexWarning(&Input{})) {
@@ -317,7 +319,7 @@ func TestTheRecordedMachineNeedsNoAttention(t *testing.T) {
 		}
 		ids = append(ids, f.ID+" "+key)
 	}
-	if !slices.Equal(ids, []string{"memory.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1", "firmware.vendor-only system firmware"}) || a.RulesSkipped != 1 {
+	if !slices.Equal(ids, []string{"memory.upgrade ", "storage.upgrade ", "firmware.linux-firmware-matches pci 0000:02:00.0", "firmware.lvfs-up-to-date disk nvme0n1", "firmware.vendor-only system firmware"}) || a.RulesSkipped != 1 {
 		t.Errorf("with the index: findings %q, skipped %d", ids, a.RulesSkipped)
 	}
 }

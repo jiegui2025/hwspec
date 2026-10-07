@@ -353,7 +353,7 @@ func TestAdviseWritesPrivateFilesAndExplainsMistakes(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "advice.json")
 	_, stderr := mustRun(t, "", "advise", "--redact", "-o", file)
 	st, err := os.Stat(file)
-	if err != nil || st.Mode().Perm() != 0o600 || !strings.Contains(stderr, "(json, 5 findings, ") {
+	if err != nil || st.Mode().Perm() != 0o600 || !strings.Contains(stderr, "(json, 6 findings, ") {
 		t.Errorf("-o: %v, mode %v, %q", err, st, stderr)
 	}
 	if data, _ := os.ReadFile(file); readAdvice(t, string(data)).AdviceVersion != 1 {
