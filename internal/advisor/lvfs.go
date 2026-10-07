@@ -452,7 +452,14 @@ func utcDay(t time.Time) time.Time { return t.UTC().Truncate(24 * time.Hour) }
 // ID "DMI:<bios_vendor>" and matches requirements against it as a regex)
 // and its maker. LVFS doesn't spell them as DMI does ("DMI:Lenovo" for
 // LENOVO), so case is ignored.
-type machineVendors struct{ bios, system string }
+// machineVendors is what LVFS requirements test of the machine: its BIOS
+// and system vendors, its hardware IDs (CHIDs), and the fields a CHID
+// needs that the capture lacks.
+type machineVendors struct {
+	bios, system string
+	chids        map[string]bool
+	chidMissing  []string
+}
 
 func vendorsOf(r *report.Report) machineVendors {
 	var m machineVendors
@@ -462,7 +469,28 @@ func vendorsOf(r *report.Report) machineVendors {
 	if r.System.Identity != nil {
 		m.system = r.System.Identity.Vendor
 	}
+	m.chids, m.chidMissing = machineCHIDs(r)
 	return m
+}
+
+// hardware tests a <hardware> or <not_hardware> requirement's CHIDs ("|"
+// between alternatives, as fwupd reads them): whether one is this
+// machine's, and whether a "no" is certain (every CHID was computed).
+func (m machineVendors) hardware(text string) (match, known bool) {
+	for g := range strings.SplitSeq(text, "|") {
+		if m.chids[strings.ToLower(strings.TrimSpace(g))] {
+			return true, true
+		}
+	}
+	return false, len(m.chids) > 0 && len(m.chidMissing) == 0
+}
+
+// chidGap says why a hardware requirement can't be decided here.
+func (m machineVendors) chidGap() string {
+	if len(m.chidMissing) == 0 {
+		return "hwspec has no hardware IDs for this machine"
+	}
+	return "the capture lacks " + strings.Join(m.chidMissing, ", ") + ", which fwupd uses for them"
 }
 
 // dmi tests a requirement: whether it is a usable DMI vendor-ID pattern,
@@ -610,10 +638,21 @@ func requirementsNotes(version string, reqs []LVFSRequirement, installed, format
 			add("needs fwupd " + test)
 		case q.Kind == "id":
 			add("needs " + strings.TrimSpace(q.Text+" "+test))
-		case q.Kind == "hardware":
-			add("LVFS limits it to certain models by hardware ID, which hwspec doesn't check")
-		case q.Kind == "not_hardware":
-			add("LVFS excludes certain models by hardware ID, which hwspec doesn't check")
+		case q.Kind == "hardware" || q.Kind == "not_hardware":
+			// fwupd matches these against the machine's CHIDs (#237).
+			switch match, known := machine.hardware(q.Text); {
+			case q.Kind == "hardware" && match, q.Kind == "not_hardware" && known && !match:
+			case q.Kind == "hardware" && known:
+				installable = false
+				add(fmt.Sprintf("LVFS limits %s to other models by hardware ID (CHID): fwupd won't offer it on this one", version))
+			case q.Kind == "not_hardware" && match:
+				installable = false
+				add(fmt.Sprintf("LVFS keeps %s off this model by hardware ID (CHID): fwupd won't offer it", version))
+			case q.Kind == "hardware":
+				add("LVFS limits it to certain models by hardware ID (CHID), and " + machine.chidGap() + ": fwupd decides whether this is one")
+			default:
+				add("LVFS keeps it off certain models by hardware ID (CHID), and " + machine.chidGap() + ": fwupd decides whether this is one")
+			}
 		case q.Kind == "client":
 			add("needs fwupd to support " + q.Text)
 		}

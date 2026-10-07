@@ -47,7 +47,7 @@ flowchart TD
   collect[internal/collect] --> report & resolve & smbios & edid & spd & tpm & trust & schema & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(go.yaml.in/yaml/v3)]
-  advisor[internal/advisor] --> report & kb & schema
+  advisor[internal/advisor] --> report & kb & schema & smbios
   fwindex[internal/fwindex] --> zstd[(klauspost/compress/zstd)]
   genkb[tools/genkb] --> kb & advisor & yaml
   kb[internal/kb]
@@ -76,7 +76,7 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 | `internal/report` | the file format, redaction, sanitising | standard library only |
 | `schema` | the JSON Schemas of the capture format and the advice document (`capture-vN.json`, `advice-vN.json`, embedded) and their URLs | standard library only |
 | `internal/output` | serialisation | `report`, `go.yaml.in/yaml/v3` (the maintained fork of `gopkg.in/yaml.v3`, which is archived) |
-| `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb`, `schema` (the advice document's `$schema`) |
+| `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb`, `schema` (the advice document's `$schema`), `smbios` (chassis type numbers, for hardware IDs) |
 | `internal/kb` | the advisor knowledge base: sources, rules, validation, the embedded copy; pure | standard library only |
 | `internal/fwindex` | the firmware index `hwspec firmware update` keeps ([ADR 0012](docs/adr/0012-firmware-index.md)): LVFS's catalogue verified against the built-in LVFS CA (jcat, CMS), linux-firmware's WHENCE, the cache; only `fetch.go` reaches the network | `github.com/klauspost/compress/zstd` |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
