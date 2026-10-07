@@ -576,6 +576,14 @@ func (c cli) show(args []string) error {
 		fmt.Fprintf(c.stderr, "hwspec: %s uses schema %d, newer than this build understands (%d); some fields may be missing\n",
 			file, r.SchemaVersion, report.SchemaVersion)
 	}
+	// Re-exporting writes only the fields this build knows (owner, #145:
+	// warn, don't refuse).
+	if format != "text" {
+		if f := output.UnknownField(data); f != "" {
+			fmt.Fprintf(c.stderr, "hwspec: %s has fields this build doesn't know (such as %q); the %s output leaves them out: update hwspec to keep them\n",
+				file, f, format)
+		}
+	}
 	resolve.Names(r)
 	c.warnIDSources()
 	if redact {

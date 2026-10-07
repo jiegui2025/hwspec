@@ -138,10 +138,32 @@ func needsQuotes(s string) bool {
 // ErrNotCapture is returned for valid JSON/YAML that isn't a hwspec capture.
 var ErrNotCapture = errors.New("not a hwspec capture (no tool.name \"hwspec\" and schema_version)")
 
+// MaxCaptureSize bounds what readers accept: a real capture is tens of
+// kilobytes, so anything this large isn't one, and reading it whole would
+// only exhaust memory (#145).
+const MaxCaptureSize = 64 << 20
+
+// NewerSchemaError is returned when a capture from a newer schema version
+// doesn't decode: the reason to give is "update hwspec", not the decoder's.
+type NewerSchemaError struct {
+	Version int
+	Err     error
+}
+
+func (e *NewerSchemaError) Error() string {
+	return fmt.Sprintf("uses schema %d, newer than this build understands (%d): update hwspec to read it (%v)",
+		e.Version, report.SchemaVersion, e.Err)
+}
+
+func (e *NewerSchemaError) Unwrap() error { return e.Err }
+
 // Read loads a report previously written as JSON or YAML.
 func Read(data []byte) (*report.Report, error) {
 	r, err := decode(data)
 	if err != nil {
+		if v := schemaVersion(data); v > report.SchemaVersion {
+			return nil, &NewerSchemaError{Version: v, Err: err}
+		}
 		return nil, err
 	}
 	if r.Tool.Name != "hwspec" || r.SchemaVersion < 1 {
@@ -173,4 +195,47 @@ func decode(data []byte) (*report.Report, error) {
 		return nil, err
 	}
 	return &r, nil
+}
+
+// schemaVersion reads only a capture's schema_version, so a capture whose
+// other fields don't decode can still say which version it is (0 if even
+// that can't be read).
+func schemaVersion(data []byte) int {
+	var h struct {
+		SchemaVersion int `json:"schema_version" yaml:"schema_version"`
+	}
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) > 0 && trimmed[0] == '{' {
+		_ = json.Unmarshal(trimmed, &h)
+	} else {
+		_ = yaml.Unmarshal(data, &h)
+	}
+	return h.SchemaVersion
+}
+
+// UnknownField returns the name of a field in a capture that this build
+// doesn't know (the first one found), or "". A capture from a newer v1
+// build may add fields; Read ignores them, so re-exporting it drops them,
+// and the caller should say so (#145, owner: warn, don't refuse).
+func UnknownField(data []byte) string {
+	js := bytes.TrimSpace(data)
+	if len(js) == 0 || js[0] != '{' {
+		var v any
+		if yaml.Unmarshal(data, &v) != nil {
+			return ""
+		}
+		var err error
+		if js, err = json.Marshal(v); err != nil {
+			return ""
+		}
+	}
+	dec := json.NewDecoder(bytes.NewReader(js))
+	dec.DisallowUnknownFields()
+	var r report.Report
+	err := dec.Decode(&r)
+	const prefix = `json: unknown field "`
+	if err == nil || !strings.HasPrefix(err.Error(), prefix) {
+		return ""
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(err.Error(), prefix), `"`)
 }

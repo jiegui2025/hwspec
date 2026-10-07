@@ -644,3 +644,47 @@ func TestUnknownOutputExtensionsWriteNothing(t *testing.T) {
 		t.Errorf(".hwspec: %v, valid JSON %v", err, json.Valid(data))
 	}
 }
+
+// endless never runs out: a stand-in for /dev/zero or a huge wrong file.
+type endless struct{}
+
+func (endless) Read(p []byte) (int, error) { return len(p), nil }
+
+// Reading a capture is bounded: an endless input fails quickly with a
+// clear reason instead of exhausting memory (#145).
+func TestAnEndlessInputIsNotReadWhole(t *testing.T) {
+	setup(t)
+	var out, errOut bytes.Buffer
+	if code := run([]string{"show", "-"}, cli{stdin: endless{}, stdout: &out, stderr: &errOut}); code != 1 {
+		t.Fatalf("exit %d", code)
+	}
+	if !strings.Contains(errOut.String(), "larger than 64 MiB: not a hwspec capture") {
+		t.Errorf("stderr = %q", errOut.String())
+	}
+}
+
+// Re-exporting a capture from a newer build writes only the fields this
+// build knows, and says so (owner, #145: warn, don't refuse); showing it as
+// text isn't re-exporting, so it doesn't warn.
+func TestReexportingWarnsAboutFieldsItDrops(t *testing.T) {
+	setup(t)
+	capture, _ := mustRun(t, "", "capture", "-f", "json")
+	newer := strings.Replace(capture, `"cpu": {`, `"cpu": {"l3_topology": "a field from a newer build", `, 1)
+	if newer == capture {
+		t.Fatal("couldn't add a field to the capture")
+	}
+	file := filepath.Join(t.TempDir(), "newer.json")
+	if err := os.WriteFile(file, []byte(newer), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut := mustRun(t, "", "show", file, "-f", "json")
+	if !strings.Contains(errOut, `has fields this build doesn't know (such as "l3_topology")`) || strings.Contains(out, "l3_topology") {
+		t.Errorf("stderr = %q; field in output: %v", errOut, strings.Contains(out, "l3_topology"))
+	}
+	if _, errOut := mustRun(t, "", "show", file); strings.Contains(errOut, "doesn't know") {
+		t.Errorf("text output warned: %q", errOut)
+	}
+	if _, errOut := mustRun(t, capture, "show", "-", "-f", "yaml"); strings.Contains(errOut, "doesn't know") {
+		t.Errorf("a capture with no unknown fields warned: %q", errOut)
+	}
+}

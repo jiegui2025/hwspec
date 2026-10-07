@@ -633,3 +633,41 @@ func TestNeedsAttentionCoversEveryHealth(t *testing.T) {
 		}
 	}
 }
+
+// A capture from a newer schema that doesn't decode says to update hwspec,
+// not what the decoder tripped on (#145).
+func TestANewerCaptureThatDoesntDecodeSaysUpdate(t *testing.T) {
+	for _, doc := range []string{
+		`{"tool":{"name":"hwspec"},"schema_version":2,"cpu":{"cores":"many"}}`,
+		"tool: {name: hwspec}\nschema_version: 2\ncpu: {cores: many}\n",
+	} {
+		_, err := Read([]byte(doc))
+		var newer *NewerSchemaError
+		if !errors.As(err, &newer) || newer.Version != 2 || !strings.Contains(err.Error(), "update hwspec") {
+			t.Errorf("Read(%q) = %v", doc, err)
+		}
+	}
+	// The same broken field in the current schema is a plain decode error.
+	if _, err := Read([]byte(`{"tool":{"name":"hwspec"},"schema_version":1,"cpu":{"cores":"many"}}`)); err == nil || errors.As(err, new(*NewerSchemaError)) {
+		t.Errorf("schema 1: %v", err)
+	}
+}
+
+// UnknownField names a field a newer build added, in JSON and YAML, and
+// nothing for a capture this build fully knows.
+func TestUnknownFieldNamesAFieldFromANewerBuild(t *testing.T) {
+	var js bytes.Buffer
+	if err := Write(&js, sample(), "json"); err != nil {
+		t.Fatal(err)
+	}
+	if f := UnknownField(js.Bytes()); f != "" {
+		t.Fatalf("a current capture has unknown field %q", f)
+	}
+	newer := bytes.Replace(js.Bytes(), []byte(`"cpu": {`), []byte(`"cpu": {"l3_topology": "x", `), 1)
+	if f := UnknownField(newer); f != "l3_topology" {
+		t.Errorf("JSON: %q", f)
+	}
+	if f := UnknownField([]byte("tool: {name: hwspec}\nschema_version: 1\nhealth_v2: {}\n")); f != "health_v2" {
+		t.Errorf("YAML: %q", f)
+	}
+}
