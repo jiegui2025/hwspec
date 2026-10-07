@@ -44,7 +44,7 @@ flowchart LR
 ```mermaid
 flowchart TD
   cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust & schema & advisor & kb
-  collect[internal/collect] --> report & resolve & smbios & edid & spd & trust & schema & ghw[(ghw)]
+  collect[internal/collect] --> report & resolve & smbios & edid & spd & tpm & trust & schema & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(go.yaml.in/yaml/v3)]
   advisor[internal/advisor] --> report & kb
@@ -59,6 +59,7 @@ flowchart TD
   smbios[internal/smbios]
   edid[internal/edid]
   spd[internal/spd]
+  tpm[internal/tpm]
   trust[internal/trust]
 ```
 
@@ -68,7 +69,7 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 |---|---|---|
 | `cmd/hwspec` | CLI parsing, `pkexec` re-run, wiring; for `advise`, the maintenance record (read safely, the invoking user's under `sudo`) | everything below |
 | `internal/trust` | "can only root change this file?" checks (for `--full` and `smartctl`) | `x/sys/unix` |
-| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `trust`, `schema`, `ghw`, `x/sys/unix` |
+| `internal/collect` | reading kernel interfaces into a `report.Report` | `report`, `resolve`, `smbios`, `edid`, `spd`, `tpm`, `trust`, `schema`, `ghw`, `x/sys/unix` |
 | `internal/resolve` | IDs → names on a report | `ids`, `report` |
 | `internal/ids` | ID databases, overrides, sync, decoders (JEDEC, OUI, CPU) | standard library only |
 | `internal/report` | the file format, redaction, sanitising | standard library only |
@@ -77,6 +78,7 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 | `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb` |
 | `internal/kb` | the advisor knowledge base: sources, rules, validation, the embedded copy; pure | standard library only |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
+| `internal/tpm` | the one TPM 2.0 command hwspec sends (GetCapability, under `--full`) and its reply; pure | standard library only |
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `go.yaml.in/yaml/v3` |
 | `tools/genkb` | build time: `kb/**/*.yaml` → `internal/kb/data/advisor-v1.json.gz`, validated | `kb`, `advisor`, `go.yaml.in/yaml/v3` |
 | `tools/snapshot` | development: records a machine as a scrubbed test fixture (`internal/collect/testdata/machines`) | `collect`, `ghw` |

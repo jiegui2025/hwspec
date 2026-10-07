@@ -20,7 +20,7 @@ linters:
       rules:
         stdlib-only:
           list-mode: strict
-          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/kb/*.go", "**/schema/*.go", "!$test"]
+          files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/schema/*.go", "!$test"]
           allow: [$gostd]
         # Only internal/ids/sync.go (hwspec ids update) reaches the network,
         # and only collect's health.go (smartctl) and the CLI (pkexec) run
@@ -45,6 +45,7 @@ linters:
             - github.com/jiegui2025/hwspec/internal/smbios
             - github.com/jiegui2025/hwspec/internal/edid
             - github.com/jiegui2025/hwspec/internal/spd
+            - github.com/jiegui2025/hwspec/internal/tpm
             - github.com/jiegui2025/hwspec/internal/trust
             - github.com/jiegui2025/hwspec/schema
             - github.com/jaypipes/ghw
@@ -52,7 +53,7 @@ linters:
         # The advisor and its knowledge base are pure too (ADR 0009): the CLI
         # reads files and machine state and passes them in.
         parsers-are-pure:
-          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/kb/*.go", "**/internal/advisor/**/*.go", "!$test"]
+          files: ["**/internal/smbios/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/internal/advisor/**/*.go", "!$test"]
           deny:
             - pkg: os
               desc: "parsers are pure: they get bytes and return values (ARCHITECTURE.md Rules)"
@@ -111,7 +112,7 @@ linters:
     rules:
       - path: _test\.go
         linters: [gosec, errcheck, forbidigo]
-      - path-except: internal/(smbios|edid|spd|kb|advisor)/
+      - path-except: internal/(smbios|edid|spd|tpm|kb|advisor)/
         linters: [forbidigo]
       - path: ^tools/ # build-time generators reading paths given on the command line
         linters: [gosec]

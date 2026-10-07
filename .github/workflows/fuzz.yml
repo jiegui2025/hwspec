@@ -1,6 +1,7 @@
 name: Fuzz
 
-# Fuzzes every parser of untrusted input: SPD, EDID and SMBIOS bytes, the
+# Fuzzes every parser of untrusted input: SPD, EDID and SMBIOS bytes, TPM
+# replies, the
 # ID database files and manifest, captures read by show and advise, and
 # the advisor knowledge base (also downloaded in the signed bundle).
 # Their seed inputs run in every `go test`; fuzzing itself takes minutes, so
@@ -32,6 +33,7 @@ jobs:
           - internal/spd FuzzParse
           - internal/edid FuzzParse
           - internal/smbios FuzzParse
+          - internal/tpm FuzzParse
           - internal/ids FuzzValidate
           - internal/ids FuzzParseManifest
           - internal/output FuzzRead
