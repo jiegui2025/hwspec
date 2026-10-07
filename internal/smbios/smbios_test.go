@@ -114,6 +114,17 @@ func TestChassisType(t *testing.T) {
 			t.Errorf("ChassisType(%d) = %q, want %q", n, got, want)
 		}
 	}
+	// And back: every name to its number (#237's EnclosureKind).
+	for n := 1; ChassisType(n) != ""; n++ {
+		if got, ok := ChassisTypeNumber(ChassisType(n)); !ok || got != n {
+			t.Errorf("ChassisTypeNumber(%q) = %d, %v", ChassisType(n), got, ok)
+		}
+	}
+	for _, name := range []string{"", "Spaceship", "desktop"} {
+		if n, ok := ChassisTypeNumber(name); ok {
+			t.Errorf("ChassisTypeNumber(%q) = %d", name, n)
+		}
+	}
 }
 
 // Firmware from older SMBIOS versions writes shorter structures, and large

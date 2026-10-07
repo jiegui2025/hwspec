@@ -78,8 +78,9 @@ linters:
           list-mode: strict
           files: ["**/internal/advisor/*.go", "**/internal/advisor/**/*.go", "!$test"]
           # schema: constants and embedded files only (the advice document
-          # names its JSON Schema, as captures do from collect).
-          allow: [$gostd, github.com/jiegui2025/hwspec/internal/report, github.com/jiegui2025/hwspec/internal/kb, github.com/jiegui2025/hwspec/schema]
+          # names its JSON Schema, as captures do from collect). smbios: a
+          # pure parser, for its chassis type numbers (#237's hardware IDs).
+          allow: [$gostd, github.com/jiegui2025/hwspec/internal/report, github.com/jiegui2025/hwspec/internal/kb, github.com/jiegui2025/hwspec/schema, github.com/jiegui2025/hwspec/internal/smbios]
         genkb:
           list-mode: strict
           files: ["**/tools/genkb/*.go", "!$test"]

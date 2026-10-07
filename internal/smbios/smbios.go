@@ -300,6 +300,13 @@ var chassisTypes = []string{
 	"Stick PC",
 }
 
+// ChassisTypeNumber is ChassisType the other way: the number for a name it
+// gives, and whether there is one.
+func ChassisTypeNumber(name string) (int, bool) {
+	n := slices.Index(chassisTypes, name) // 0 is "", no type
+	return n, n > 0
+}
+
 // ChassisType maps the SMBIOS chassis type number to its name.
 func ChassisType(n int) string {
 	n &= 0x7F // bit 7 is the "chassis lock present" flag

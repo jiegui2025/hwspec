@@ -445,8 +445,8 @@ func TestReleaseNotes(t *testing.T) {
 		"fwupd also checks other firmware (bootloader ge 0.1)",
 		"needs fwupd ge 1.9.0",
 		"needs org.example.other ge 3",
-		"LVFS limits it to certain models by hardware ID, which hwspec doesn't check",
-		"LVFS excludes certain models by hardware ID, which hwspec doesn't check",
+		"LVFS limits it to certain models by hardware ID (CHID), and hwspec has no hardware IDs for this machine: fwupd decides whether this is one",
+		"LVFS keeps it off certain models by hardware ID (CHID), and hwspec has no hardware IDs for this machine: fwupd decides whether this is one",
 		"needs fwupd to support detach-action",
 	}
 	if !ok || !slices.Equal(got, want) {
@@ -631,5 +631,78 @@ func TestLVFSRound3(t *testing.T) {
 	if id != "firmware.lvfs-update" || !strings.Contains(text, "urgency high") ||
 		!strings.Contains(text, "LVFS limits it to vendor ID DMI:LENOVO, which doesn't name this machine (BIOS vendor HP, maker HP): fwupd decides whether it applies") {
 		t.Errorf("DMI:LENOVO on an HP, no publisher: %s %q", id, text)
+	}
+}
+
+// #237: <hardware> and <not_hardware> are matched against the machine's
+// CHIDs, any of "|"-separated alternatives, as fwupd does. A release for
+// other models isn't installable, nor one that excludes this model; one
+// that needs a field the capture lacks is left to fwupd.
+func TestReleaseHardwareRequirements(t *testing.T) {
+	const ours, other = "94d996ce-4c75-5095-ac40-8ddb05acc8e2", "6de5d951-d755-576b-bd09-c5cf66b27234"
+	machine := vendorsOf(referenceIdentity())
+	partial := referenceIdentity()
+	partial.Board.Identity = nil
+	gap := vendorsOf(partial)
+	for _, c := range []struct {
+		name    string
+		req     LVFSRequirement
+		machine machineVendors
+		ok      bool
+		note    string // "" for none
+	}{
+		{"for this model", LVFSRequirement{Kind: "hardware", Text: ours}, machine, true, ""},
+		{"for it among others", LVFSRequirement{Kind: "hardware", Text: other + "|" + strings.ToUpper(ours)}, machine, true, ""},
+		{"for other models", LVFSRequirement{Kind: "hardware", Text: other}, machine, false, "LVFS limits 2.0.0 to other models by hardware ID (CHID): fwupd won't offer it on this one"},
+		{"excludes this model", LVFSRequirement{Kind: "not_hardware", Text: other + "|" + ours}, machine, false, "LVFS keeps 2.0.0 off this model by hardware ID (CHID): fwupd won't offer it"},
+		{"excludes others", LVFSRequirement{Kind: "not_hardware", Text: other}, machine, true, ""},
+		{"a field missing", LVFSRequirement{Kind: "hardware", Text: other}, gap, true,
+			"LVFS limits it to certain models by hardware ID (CHID), and the capture lacks BaseboardManufacturer, which fwupd uses for them: fwupd decides whether this is one"},
+		{"a field missing, excluded", LVFSRequirement{Kind: "not_hardware", Text: ours}, gap, false, "LVFS keeps 2.0.0 off this model by hardware ID (CHID): fwupd won't offer it"},
+		{"a field missing, not excluded", LVFSRequirement{Kind: "not_hardware", Text: other}, gap, true,
+			"LVFS keeps it off certain models by hardware ID (CHID), and the capture lacks BaseboardManufacturer, which fwupd uses for them: fwupd decides whether this is one"},
+	} {
+		ok, notes := releaseNotes(LVFSRelease{Version: "2.0.0", Requires: []LVFSRequirement{c.req}}, "1.0.0", "triplet", c.machine)
+		want := []string{}
+		if c.note != "" {
+			want = []string{c.note}
+		}
+		if ok != c.ok || !slices.Equal(append([]string{}, notes...), want) {
+			t.Errorf("%s: installable %v, notes %q; want %v, %q", c.name, ok, notes, c.ok, want)
+		}
+	}
+}
+
+// #237's acceptance, as findings: with the reference machine's identity, a
+// newer release LVFS limits to other models isn't an update, one limited
+// to this model is, and without the identity fwupd decides.
+func TestLVFSHardwareLimitedReleases(t *testing.T) {
+	const ours, other = "94d996ce-4c75-5095-ac40-8ddb05acc8e2", "6de5d951-d755-576b-bd09-c5cf66b27234"
+	machine := func() *report.Report {
+		r, id := referenceDrive(), referenceIdentity()
+		r.System, r.Board = id.System, id.Board
+		return r
+	}
+	release := func(chid string) LVFSComponent {
+		c := pm981(LVFSRelease{Version: "1L2QEXD8", Date: day, Requires: []LVFSRequirement{{Kind: "hardware", Text: chid}}},
+			LVFSRelease{Version: "1L2QEXD7", Date: day.AddDate(-1, 0, 0)})
+		c.Developer = "Samsung"
+		return c
+	}
+	for _, c := range []struct {
+		name string
+		r    *report.Report
+		chid string
+		id   string
+		text string
+	}{
+		{"for this model", machine(), ours, "firmware.lvfs-update", ""},
+		{"for other models", machine(), other, "firmware.lvfs-up-to-date", "LVFS limits 1L2QEXD8 to other models by hardware ID (CHID): fwupd won't offer it on this one"},
+		{"no identity", referenceDrive(), other, "firmware.lvfs-update", "fwupd decides whether this is one"},
+	} {
+		id, text := one(t, lvfsFindings(t, c.r, lvfsWith(modelGUID, release(c.chid))))
+		if id != c.id || !strings.Contains(text, c.text) || c.text == "" && strings.Contains(text, "hardware ID") {
+			t.Errorf("%s: %s %q", c.name, id, text)
+		}
 	}
 }
