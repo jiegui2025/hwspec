@@ -37,15 +37,25 @@ func init() {
 }
 
 // pciWithoutDriver finds PCI devices of the rule's classes that no kernel
-// driver is bound to. What to do is the rule's: its commands may name the
-// device's {modalias}.
+// driver is bound to and no module claims (#214): a device with candidate
+// modules gets the driver checks' answer instead (drivers.go), and while
+// the running kernel's modules aren't installed, kernel-modules-missing's.
+// A capture from before candidates were read gets this finding for every
+// driverless device, as before. What to do is the rule's: its commands may
+// name the device's {modalias}.
 func pciWithoutDriver(in *Input, rule *kb.Rule) ([]hit, error) {
+	if modulesMissing(in.Report) {
+		return nil, nil
+	}
 	var hits []hit
 	for m := range pciMatches(in.Report, rule.Match) {
-		if m.dev.Driver != nil {
+		if m.dev.Driver != nil || len(m.dev.ModuleCandidates) > 0 {
 			continue
 		}
 		h := hit{device: m.ref, evidence: append(m.evidence, Absent(m.path("driver")))}
+		if m.dev.ModuleCandidates != nil {
+			h.evidence = append(h.evidence, Present(m.path("module_candidates"), m.dev.ModuleCandidates))
+		}
 		if modalias, ok := pciModalias(*m.dev); ok {
 			h.vars = map[string]string{"modalias": modalias}
 		}

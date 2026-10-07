@@ -29,7 +29,7 @@ func noDriverRule() kb.Rule {
 		ID: "pci.no-driver", Check: "pci-without-driver", Category: "needs-attention", Severity: "warning",
 		Title: "No kernel driver", Detail: "Devices need a driver.",
 		Match: kb.Match{PCIClass: []string{"02", "0403", "0c03"}},
-		Actions: []kb.Action{{Distro: "arch", Text: "Check the wiki", Risk: "none",
+		Actions: []kb.Action{{Text: "Check the wiki", Risk: "none",
 			Commands: []string{"modprobe -R {modalias}", "true"}, Undo: "modprobe -r MODULE"}},
 		Src: []string{"kernel"},
 	}
@@ -40,7 +40,7 @@ func knowledge(rules ...kb.Rule) *kb.KB {
 }
 
 func machine() *report.Report {
-	return &report.Report{PCI: []report.PCIDevice{
+	return &report.Report{OS: report.OS{ID: "cachyos", IDLike: "arch"}, PCI: []report.PCIDevice{
 		{Address: "0000:00:01.0", VendorID: "8086", DeviceID: "1901", ClassCode: "060400", Class: "PCI bridge"},
 		{Address: "0000:02:00.0", VendorID: "8086", DeviceID: "2723", SubVendorID: "8086", SubDeviceID: "0084",
 			ClassCode: "028000", Class: "Network controller", Identity: &report.Identity{Model: "Wi-Fi 6 AX200"}},
@@ -132,7 +132,7 @@ func TestPCIDevicesWithoutADriverNeedAttention(t *testing.T) {
 // line. The modalias is built from IDs that must be hex; a device whose
 // IDs aren't gets no command, and a warning.
 func TestCaptureTextNeverReachesACommand(t *testing.T) {
-	r := &report.Report{PCI: []report.PCIDevice{
+	r := &report.Report{OS: report.OS{ID: "arch"}, PCI: []report.PCIDevice{
 		{Address: `0000:00:00.0/modalias)"; echo INJECTED; echo "$(id`, VendorID: "8086", DeviceID: "2723",
 			SubVendorID: "8086", SubDeviceID: "0084", ClassCode: "028000", Class: "Network controller"},
 		{Address: "0000:03:00.0", VendorID: `80"86`, DeviceID: "2723", SubVendorID: "8086", SubDeviceID: "0084", ClassCode: "028000"},
@@ -335,7 +335,7 @@ func TestTextAdviceIsCompleteAndTerminalSafe(t *testing.T) {
 		"Why        Devices need a driver.",
 		"Evidence   pci[1].class_code = 028000",
 		"Evidence   pci[1].driver = absent",
-		"arch       Check the wiki",
+		"To do      Check the wiki",
 		"Risk       none",
 		"$ modprobe -R pci:v00008086d00002723sv00008086sd00000084bc02sc80i00",
 		"Undo       modprobe -r MODULE",

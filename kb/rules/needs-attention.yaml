@@ -18,6 +18,48 @@ sources:
     licence: GPL-2.0-or-later
     confidence: upstream-doc
     quote: "Print all module names matching an alias."
+  journalctl-grep:
+    url: https://man7.org/linux/man-pages/man1/journalctl.1.html
+    title: journalctl(1), systemd
+    retrieved: "2026-10-07"
+    licence: LGPL-2.1-or-later
+    confidence: upstream-doc
+    quote: "Filter output to entries where the MESSAGE= field matches the specified regular expression."
+  kernel-driver-probe:
+    url: https://docs.kernel.org/driver-api/driver-model/driver.html
+    title: Device Drivers (Linux kernel documentation)
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "A driver's probe() may return a negative errno value to indicate that the driver did not bind to this device"
+  kernel-module-blacklist-param:
+    url: https://docs.kernel.org/admin-guide/kernel-parameters.html
+    title: The kernel's command-line parameters (Linux kernel documentation)
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "Do not load a comma-separated list of modules."
+  modprobe-d-blacklist:
+    url: https://man7.org/linux/man-pages/man5/modprobe.d.5.html
+    title: modprobe.d(5), kmod
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-or-later
+    confidence: upstream-doc
+    quote: "the blacklist keyword indicates that all of that particular module's internal aliases are to be ignored."
+  modprobe-d-install:
+    url: https://man7.org/linux/man-pages/man5/modprobe.d.5.html
+    title: modprobe.d(5), kmod
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-or-later
+    confidence: upstream-doc
+    quote: "This command instructs modprobe to run your command instead of inserting the module in the kernel as normal."
+  modprobe-module-dir:
+    url: https://man7.org/linux/man-pages/man8/modprobe.8.html
+    title: modprobe(8), kmod
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-or-later
+    confidence: upstream-doc
+    quote: "modprobe looks in the module directory /lib/modules/$(uname -r) for all the modules and other files"
   pci-ids-classes:
     url: https://pci-ids.ucw.cz/read/PD/
     title: PCI ID repository, device classes
@@ -41,6 +83,79 @@ sources:
     quote: "03 USB controller"
 
 rules:
+  - id: kernel.modules-missing
+    check: kernel-modules-missing
+    category: needs-attention
+    severity: warning
+    title: The running kernel's modules aren't installed; a reboot is pending
+    detail: >-
+      modprobe loads modules from the running kernel's module directory,
+      and only other kernels' modules are installed: the kernel was
+      upgraded since this boot. Until a reboot, no driver can be loaded,
+      so devices without one can't be explained.
+    actions:
+      - text: Reboot into the installed kernel. Devices without a driver are checked again then.
+    src: [modprobe-module-dir]
+  - id: pci.driver-blacklisted
+    check: pci-driver-blacklisted
+    category: needs-attention
+    severity: warning
+    title: This device's drivers are all kept from loading
+    detail: >-
+      Every module that claims this device is kept from loading. Each
+      entry's kind says how:
+      "blacklist" stops modprobe loading it for a device, "kernel"
+      (module_blacklist= on the command line) stops the kernel loading it
+      at all, and "install" makes modprobe run a no-op instead.
+    match:
+      # As pci.no-driver: 02 network, 03 display, 0403 audio device,
+      # 0c03 USB controller, 0d wireless.
+      pci_class: ["02", "03", "0403", "0c03", "0d"]
+    actions:
+      - text: >-
+          The evidence names the entry and where it is (a modprobe.d file,
+          or the kernel command line). If it isn't deliberate, remove it,
+          then load the module or reboot. Blacklists are often deliberate
+          (a proprietary driver in place of an open one), so hwspec
+          suggests no command.
+    src: [modprobe-d-blacklist, modprobe-d-install, kernel-module-blacklist-param, modprobe-show-alias, pci-ids-classes, pci-ids-multimedia, pci-ids-serial-bus]
+  - id: pci.driver-did-not-bind
+    check: pci-driver-did-not-bind
+    category: needs-attention
+    severity: warning
+    title: This device's driver is loaded but didn't take it
+    detail: >-
+      A module that claims this device is loaded (or built in), yet no
+      driver is bound to the device: the driver's probe failed for it.
+      Missing firmware is a common cause.
+    match:
+      # As pci.no-driver: 02 network, 03 display, 0403 audio device,
+      # 0c03 USB controller, 0d wireless.
+      pci_class: ["02", "03", "0403", "0c03", "0d"]
+    actions:
+      - text: Read this boot's kernel messages about the module; they usually say why.
+        commands:
+          - journalctl -k -b --grep {module}
+    src: [kernel-driver-probe, kernel-driver-binding, journalctl-grep, modprobe-show-alias, pci-ids-classes, pci-ids-multimedia, pci-ids-serial-bus]
+  - id: pci.driver-not-loaded
+    check: pci-driver-not-loaded
+    category: needs-attention
+    severity: warning
+    title: A driver for this device is installed but not loaded
+    detail: >-
+      A module of the running kernel claims this device, and nothing keeps
+      it from loading, but it isn't loaded, so the device has no driver.
+    match:
+      # As pci.no-driver: 02 network, 03 display, 0403 audio device,
+      # 0c03 USB controller, 0d wireless.
+      pci_class: ["02", "03", "0403", "0c03", "0d"]
+    actions:
+      - text: Load the module; the device should get its driver at once.
+        commands:
+          - sudo modprobe {module}
+        risk: A driver that misbehaves can hang the machine; save your work first.
+        undo: sudo modprobe -r {module}
+    src: [kernel-driver-binding, modprobe-module-dir, modprobe-show-alias, pci-ids-classes, pci-ids-multimedia, pci-ids-serial-bus]
   - id: pci.no-driver
     check: pci-without-driver
     category: needs-attention
@@ -49,7 +164,9 @@ rules:
     detail: >-
       A device is only usable once a driver binds to it and initialises it.
       Network, display, audio, USB and wireless controllers have no other
-      way to work.
+      way to work. When the capture lists the running kernel's modules
+      that claim the device and there are none, the kernel has no driver
+      for it.
     match:
       # pci.ids classes: 02 network, 03 display, 0403 audio device,
       # 0c03 USB controller, 0d wireless.

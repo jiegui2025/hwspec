@@ -116,7 +116,7 @@ Rules match raw IDs that captures hold (ADR 0003), never display names:
 | `severity` | `critical` · `warning` · `info` |
 | `device` | `{kind, key, name}`, e.g. `{"kind":"pci","key":"0000:02:00.0"}`; absent for machine-wide findings |
 | `evidence` | capture paths with their values, or `absent: true`. Never identity, serial, UUID, MAC or hostname fields |
-| `actions` | `{distro, text, commands, risk, undo}`: what to do, what can go wrong, how to go back. Commands are shown, never run |
+| `actions` | `{distro, text, commands, risk, undo}`: what to do, what can go wrong, how to go back. Commands are shown, never run. An action with a `distro` is kept only when it is the capture's `os.id` or one of its `os.id_like` words (#214) |
 | `answers` | an upgrade finding's answers (#9), one per question: `{topic, known, text, claims: [{value, src, published}]}`. `known: false` means the text says why it can't be told; `claims` are the knowledge-base values behind it, conflicting ones included (amended 2026-10-06 for #107, below; this row first named a typed `data` field). #10's versions will be added the same way |
 | `sources`, `confidence` | the sources used; confidence is the weakest of them |
 
