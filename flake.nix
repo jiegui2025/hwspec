@@ -14,7 +14,7 @@
           pname = "hwspec";
           version = self.shortRev or "dirty";
           src = ./.;
-          vendorHash = "sha256-daPT29cnOwQr/bKDRid2oxl4362eQPkL5HoSfkqbc7Y=";
+          vendorHash = "sha256-j5uGuj3pqJBW0d1Otj8y/Jm8ClhtBljlhJq7sXzvZ/U=";
           subPackages = [ "cmd/hwspec" ];
           env.CGO_ENABLED = 0;
           ldflags = [ "-s" "-w" "-X main.version=${self.shortRev or "dirty"}" ];

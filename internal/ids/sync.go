@@ -84,7 +84,7 @@ func Update(ctx context.Context, opt UpdateOptions) (*UpdateResult, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("%s: HTTP %s", name, resp.Status)
+			return nil, fmt.Errorf("%s: HTTP %d", name, resp.StatusCode) // the reason phrase is the server's text: not shown
 		}
 		b, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 		if err != nil {

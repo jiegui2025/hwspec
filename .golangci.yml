@@ -22,14 +22,15 @@ linters:
           list-mode: strict
           files: ["**/internal/report/*.go", "**/internal/ids/*.go", "**/internal/smbios/**/*.go", "**/internal/edid/*.go", "**/internal/spd/*.go", "**/internal/tpm/*.go", "**/internal/kb/*.go", "**/schema/*.go", "!$test"]
           allow: [$gostd]
-        # Only internal/ids/sync.go (hwspec ids update) reaches the network,
-        # and only collect's health.go (smartctl) and the CLI (pkexec) run
-        # programs: anywhere else, these imports fail.
+        # Only internal/ids/sync.go (hwspec ids update) and
+        # internal/fwindex/fetch.go (hwspec firmware update, ADR 0012) reach
+        # the network, and only collect's health.go (smartctl) and the CLI
+        # (pkexec) run programs: anywhere else, these imports fail.
         no-network:
-          files: [$all, "!**/internal/ids/sync.go", "!$test"]
+          files: [$all, "!**/internal/ids/sync.go", "!**/internal/fwindex/fetch.go", "!$test"]
           deny:
             - pkg: net
-              desc: "captures never touch the network: only internal/ids/sync.go downloads (ARCHITECTURE.md Rules)"
+              desc: "captures never touch the network: only internal/ids/sync.go and internal/fwindex/fetch.go download (ARCHITECTURE.md Rules)"
         no-subprocesses:
           files: [$all, "!**/internal/collect/health.go", "!**/cmd/hwspec/main.go", "!$test"]
           deny:
@@ -81,6 +82,10 @@ linters:
           list-mode: strict
           files: ["**/tools/genkb/*.go", "!$test"]
           allow: [$gostd, github.com/jiegui2025/hwspec/internal/kb, github.com/jiegui2025/hwspec/internal/advisor, go.yaml.in/yaml/v3]
+        fwindex:
+          list-mode: strict
+          files: ["**/internal/fwindex/*.go", "!$test"]
+          allow: [$gostd, github.com/klauspost/compress/zstd]
         trust:
           list-mode: strict
           files: ["**/internal/trust/*.go", "!$test"]

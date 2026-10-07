@@ -43,11 +43,12 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust & schema & advisor & kb
+  cmd[cmd/hwspec] --> collect & resolve & output & ids & report & trust & schema & advisor & kb & fwindex
   collect[internal/collect] --> report & resolve & smbios & edid & spd & tpm & trust & schema & ghw[(ghw)]
   resolve[internal/resolve] --> ids & report
   output[internal/output] --> report & yaml[(go.yaml.in/yaml/v3)]
   advisor[internal/advisor] --> report & kb
+  fwindex[internal/fwindex] --> zstd[(klauspost/compress/zstd)]
   genkb[tools/genkb] --> kb & advisor & yaml
   kb[internal/kb]
   genids[tools/genids] --> ids & yaml
@@ -77,6 +78,7 @@ The `depguard` rules in [`.golangci.yml`](.golangci.yml) enforce this table in C
 | `internal/output` | serialisation | `report`, `go.yaml.in/yaml/v3` (the maintained fork of `gopkg.in/yaml.v3`, which is archived) |
 | `internal/advisor` | turns a capture into advice: checks registered by name, findings, text rendering ([ADR 0009](docs/adr/0009-advisor.md)); pure | `report`, `kb` |
 | `internal/kb` | the advisor knowledge base: sources, rules, validation, the embedded copy; pure | standard library only |
+| `internal/fwindex` | the firmware index `hwspec firmware update` keeps ([ADR 0012](docs/adr/0012-firmware-index.md)): LVFS's catalogue verified against the built-in LVFS CA (jcat, CMS), linux-firmware's WHENCE, the cache; only `fetch.go` reaches the network | `github.com/klauspost/compress/zstd` |
 | `internal/smbios`, `internal/edid`, `internal/spd` | pure parsers for binary tables (SMBIOS, monitor EDID, RAM module SPD) | standard library only |
 | `internal/tpm` | the one TPM 2.0 command hwspec sends (GetCapability, under `--full`) and its reply; pure | standard library only |
 | `tools/genids` | build time: upstream sources → signed ID database bundle | `ids`, `go.yaml.in/yaml/v3` |
@@ -112,7 +114,7 @@ flowchart TD
 | **Never guess** | unreadable values are omitted, empty or "unknown", never a plausible default; the reason goes in `warnings` | review; `TestIdenticalModulesAreNotGuessed`, `TestUnreadableSMBIOSIsReported`, the recorded machines' `expected.json` |
 | **Collectors degrade, they don't fail** | a missing file, permission error or absent subsystem leaves fields empty; only a broken invariant is an error | `TestBareSystemReportsWhatIsMissing`, the scenario tests |
 | **No external tools in the capture path** | kernel interfaces only, except optional `smartctl` (from root-owned system directories, with a timeout) for SATA health | depguard `no-subprocesses` (`os/exec` only in `collect/health.go` and the CLI); `TestCapturesRunNoProgramButSmartctl`, `TestSmartctlIsOnlyTakenFromRootOwnedPlaces` |
-| **Captures never touch the network** | only `hwspec ids update` and `hwspec firmware update` ([ADR 0012](docs/adr/0012-firmware-index.md), from #10 part 2) do, and each installs only signed, verified data; `capture` and `advise` never do | depguard `no-network` (`net` only in `ids/sync.go`, and `fwindex/fetch.go` once it exists) and `collect`; `TestCapturesNeverTouchTheNetwork` (watches `http.DefaultTransport`) with `TestRequestsOnlyGoThroughTheDefaultTransport` (`ids` has no other way out) and `TestCollectSendsNoPackets` (`collect`'s sockets only talk to the kernel); CI's distro runs use `--network=none` |
+| **Captures never touch the network** | only `hwspec ids update` and `hwspec firmware update` ([ADR 0012](docs/adr/0012-firmware-index.md), from #10 part 2) do, and each installs only signed, verified data; `capture` and `advise` never do | depguard `no-network` (`net` only in `ids/sync.go` and `fwindex/fetch.go`) and `collect`; `TestCapturesNeverTouchTheNetwork` (watches `http.DefaultTransport`) with `TestRequestsOnlyGoThroughTheDefaultTransport` in `ids` and `fwindex` (no other way out; the check is `internal/netrule`) and `TestCollectSendsNoPackets` (`collect`'s sockets only talk to the kernel); CI's distro runs use `--network=none` |
 | **Root is opt-in and minimal** | `--full` re-runs a root-owned binary under `pkexec`; the unprivileged parent writes the file and applies the user's overrides | `TestFullCaptureElevatesOnlyARootOwnedBinary`, `TestFullCaptureRunsTheRootChildThroughPkexec`, `TestWritableOrMissingFilesAreNotTrusted` |
 | **Untrusted text is sanitised** | names from devices, captures and databases lose control characters before reaching a terminal | `TestSanitizeCleansEveryStringInTheReport`, `TestNamesNeverCarryControlCharacters`, `TestTextOutputIsTerminalSafe` |
 | **Parsers are pure** | SMBIOS, EDID, NVMe SMART, Bluetooth management replies and ID files are parsed from bytes and tested without hardware | depguard `stdlib-only` and `parsers-are-pure` (no `os`, `io/ioutil`, `net`, `syscall`, `unsafe`) and forbidigo (no `time.Now`, no file-system walks) for SMBIOS, EDID, SPD, the knowledge base and the advisor; byte-level tests for the parsers that live in `collect` and `ids`: `TestNVMeWarningBitsAndEndurance`, `TestNVMeCountersSaturate`, `TestSmartctlVerdictsAndEndurance`, `TestBluetoothManagementReplies`, `TestMalformedIDsAreRejectedWithAReason`, `TestJEDECCodeShapes` |
