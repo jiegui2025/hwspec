@@ -250,16 +250,11 @@ Items are listed in board rank: priority first, then dependencies (a P1 that wai
 
 | # | Item | Priority | Size |
 |---|---|---|---|
-| [#81](https://github.com/jiegui2025/hwspec/issues/81) | feat(ids): ship the advisor knowledge base in the signed bundle | P1 | S |
 | [#7](https://github.com/jiegui2025/hwspec/issues/7) | feat(advisor): needs-attention list for devices without drivers or firmware | P1 | L |
-| [#129](https://github.com/jiegui2025/hwspec/issues/129) | data(kb): memory slots, population rules and speed range per model | P1 | S |
 | [#25](https://github.com/jiegui2025/hwspec/issues/25) | data(advisor): reference database of replacement and upgrade part numbers | P1 | L |
 | [#119](https://github.com/jiegui2025/hwspec/issues/119) | feat(capture): #103 part 2, each device's mounting from the evidence | P1 | M |
 | [#103](https://github.com/jiegui2025/hwspec/issues/103) | feat(capture): tell soldered from socketed for memory, Wi-Fi, SSD, GPU (and CPU) | P1 | L |
-| [#122](https://github.com/jiegui2025/hwspec/issues/122) | feat(capture): #114 part 2, TPM manufacturer and firmware version under --full | P1 | M |
-| [#114](https://github.com/jiegui2025/hwspec/issues/114) | feat(capture): firmware for every component that has it (CSME, EC, TPM, codecs), never silently absent | P1 | M |
 | [#43](https://github.com/jiegui2025/hwspec/issues/43) | feat(capture): remaining firmware sources (amdgpu blocks, Intel GuC/HuC, Bluetooth HCI revision) and missing SPD EEPROMs | P1 | L |
-| [#107](https://github.com/jiegui2025/hwspec/issues/107) | feat(advisor): memory upgrade answers: slots, population rules, speed range | P1 | L |
 | [#130](https://github.com/jiegui2025/hwspec/issues/130) | research(firmware): ADR 0012, an online firmware index (hwspec firmware update) | P1 | M |
 | [#10](https://github.com/jiegui2025/hwspec/issues/10) | feat(advisor): firmware versions and update paths | P1 | L |
 | [#83](https://github.com/jiegui2025/hwspec/issues/83) | feat(schema): publish the advice document's JSON Schema | P2 | S |
