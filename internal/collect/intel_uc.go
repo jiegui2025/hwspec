@@ -100,7 +100,12 @@ func (c *collector) intelUCFirmware(gpu *report.GPU) {
 		seen[real] = true
 		gts = append(gts, d)
 	}
-	if len(gts) == 0 {
+	switch {
+	case len(gts) > 0:
+	case !exists(debugfsDRI):
+		c.warn("gpu %s: debugfs isn't mounted (%s is missing): GuC and HuC can't be read", gpu.PCIAddress, debugfsDRI)
+		return
+	default:
 		c.warn("gpu %s: the driver's debugfs directory %s has no gt*/uc: GuC and HuC can't be read", gpu.PCIAddress, dir)
 		return
 	}
