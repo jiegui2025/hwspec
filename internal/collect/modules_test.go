@@ -182,3 +182,51 @@ func TestKernelModulesScenarios(t *testing.T) {
 		})
 	}
 }
+
+// A USB interface without a driver gets the modules whose aliases claim
+// it (#216), loaded or not; one with a driver, or without a modalias,
+// doesn't; without an index for the running kernel nothing is matched,
+// and an unreadable index is said once, however many interfaces ask.
+func TestUSBInterfaceCandidates(t *testing.T) {
+	const k120 = "usb:v046DpC31Cd6400dc00dsc00dp00ic03isc01ip01in00"
+	usb := func() []report.USBDevice {
+		return []report.USBDevice{{Path: "1-5", Interfaces: []report.USBInterface{
+			{Name: "1-5:1.0", ClassCode: "030101", Modalias: k120},
+			{Name: "1-5:1.1", ClassCode: "030102", Modalias: k120, Driver: &report.Driver{Name: "usbhid"}},
+			{Name: "1-5:1.2", ClassCode: "ff0000"},
+		}}, {Path: "1-6", Interfaces: []report.USBInterface{{Name: "1-6:1.0", ClassCode: "030101", Modalias: k120}}}}
+	}
+	found := func(dir string) *report.ModuleIndex {
+		return &report.ModuleIndex{Release: "7.2.9", Status: report.ModulesFound, Dir: dir}
+	}
+	file, _ := fakeRoot(t)
+	file("/lib/modules/7.2.9/modules.alias", "alias usb:v*p*d*dc*dsc*dp*ic03isc*ip*in* usbhid\nalias usb:v046DpC31C* logitech_hack\n")
+	file("/sys/module/usbhid/initstate", "live\n")
+	col := &collector{r: &report.Report{USB: usb(), Kernel: &report.Kernel{ModuleIndex: found("/lib/modules/7.2.9")}}}
+	col.usbCandidates()
+	got := col.r.USB[0].Interfaces
+	if want := []report.ModuleCandidate{{Module: "logitech_hack"}, {Module: "usbhid", Loaded: true}}; !reflect.DeepEqual(got[0].ModuleCandidates, want) {
+		t.Errorf("driverless: %+v, want %+v", got[0].ModuleCandidates, want)
+	}
+	if got[1].ModuleCandidates != nil || got[2].ModuleCandidates != nil || len(col.r.Warnings) != 0 {
+		t.Errorf("bound or without a modalias: %+v, warnings %q", got, col.r.Warnings)
+	}
+	for name, kernel := range map[string]*report.Kernel{
+		"no kernel block": nil,
+		"no index":        {},
+		"other releases":  {ModuleIndex: &report.ModuleIndex{Release: "7.2.9", Status: report.ModulesOtherRelease, OtherReleases: []string{"7.2.8"}}},
+	} {
+		col := &collector{r: &report.Report{USB: usb(), Kernel: kernel}}
+		col.usbCandidates()
+		if c := col.r.USB[0].Interfaces[0].ModuleCandidates; c != nil || len(col.r.Warnings) != 0 {
+			t.Errorf("%s: %+v, warnings %q", name, c, col.r.Warnings)
+		}
+	}
+	unreadable = map[string]error{"/lib/modules/7.2.9/modules.alias": syscall.EACCES}
+	col = &collector{r: &report.Report{USB: usb(), Kernel: &report.Kernel{ModuleIndex: found("/lib/modules/7.2.9")}}}
+	col.moduleAliases() // as kernelModules would, for a driverless PCI device
+	col.usbCandidates()
+	if col.r.USB[0].Interfaces[0].ModuleCandidates != nil || len(col.r.Warnings) != 1 {
+		t.Errorf("unreadable: warnings %q", col.r.Warnings)
+	}
+}

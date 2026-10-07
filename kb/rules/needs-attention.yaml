@@ -168,6 +168,64 @@ sources:
     confidence: upstream-doc
     quote: "03 USB controller"
 
+  linux-usb-audio:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/usb/card.c
+    title: "snd-usb-audio: sound/usb/card.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: ".bInterfaceClass = USB_CLASS_AUDIO,"
+  linux-usb-cdc-acm:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/usb/class/cdc-acm.c
+    title: "cdc-acm: drivers/usb/class/cdc-acm.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,"
+  linux-usb-hid:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hid/usbhid/hid-core.c
+    title: "usbhid: drivers/hid/usbhid/hid-core.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: ".bInterfaceClass = USB_INTERFACE_CLASS_HID },"
+  linux-usb-storage:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/usb/storage/usual-tables.c
+    title: "usb-storage: drivers/usb/storage/usual-tables.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "{ USB_INTERFACE_INFO(USB_CLASS_MASS_STORAGE, useProto, useTrans) }"
+  linux-usb-hub:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/usb/core/hub.c
+    title: "hub: drivers/usb/core/hub.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: ".bInterfaceClass = USB_CLASS_HUB,"
+  linux-usb-uvc:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/media/usb/uvc/uvc_driver.c
+    title: "uvcvideo: drivers/media/usb/uvc/uvc_driver.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "{ USB_INTERFACE_INFO(USB_CLASS_VIDEO, 1, UVC_PC_PROTOCOL_UNDEFINED) },"
+  linux-usb-btusb:
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/bluetooth/btusb.c
+    title: "btusb: drivers/bluetooth/btusb.c (Linux)"
+    retrieved: "2026-10-07"
+    licence: GPL-2.0-only
+    confidence: upstream-doc
+    quote: "{ USB_INTERFACE_INFO(0xe0, 0x01, 0x01) },"
+  usb-if-class-codes:
+    url: https://www.usb.org/defined-class-codes
+    title: Defined Class Codes (USB-IF)
+    retrieved: "2026-10-07"
+    licence: "USB-IF: no reuse licence found"
+    confidence: upstream-doc
+    link_only: true
+    locator: "Base Class 01h, 02h, 03h, 08h, 09h, 0Eh, E0h"
+
 rules:
   - id: firmware.load-failed
     check: firmware-load-failed
@@ -314,3 +372,99 @@ rules:
           - sudo modprobe MODULE
         undo: sudo modprobe -r MODULE
     src: [kernel-driver-binding, modprobe-show-alias, pci-ids-classes, pci-ids-multimedia, pci-ids-serial-bus]
+  - id: usb.driver-blacklisted
+    check: usb-driver-blacklisted
+    category: needs-attention
+    severity: warning
+    title: This USB interface's drivers are all kept from loading
+    detail: >-
+      Every module that claims this interface is kept from loading. Each
+      entry's kind says how: "blacklist" stops modprobe loading it for a
+      device, "kernel" (module_blacklist= on the command line) stops the
+      kernel loading it at all, and "install" makes modprobe run a no-op
+      instead.
+    match:
+      # USB interface classes a class-wide in-kernel driver claims (its ID
+      # table, cited): 01 audio (snd-usb-audio), 02 communications (cdc-*),
+      # 03 HID (usbhid), 08 mass storage (usb-storage, uas), 09 hub (hub),
+      # 0e video (uvcvideo), e0 wireless controller (btusb). Left out on
+      # purpose: printers (07; CUPS often drives them from user space),
+      # still imaging, smart cards, application- and vendor-specific ones.
+      usb_class: ["01", "02", "03", "08", "09", "0e", "e0"]
+    actions:
+      - text: >-
+          The evidence names each entry and where it is (a modprobe.d file,
+          or the kernel command line). If it isn't deliberate, remove it,
+          then load the module or replug the device. hwspec suggests no
+          command: blacklists are often deliberate.
+    src: [modprobe-d-blacklist, modprobe-d-install, kernel-module-blacklist-param, usb-if-class-codes, linux-usb-audio, linux-usb-cdc-acm, linux-usb-hid, linux-usb-storage, linux-usb-hub, linux-usb-uvc, linux-usb-btusb]
+  - id: usb.driver-did-not-bind
+    check: usb-driver-did-not-bind
+    category: needs-attention
+    severity: warning
+    title: This USB interface's driver is loaded but didn't take it
+    detail: >-
+      A module that claims this interface is loaded (or built in), yet no
+      driver is bound to it: the driver's probe failed for it.
+    match:
+      # USB interface classes a class-wide in-kernel driver claims (its ID
+      # table, cited): 01 audio (snd-usb-audio), 02 communications (cdc-*),
+      # 03 HID (usbhid), 08 mass storage (usb-storage, uas), 09 hub (hub),
+      # 0e video (uvcvideo), e0 wireless controller (btusb). Left out on
+      # purpose: printers (07; CUPS often drives them from user space),
+      # still imaging, smart cards, application- and vendor-specific ones.
+      usb_class: ["01", "02", "03", "08", "09", "0e", "e0"]
+    actions:
+      - text: Read this boot's kernel messages about the module; they usually say why.
+        commands:
+          - journalctl -k -b --grep {module}
+    src: [kernel-driver-probe, kernel-driver-binding, journalctl-grep, usb-if-class-codes, linux-usb-audio, linux-usb-cdc-acm, linux-usb-hid, linux-usb-storage, linux-usb-hub, linux-usb-uvc, linux-usb-btusb]
+  - id: usb.driver-not-loaded
+    check: usb-driver-not-loaded
+    category: needs-attention
+    severity: warning
+    title: A driver for this USB interface is installed but not loaded
+    detail: >-
+      A module of the running kernel claims this interface, and nothing
+      keeps it from loading, but it isn't loaded, so the interface has no
+      driver.
+    match:
+      # USB interface classes a class-wide in-kernel driver claims (its ID
+      # table, cited): 01 audio (snd-usb-audio), 02 communications (cdc-*),
+      # 03 HID (usbhid), 08 mass storage (usb-storage, uas), 09 hub (hub),
+      # 0e video (uvcvideo), e0 wireless controller (btusb). Left out on
+      # purpose: printers (07; CUPS often drives them from user space),
+      # still imaging, smart cards, application- and vendor-specific ones.
+      usb_class: ["01", "02", "03", "08", "09", "0e", "e0"]
+    actions:
+      - text: Load the module; the interface should get its driver at once (or replug the device).
+        commands:
+          - sudo modprobe {module}
+        risk: A driver that misbehaves can hang the machine; save your work first.
+        undo: sudo modprobe -r {module}
+    src: [kernel-driver-binding, modprobe-module-dir, usb-if-class-codes, linux-usb-audio, linux-usb-cdc-acm, linux-usb-hid, linux-usb-storage, linux-usb-hub, linux-usb-uvc, linux-usb-btusb]
+  - id: usb.no-driver
+    check: usb-without-driver
+    category: needs-attention
+    severity: warning
+    title: No kernel driver is bound to this USB interface
+    detail: >-
+      An interface of a class the kernel drives itself has no driver, and
+      none of the running kernel's modules claims it (or the capture
+      doesn't say).
+    match:
+      # USB interface classes a class-wide in-kernel driver claims (its ID
+      # table, cited): 01 audio (snd-usb-audio), 02 communications (cdc-*),
+      # 03 HID (usbhid), 08 mass storage (usb-storage, uas), 09 hub (hub),
+      # 0e video (uvcvideo), e0 wireless controller (btusb). Left out on
+      # purpose: printers (07; CUPS often drives them from user space),
+      # still imaging, smart cards, application- and vendor-specific ones.
+      usb_class: ["01", "02", "03", "08", "09", "0e", "e0"]
+    actions:
+      - text: >-
+          List the modules that claim this interface, by its modalias. If
+          modprobe finds none, the running kernel has no driver for it (a
+          newer kernel or an out-of-tree driver may).
+        commands:
+          - modprobe -R {modalias}
+    src: [kernel-driver-binding, modprobe-show-alias, usb-if-class-codes, linux-usb-audio, linux-usb-cdc-acm, linux-usb-hid, linux-usb-storage, linux-usb-hub, linux-usb-uvc, linux-usb-btusb]

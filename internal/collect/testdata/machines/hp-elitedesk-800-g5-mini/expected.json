@@ -1128,6 +1128,36 @@
           "proprietary": false,
           "unsigned": false
         }
+      ],
+      "interfaces": [
+        {
+          "name": "1-14:1.0",
+          "class_code": "e00101",
+          "modalias": "usb:v8087p0029d0001dcE0dsc01dp01icE0isc01ip01in00",
+          "driver": {
+            "name": "btusb",
+            "module": "btusb",
+            "version": "0.8",
+            "srcversion": "3C9D319DF69F7C1996E9AD4",
+            "in_tree": true,
+            "proprietary": false,
+            "unsigned": false
+          }
+        },
+        {
+          "name": "1-14:1.1",
+          "class_code": "e00101",
+          "modalias": "usb:v8087p0029d0001dcE0dsc01dp01icE0isc01ip01in01",
+          "driver": {
+            "name": "btusb",
+            "module": "btusb",
+            "version": "0.8",
+            "srcversion": "3C9D319DF69F7C1996E9AD4",
+            "in_tree": true,
+            "proprietary": false,
+            "unsigned": false
+          }
+        }
       ]
     },
     {
@@ -1167,6 +1197,62 @@
           "proprietary": false,
           "unsigned": false
         }
+      ],
+      "interfaces": [
+        {
+          "name": "1-2:1.0",
+          "class_code": "0e0100",
+          "modalias": "usb:v17EFp4831d5002dcEFdsc02dp01ic0Eisc01ip00in00",
+          "driver": {
+            "name": "uvcvideo",
+            "module": "uvcvideo",
+            "version": "1.1.1",
+            "srcversion": "CDCB1BF9973BA71B9F9C978",
+            "in_tree": true,
+            "proprietary": false,
+            "unsigned": false
+          }
+        },
+        {
+          "name": "1-2:1.1",
+          "class_code": "0e0200",
+          "modalias": "usb:v17EFp4831d5002dcEFdsc02dp01ic0Eisc02ip00in01",
+          "driver": {
+            "name": "uvcvideo",
+            "module": "uvcvideo",
+            "version": "1.1.1",
+            "srcversion": "CDCB1BF9973BA71B9F9C978",
+            "in_tree": true,
+            "proprietary": false,
+            "unsigned": false
+          }
+        },
+        {
+          "name": "1-2:1.2",
+          "class_code": "010100",
+          "modalias": "usb:v17EFp4831d5002dcEFdsc02dp01ic01isc01ip00in02",
+          "driver": {
+            "name": "snd-usb-audio",
+            "module": "snd_usb_audio",
+            "srcversion": "BD8FA8FD407E6225ABF5992",
+            "in_tree": true,
+            "proprietary": false,
+            "unsigned": false
+          }
+        },
+        {
+          "name": "1-2:1.3",
+          "class_code": "010200",
+          "modalias": "usb:v17EFp4831d5002dcEFdsc02dp01ic01isc02ip00in03",
+          "driver": {
+            "name": "snd-usb-audio",
+            "module": "snd_usb_audio",
+            "srcversion": "BD8FA8FD407E6225ABF5992",
+            "in_tree": true,
+            "proprietary": false,
+            "unsigned": false
+          }
+        }
       ]
     },
     {
@@ -1191,6 +1277,17 @@
         {
           "name": "hub",
           "builtin": true
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "1-4:1.0",
+          "class_code": "090002",
+          "modalias": "usb:v413Cp1010d3298dc09dsc00dp02ic09isc00ip02in00",
+          "driver": {
+            "name": "hub",
+            "builtin": true
+          }
         }
       ]
     },
@@ -1217,6 +1314,26 @@
           "name": "usbhid",
           "builtin": true
         }
+      ],
+      "interfaces": [
+        {
+          "name": "1-4.4:1.0",
+          "class_code": "030101",
+          "modalias": "usb:v413Cp2110d0006dc00dsc00dp00ic03isc01ip01in00",
+          "driver": {
+            "name": "usbhid",
+            "builtin": true
+          }
+        },
+        {
+          "name": "1-4.4:1.1",
+          "class_code": "030102",
+          "modalias": "usb:v413Cp2110d0006dc00dsc00dp00ic03isc01ip02in01",
+          "driver": {
+            "name": "usbhid",
+            "builtin": true
+          }
+        }
       ]
     },
     {
@@ -1242,6 +1359,35 @@
         {
           "name": "usbhid",
           "builtin": true
+        }
+      ],
+      "interfaces": [
+        {
+          "name": "1-5:1.0",
+          "class_code": "030101",
+          "modalias": "usb:v0B05p1A9Bd0543dc00dsc00dp00ic03isc01ip01in00",
+          "driver": {
+            "name": "usbhid",
+            "builtin": true
+          }
+        },
+        {
+          "name": "1-5:1.1",
+          "class_code": "030102",
+          "modalias": "usb:v0B05p1A9Bd0543dc00dsc00dp00ic03isc01ip02in01",
+          "driver": {
+            "name": "usbhid",
+            "builtin": true
+          }
+        },
+        {
+          "name": "1-5:1.2",
+          "class_code": "030000",
+          "modalias": "usb:v0B05p1A9Bd0543dc00dsc00dp00ic03isc00ip00in02",
+          "driver": {
+            "name": "usbhid",
+            "builtin": true
+          }
         }
       ]
     }

@@ -99,6 +99,7 @@ Rules match raw IDs that captures hold (ADR 0003), never display names:
 | System | DMI `sys_vendor` + `product_name`, optionally `board_name` and SKU | ✅ |
 | PCI | `vendor:device[:subvendor:subdevice]`, a list of them (in `data`, cited), class code prefix | ✅ |
 | USB | `vid:pid` | ✅ |
+| USB interface class | class, subclass and protocol prefix (`usb_class`, #216), as `pci_class` is for PCI | ✅ (`usb[].interfaces[].class_code`) |
 | CPU | `vendor:family:model[:stepping]` as `cpu.ids` keys it: `intel:6:9e:10` (family and model hex, stepping decimal) | ✅ |
 | CPU model | the processor number parsed from the CPUID brand string, e.g. `i5-9500T` from `Intel(R) Core(TM) i5-9500T CPU @ 2.20GHz` (amended 2026-10-06, owner, #128): several SKUs share a CPUID family and model. The parser reads only the forms there is evidence for (Intel Core `iN-NNNN[N]` with up to two suffix letters, so far); any other brand string matches nothing | ✅ (`cpu.identity.model`) |
 | Driver | module name | ✅ |

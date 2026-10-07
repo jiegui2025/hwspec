@@ -2478,6 +2478,87 @@
                 }
               }
             }
+          },
+          "interfaces": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "class_code": {
+                  "type": "string"
+                },
+                "modalias": {
+                  "type": "string"
+                },
+                "driver": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "module": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "srcversion": {
+                      "type": "string"
+                    },
+                    "builtin": {
+                      "type": "boolean"
+                    },
+                    "in_tree": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "proprietary": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    },
+                    "unsigned": {
+                      "type": [
+                        "null",
+                        "boolean"
+                      ]
+                    }
+                  }
+                },
+                "module_candidates": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "module": {
+                        "type": "string"
+                      },
+                      "builtin": {
+                        "type": "boolean"
+                      },
+                      "loaded": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

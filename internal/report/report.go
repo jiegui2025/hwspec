@@ -665,6 +665,25 @@ type USBDevice struct {
 	Identity   *Identity `json:"identity,omitempty"`
 	Firmware   *Firmware `json:"firmware,omitempty"` // device release number (bcdDevice)
 	Drivers    []Driver  `json:"drivers,omitempty"`  // one per bound interface driver
+	// Interfaces are the device's interfaces in its active configuration,
+	// each with its own class and driver (#216). Absent: not read (a
+	// capture from before them).
+	Interfaces []USBInterface `json:"interfaces,omitzero"`
+}
+
+// USBInterface is one interface of a USB device: what it is, the driver
+// bound to it, and, without one, the modules whose aliases claim it.
+type USBInterface struct {
+	Name string `json:"name"` // sysfs name, e.g. 1-2:1.0
+	// ClassCode is the interface's class, subclass and protocol, hex,
+	// e.g. "030102" (HID, boot interface, mouse).
+	ClassCode string  `json:"class_code"`
+	Modalias  string  `json:"modalias,omitempty"`
+	Driver    *Driver `json:"driver,omitempty"`
+	// ModuleCandidates are, for an interface without a driver, the
+	// running kernel's modules whose aliases match its modalias, as for
+	// a PCI device. Absent: not read.
+	ModuleCandidates []ModuleCandidate `json:"module_candidates,omitzero"`
 }
 
 // EnsureIdentity returns *p, allocating it if nil, for setters.

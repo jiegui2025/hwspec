@@ -146,6 +146,9 @@ type Match struct {
 	// PCIClass holds class code prefixes in hex: "02" is any network
 	// controller, "0403" an HD audio device.
 	PCIClass []string `json:"pci_class,omitempty"`
+	// USBClass holds USB interface class code prefixes in hex, class then
+	// subclass then protocol: "03" is any HID interface (#216).
+	USBClass []string `json:"usb_class,omitempty"`
 }
 
 // Keys names the match keys a rule sets, by their JSON names: a check
@@ -536,9 +539,14 @@ func (k *KB) validateRule(r *Rule, strict bool) []error {
 	if strings.TrimSpace(r.Title) == "" {
 		bad("no title")
 	}
-	for _, c := range r.Match.PCIClass {
-		if !classRe.MatchString(c) {
-			bad("pci_class %q isn't 2, 4 or 6 lower-case hex digits", c)
+	for _, m := range []struct {
+		key     string
+		classes []string
+	}{{"pci_class", r.Match.PCIClass}, {"usb_class", r.Match.USBClass}} {
+		for _, c := range m.classes {
+			if !classRe.MatchString(c) {
+				bad("%s %q isn't 2, 4 or 6 lower-case hex digits", m.key, c)
+			}
 		}
 	}
 	if len(r.Data) > 0 {
