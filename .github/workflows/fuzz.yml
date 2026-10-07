@@ -1,0 +1,55 @@
+name: Fuzz
+
+# Fuzzes every parser of untrusted input: SPD, EDID and SMBIOS bytes, the
+# ID database files and manifest, and captures read by show and advise.
+# Their seed inputs run in every `go test`; fuzzing itself takes minutes, so
+# it runs weekly and by hand rather than on PRs (#192). A failure uploads
+# the input that broke the parser: add it under the package's
+# testdata/fuzz/ so it becomes a regular test case.
+
+on:
+  schedule:
+    - cron: "11 5 * * 2" # Tuesdays
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: Time per target (Go duration)
+        type: string
+        default: 3m
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20 # 3 minutes a target, plus the build
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - internal/spd FuzzParse
+          - internal/edid FuzzParse
+          - internal/smbios FuzzParse
+          - internal/ids FuzzValidate
+          - internal/ids FuzzParseManifest
+          - internal/output FuzzRead
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Fuzz ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
+          FUZZTIME: ${{ inputs.fuzztime || '3m' }}
+        run: |
+          read -r pkg fn <<<"$TARGET"
+          go test -run '^$' -fuzz "^$fn\$" -fuzztime "$FUZZTIME" "./$pkg"
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-failure-${{ strategy.job-index }}
+          path: internal/*/testdata/fuzz/
+          retention-days: 30
