@@ -176,7 +176,7 @@ func parseNVMeSMART(b []byte) *report.Health {
 		}
 		return float64(v.Uint64())
 	}
-	h := &report.Health{Status: report.StatusOK, Source: "nvme"}
+	h := &report.Health{Status: report.StatusOK, Source: report.HealthFromNVMe}
 	for _, w := range nvmeCriticalWarnings {
 		if b[0]&w.bit != 0 {
 			h.Reasons = append(h.Reasons, w.text)
@@ -286,7 +286,7 @@ func smartctlHealth(dev string) (*report.Health, error) {
 		}
 		return nil, fmt.Errorf("smartctl: no SMART data")
 	}
-	h := &report.Health{Status: report.StatusUnknown, Source: "smartctl"}
+	h := &report.Health{Status: report.StatusUnknown, Source: report.HealthFromSmartctl}
 	if s.SmartStatus != nil {
 		h.Status = report.StatusOK
 		if !s.SmartStatus.Passed {

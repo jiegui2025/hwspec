@@ -33,7 +33,7 @@ func (c *collector) amdgpuFirmware(gpu *report.GPU) {
 		case !amdgpuHex.MatchString(v):
 			c.warn("gpu %s fw_version/%s: %q isn't amdgpu's 0x%%08x form", gpu.PCIAddress, f, v)
 		case v != "0x00000000":
-			gpu.FirmwareComponents = append(gpu.FirmwareComponents, report.Firmware{Name: name, Version: v, Source: "amdgpu"})
+			gpu.FirmwareComponents = append(gpu.FirmwareComponents, report.Firmware{Name: name, Version: v, Source: report.FirmwareFromAMDGPU})
 		}
 	}
 }

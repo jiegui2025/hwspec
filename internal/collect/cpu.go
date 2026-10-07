@@ -46,7 +46,7 @@ func (c *collector) cpu() {
 	if model != "" || vendor != "" {
 		out.Identity = &report.Identity{Vendor: vendor, Model: model}
 	}
-	out.Firmware = firmwareOrUnknown(firmwareVersion(c.cpuinfoField("microcode"), "microcode"), microcodeReason())
+	out.Firmware = firmwareOrUnknown(firmwareVersion(c.cpuinfoField("microcode"), report.FirmwareFromMicrocode), microcodeReason())
 	out.Family, _ = strconv.Atoi(c.cpuinfoField("cpu family"))
 	out.ModelID, _ = strconv.Atoi(c.cpuinfoField("model"))
 	out.Stepping, _ = strconv.Atoi(c.cpuinfoField("stepping"))
@@ -128,7 +128,7 @@ func cpuHealth() *report.Health {
 	if !found {
 		return nil
 	}
-	h := &report.Health{Status: report.StatusOK, Source: "thermal_throttle"}
+	h := &report.Health{Status: report.StatusOK, Source: report.HealthFromThermalThrottle}
 	metric(h, report.MetricThrottleEvents, float64(events), true)
 	if events > 0 {
 		h.Reasons = append(h.Reasons, fmt.Sprintf("thermal throttling %d times since boot: expected under heavy load on thin laptops; at light load, check cooling (dust, thermal paste or pad, fan)", events))

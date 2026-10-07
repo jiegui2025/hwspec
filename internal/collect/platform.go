@@ -63,7 +63,7 @@ func (c *collector) meFirmware() *report.Firmware {
 			why = "the kernel got no version from the Management Engine"
 			continue
 		}
-		return &report.Firmware{Vendor: "Intel", Version: strings.Join(m[1:], "."), Source: "mei"}
+		return &report.Firmware{Vendor: "Intel", Version: strings.Join(m[1:], "."), Source: report.FirmwareFromMEI}
 	}
 	if why != "" {
 		return report.UnknownFirmware(why)
@@ -108,7 +108,7 @@ func (c *collector) tpmFirmware(dev string, major int) *report.Firmware {
 		}
 		for line := range strings.Lines(caps) {
 			if v, ok := strings.CutPrefix(line, "Firmware version:"); ok {
-				if fw := firmwareVersion(v, "caps"); fw != nil {
+				if fw := firmwareVersion(v, report.FirmwareFromTPMCaps); fw != nil {
 					return fw
 				}
 			}
@@ -119,7 +119,7 @@ func (c *collector) tpmFirmware(dev string, major int) *report.Firmware {
 	if c.privileged {
 		info, err := queryTPM("/dev/" + rm)
 		if err == nil {
-			return &report.Firmware{Vendor: info.Manufacturer, Version: info.FirmwareVersion(), Source: "tpm"}
+			return &report.Firmware{Vendor: info.Manufacturer, Version: info.FirmwareVersion(), Source: report.FirmwareFromTPM}
 		}
 		c.warn("tpm: asking /dev/%s for its firmware version: %v", rm, err)
 	}
@@ -128,7 +128,7 @@ func (c *collector) tpmFirmware(dev string, major int) *report.Firmware {
 	vendor := ""
 	for f := range strings.SplitSeq(props["ID_TPM2_MODALIAS"], ":") {
 		if v, ok := strings.CutPrefix(f, "fw"); ok {
-			fw = firmwareVersion(v, "udev")
+			fw = firmwareVersion(v, report.FirmwareFromUdev)
 		}
 		if v, ok := strings.CutPrefix(f, "mf"); ok {
 			vendor = v
