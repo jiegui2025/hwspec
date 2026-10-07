@@ -38,6 +38,7 @@ Usage:
   hwspec show FILE [-o FILE] [-f text|json|yaml] [--redact]
   hwspec advise [FILE] [--full] [--redact] [-o FILE] [-f text|json|yaml]
   hwspec ids [update [--check] | lookup KIND ID | template]
+  hwspec firmware update [--dry-run] [--allow-older]
   hwspec schema
   hwspec version
 
@@ -70,6 +71,13 @@ ids:
   "lookup" resolves one ID, e.g. "hwspec ids lookup pci 8086:3e92" or
   "hwspec ids lookup jedec F785". "template" prints a commented overrides
   file to start from.
+
+firmware:
+  "update" downloads LVFS's signed firmware catalogue (cdn.fwupd.org) and
+  linux-firmware's WHENCE at its latest release (git.kernel.org), checks
+  them, and keeps them in ~/.cache/hwspec/firmware. Data older than the
+  cached copy is refused unless --allow-older; --dry-run checks without
+  writing. Only this and "ids update" use the network.
 
 schema:
   Prints the JSON Schema (draft 2020-12) of the capture format, which every
@@ -133,6 +141,8 @@ func run(args []string, c cli) int {
 		err = c.advise(args[1:])
 	case "ids":
 		err = c.idsCmd(args[1:])
+	case "firmware":
+		err = c.firmwareCmd(args[1:])
 	case "schema":
 		_, err = c.stdout.Write(schema.JSON)
 	case "version", "--version", "-v":
