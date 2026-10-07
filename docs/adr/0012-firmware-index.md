@@ -117,10 +117,11 @@ flowchart LR
 | Works without fwupd, and with fwupd's own cache when hwspec has none | LVFS may rotate its signer (2035) or drop RSA for ML-DSA only: hwspec then needs an update, and says so |
 | linux-firmware compared with what distros ship, not master | WHENCE's `Version:` covers 940 of 4,647 files and needs per-driver normalisation (iwlwifi first) |
 | LVFS data stays in the user's cache | HP's BIOS family `R21` isn't on LVFS: vendor-only firmware needs knowledge-base pages with check dates (#25) |
+| A release LVFS limits to other models by CHID isn't an update (#237) | "Other models" is certain only for fwupd's 15 CHIDs (`fu-hwids.c`, HardwareID-0 to 14): a requirement on a CHID fwupd adds later, or on a CHID from another source (Device Tree, EDK2 overrides), would read as another model's until hwspec computes it too. A capture missing a field a CHID needs leaves the decision to fwupd |
 
 | Follow-up | Issue |
 |---|---|
 | Parts 2–6 of #10 (the command and verifier; capture match keys; linux-firmware comparison; LVFS comparison; vendor-only firmware), filed as sub-issues of #10 | #10 |
 | CHIDs for `<hardware>` requirements | #237 (done) |
-| Other fwupd plugins' instance-ID formats | #238 |
+| Other fwupd plugins' instance-ID formats | #238, closed as not planned: LVFS matches no CPU, TPM or display stream by them (its TPM streams use ESRT GUIDs and CHIDs); reopen with a part LVFS matches by instance ID |
 | LVFS's metadata download policy | #240 |
