@@ -548,3 +548,88 @@ func TestTextUnknownTimeAndOS(t *testing.T) {
 		t.Errorf("%s", out)
 	}
 }
+
+// healthPaths lists where a *report.Health can sit in a report, by Go
+// field path ("Storage[].Health").
+func healthPaths(typ reflect.Type, path string, out *[]string) {
+	switch typ.Kind() {
+	case reflect.Pointer:
+		if typ == reflect.TypeFor[*report.Health]() {
+			*out = append(*out, path)
+			return
+		}
+		healthPaths(typ.Elem(), path, out)
+	case reflect.Slice, reflect.Array:
+		healthPaths(typ.Elem(), path+"[]", out)
+	case reflect.Map:
+		healthPaths(typ.Elem(), path+"{}", out)
+	case reflect.Struct:
+		for f := range typ.Fields() {
+			if f.IsExported() {
+				healthPaths(f.Type, strings.TrimPrefix(path+"."+f.Name, "."), out)
+			}
+		}
+	}
+}
+
+// failEveryHealth sets every *report.Health field reachable from v to
+// failing with a reason naming its place, and returns the reasons by path.
+func failEveryHealth(v reflect.Value, path string, reasons map[string][]string) {
+	switch v.Kind() {
+	case reflect.Pointer:
+		if v.Type() == reflect.TypeFor[*report.Health]() {
+			reason := fmt.Sprintf("guard-%s-%d", path, len(reasons[path]))
+			v.Set(reflect.ValueOf(&report.Health{Status: report.StatusFailing, Reasons: []string{reason}}))
+			reasons[path] = append(reasons[path], reason)
+			return
+		}
+		if !v.IsNil() {
+			failEveryHealth(v.Elem(), path, reasons)
+		}
+	case reflect.Slice, reflect.Array:
+		for i := range v.Len() {
+			failEveryHealth(v.Index(i), path+"[]", reasons)
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if f := v.Type().Field(i); f.IsExported() {
+				failEveryHealth(v.Field(i), strings.TrimPrefix(path+"."+f.Name, "."), reasons)
+			}
+		}
+	}
+}
+
+// Every part with a Health reaches "Needs attention" when it fails
+// (#149): the sample must hold one of each, and each failing reason must
+// be listed. A new device type with a Health fails here until the sample
+// has one and the text output watches it.
+func TestNeedsAttentionCoversEveryHealth(t *testing.T) {
+	var want []string
+	healthPaths(reflect.TypeFor[report.Report](), "", &want)
+	r := sample() // with one of each part that has a Health
+	r.Memory.Modules = append(r.Memory.Modules, report.MemoryModule{Locator: "DIMM1"})
+	r.Batteries = append(r.Batteries, report.Battery{Name: "BAT0"})
+	reasons := map[string][]string{}
+	failEveryHealth(reflect.ValueOf(r).Elem(), "", reasons)
+	for _, p := range want {
+		if len(reasons[p]) == 0 {
+			t.Errorf("this test's report has no %s: add a part with one, so its health is checked", p)
+		}
+	}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	i := strings.Index(out, "Needs attention")
+	if i < 0 {
+		t.Fatalf("no Needs attention section:\n%s", out)
+	}
+	for p, rs := range reasons {
+		for _, reason := range rs {
+			if !strings.Contains(out[i:], ": "+reason+"\n") {
+				t.Errorf("%s failing isn't under Needs attention (%s): call watch for it in text.go", p, reason)
+			}
+		}
+	}
+}
