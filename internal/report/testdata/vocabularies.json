@@ -1,0 +1,71 @@
+{
+  "BlacklistedModule.Kind": [
+    "blacklist",
+    "kernel",
+    "install"
+  ],
+  "Firmware.Source": [
+    "dmi",
+    "microcode",
+    "nvme",
+    "scsi",
+    "mmc",
+    "ethtool",
+    "usb",
+    "vbios",
+    "mei",
+    "udev",
+    "tpm",
+    "caps",
+    "debugfs",
+    "amdgpu",
+    "hci"
+  ],
+  "Firmware.Status": [
+    "unknown"
+  ],
+  "Health.Metrics": [
+    "temperature_c",
+    "power_on_hours",
+    "power_cycles",
+    "data_read_bytes",
+    "data_written_bytes",
+    "available_spare_percent",
+    "unsafe_shutdowns",
+    "media_errors",
+    "reallocated_sectors",
+    "pending_sectors",
+    "cycle_count",
+    "full_wh",
+    "capacity_percent",
+    "design_wh",
+    "ecc_corrected",
+    "ecc_uncorrected",
+    "thermal_throttle_events",
+    "rx_errors",
+    "tx_errors",
+    "rx_dropped",
+    "tx_dropped",
+    "rx_packets",
+    "tx_packets"
+  ],
+  "Health.Source": [
+    "nvme",
+    "smartctl",
+    "edac",
+    "power_supply",
+    "statistics",
+    "thermal_throttle"
+  ],
+  "Health.Status": [
+    "ok",
+    "warning",
+    "failing",
+    "unknown"
+  ],
+  "ModuleIndex.Status": [
+    "found",
+    "other_release",
+    "none"
+  ]
+}

@@ -109,6 +109,25 @@ type InstanceID struct {
 // FirmwareUnknown is Firmware.Status for a version that couldn't be read.
 const FirmwareUnknown = "unknown"
 
+// Firmware.Source values: where a version was read.
+const (
+	FirmwareFromDMI       = "dmi"
+	FirmwareFromMicrocode = "microcode"
+	FirmwareFromNVMe      = "nvme"
+	FirmwareFromSCSI      = "scsi"
+	FirmwareFromMMC       = "mmc"
+	FirmwareFromEthtool   = "ethtool"
+	FirmwareFromUSB       = "usb"
+	FirmwareFromVBIOS     = "vbios"
+	FirmwareFromMEI       = "mei"
+	FirmwareFromUdev      = "udev"
+	FirmwareFromTPM       = "tpm"
+	FirmwareFromTPMCaps   = "caps"
+	FirmwareFromDebugfs   = "debugfs"
+	FirmwareFromAMDGPU    = "amdgpu"
+	FirmwareFromHCI       = "hci"
+)
+
 // UnknownFirmware is the block of a part whose firmware version can't be
 // read, and why.
 func UnknownFirmware(reason string) *Firmware {
@@ -191,6 +210,40 @@ const (
 	MetricRxPackets          = "rx_packets"
 	MetricTxPackets          = "tx_packets"
 )
+
+// Health.Source values: what the status and metrics were read from.
+const (
+	HealthFromNVMe            = "nvme"             // the NVMe SMART log
+	HealthFromSmartctl        = "smartctl"         // smartmontools, for SATA and SCSI drives
+	HealthFromEDAC            = "edac"             // the kernel's memory error counters
+	HealthFromPowerSupply     = "power_supply"     // a battery's charge and capacity
+	HealthFromStatistics      = "statistics"       // a network interface's counters
+	HealthFromThermalThrottle = "thermal_throttle" // a CPU's throttling counters
+)
+
+// Vocabularies lists, by "Type.Field", the values of a field that readers
+// branch on; for a map, its keys. genschema publishes each list as the
+// field's examples. A published value stays (ADR 0003): renaming or
+// removing one breaks readers, so the lists may only grow, which a test
+// against testdata/vocabularies.json enforces.
+var Vocabularies = map[string][]string{
+	"Health.Status": {StatusOK, StatusWarning, StatusFailing, StatusUnknown},
+	"Health.Source": {HealthFromNVMe, HealthFromSmartctl, HealthFromEDAC, HealthFromPowerSupply,
+		HealthFromStatistics, HealthFromThermalThrottle},
+	"Health.Metrics": {MetricTemperatureC, MetricPowerOnHours, MetricPowerCycles, MetricDataReadBytes,
+		MetricDataWrittenBytes, MetricAvailableSpare, MetricUnsafeShutdowns, MetricMediaErrors,
+		MetricReallocatedSectors, MetricPendingSectors, MetricCycleCount, MetricFullWh,
+		MetricCapacityPercent, MetricDesignWh, MetricECCCorrected, MetricECCUncorrected,
+		MetricThrottleEvents, MetricRxErrors, MetricTxErrors, MetricRxDropped, MetricTxDropped,
+		MetricRxPackets, MetricTxPackets},
+	"Firmware.Status": {FirmwareUnknown},
+	"Firmware.Source": {FirmwareFromDMI, FirmwareFromMicrocode, FirmwareFromNVMe, FirmwareFromSCSI,
+		FirmwareFromMMC, FirmwareFromEthtool, FirmwareFromUSB, FirmwareFromVBIOS, FirmwareFromMEI,
+		FirmwareFromUdev, FirmwareFromTPM, FirmwareFromTPMCaps, FirmwareFromDebugfs, FirmwareFromAMDGPU,
+		FirmwareFromHCI},
+	"ModuleIndex.Status":     {ModulesFound, ModulesOtherRelease, ModulesNone},
+	"BlacklistedModule.Kind": {BlacklistAlias, BlacklistKernel, BlacklistInstall},
+}
 
 // --- Devices ---
 

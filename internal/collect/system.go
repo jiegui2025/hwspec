@@ -172,7 +172,7 @@ func (c *collector) dmi() {
 		s.ChassisType = smbios.ChassisType(n)
 	}
 	// The system's firmware is its BIOS/UEFI.
-	if fw := firmwareVersion(get("bios_version"), "dmi"); fw != nil {
+	if fw := firmwareVersion(get("bios_version"), report.FirmwareFromDMI); fw != nil {
 		fw.Vendor, fw.Date, fw.Release = get("bios_vendor"), get("bios_date"), get("bios_release")
 		s.Firmware = fw
 	} else {
@@ -182,7 +182,7 @@ func (c *collector) dmi() {
 	// prints "%u.%u" and leaves the file out when the firmware says FFh.FFh
 	// (not supported); any other value, 0.0 included, is what it wrote.
 	if ec := get("ec_firmware_release"); ecRelease.MatchString(ec) {
-		s.ECFirmware = &report.Firmware{Version: ec, Source: "dmi"}
+		s.ECFirmware = &report.Firmware{Version: ec, Source: report.FirmwareFromDMI}
 	} else if ec != "" {
 		c.warn("dmi ec_firmware_release: unexpected %q", ec)
 		s.ECFirmware = report.UnknownFirmware("ec_firmware_release isn't in the kernel's format")

@@ -162,7 +162,7 @@ func gpuFirmware(dev report.PCIDevice) *report.Firmware {
 	v, err := readStrErr(pciDir + dev.Address + "/vbios_version")
 	switch {
 	case err == nil:
-		if fw := firmwareVersion(v, "vbios"); fw != nil {
+		if fw := firmwareVersion(v, report.FirmwareFromVBIOS); fw != nil {
 			return fw
 		}
 		return report.UnknownFirmware("the driver reports no VBIOS version")
@@ -174,7 +174,7 @@ func gpuFirmware(dev report.PCIDevice) *report.Firmware {
 	case err == nil:
 		for line := range strings.SplitSeq(info, "\n") {
 			if k, v, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(k) == "Video BIOS" {
-				if fw := firmwareVersion(v, "vbios"); fw != nil {
+				if fw := firmwareVersion(v, report.FirmwareFromVBIOS); fw != nil {
 					return fw
 				}
 			}

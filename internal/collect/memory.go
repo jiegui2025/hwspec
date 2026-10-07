@@ -316,7 +316,7 @@ func (c *collector) edac() {
 		}
 	}
 	for i, n := range found {
-		h := &report.Health{Status: report.StatusOK, Source: "edac"}
+		h := &report.Health{Status: report.StatusOK, Source: report.HealthFromEDAC}
 		metric(h, report.MetricECCCorrected, float64(n.ce), true)
 		metric(h, report.MetricECCUncorrected, float64(n.ue), true)
 		switch {

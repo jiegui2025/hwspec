@@ -135,9 +135,9 @@ func transport(name string) string {
 // drive's firmware_rev, a SCSI, SATA or USB disk's rev. Without one, the
 // block says why.
 func diskFirmware(base, transport string) *report.Firmware {
-	attrs := [][2]string{{"firmware_rev", "nvme"}, {"rev", "scsi"}}
+	attrs := [][2]string{{"firmware_rev", report.FirmwareFromNVMe}, {"rev", report.FirmwareFromSCSI}}
 	if transport == "mmc" {
-		attrs = [][2]string{{"fwrev", "mmc"}}
+		attrs = [][2]string{{"fwrev", report.FirmwareFromMMC}}
 	}
 	reported := ""
 	for _, a := range attrs {

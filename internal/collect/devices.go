@@ -37,7 +37,7 @@ func (c *collector) network() {
 		fw, err := within(slowAnswer, func() (string, error) { return drvinfo(name) })
 		switch {
 		case err == nil || errors.Is(err, unix.EOPNOTSUPP):
-			nic.Firmware = firmwareOrUnknown(firmwareVersion(fw, "ethtool"), "the driver reports no firmware version (ethtool)")
+			nic.Firmware = firmwareOrUnknown(firmwareVersion(fw, report.FirmwareFromEthtool), "the driver reports no firmware version (ethtool)")
 		default:
 			c.warn("network %s: ethtool: %v", name, err)
 			nic.Firmware = report.UnknownFirmware("ethtool can't ask the driver: " + err.Error())
@@ -66,7 +66,7 @@ func (c *collector) network() {
 // link losing more than 1 in 1000 packets to errors is worth a look
 // (cable, port, driver, interference).
 func nicHealth(stats string) *report.Health {
-	h := &report.Health{Status: report.StatusOK, Source: "statistics"}
+	h := &report.Health{Status: report.StatusOK, Source: report.HealthFromStatistics}
 	var total, bad float64
 	for _, m := range []struct{ name, file string }{
 		{report.MetricRxPackets, "rx_packets"}, {report.MetricTxPackets, "tx_packets"},
@@ -238,7 +238,7 @@ func (c *collector) batteries() {
 // like an SSD's; the raw capacity is the capacity_percent metric. The
 // estimate of cycles left until 80% uses the wear per cycle measured so far.
 func batteryHealth(d string) *report.Health {
-	h := &report.Health{Status: report.StatusUnknown, Source: "power_supply"}
+	h := &report.Health{Status: report.StatusUnknown, Source: report.HealthFromPowerSupply}
 	// Energy in µWh, or charge in µAh × design voltage in µV.
 	design, full := float64(readUint(d+"energy_full_design")), float64(readUint(d+"energy_full"))
 	if design == 0 {
@@ -420,7 +420,7 @@ func (c *collector) usb() {
 			VendorID:   vid,
 			ProductID:  pid,
 			USBVersion: strings.TrimSpace(readStr(d + "version")),
-			Firmware:   firmwareOrUnknown(firmwareVersion(usbRelease(readStr(d+"bcdDevice")), "usb"), "bcdDevice can't be read"),
+			Firmware:   firmwareOrUnknown(firmwareVersion(usbRelease(readStr(d+"bcdDevice")), report.FirmwareFromUSB), "bcdDevice can't be read"),
 		}
 		if id := (&report.Identity{
 			Vendor: readStr(d + "manufacturer"),

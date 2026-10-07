@@ -72,7 +72,7 @@ func parseUCInfo(text string) *report.Firmware {
 		}
 		return &report.Firmware{Name: name, Status: report.FirmwareUnknown, Reason: reason}
 	}
-	return &report.Firmware{Name: name, Version: v, Source: "debugfs"}
+	return &report.Firmware{Name: name, Version: v, Source: report.FirmwareFromDebugfs}
 }
 
 // intelUCFirmware reads an i915 or xe GPU's GuC and HuC versions under

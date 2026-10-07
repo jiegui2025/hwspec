@@ -57,7 +57,7 @@ func (c *collector) btFirmware(name string, index uint16) *report.Firmware {
 		}
 		return report.UnknownFirmware("the controller didn't answer HCI Read Local Version")
 	}
-	return &report.Firmware{Version: fmt.Sprintf("0x%04x", v.lmpSubver), Release: fmt.Sprintf("0x%04x", v.hciRevision), Source: "hci"}
+	return &report.Firmware{Version: fmt.Sprintf("0x%04x", v.lmpSubver), Release: fmt.Sprintf("0x%04x", v.hciRevision), Source: report.FirmwareFromHCI}
 }
 
 type mgmtInfo struct {
