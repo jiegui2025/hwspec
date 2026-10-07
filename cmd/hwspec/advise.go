@@ -291,10 +291,24 @@ func fileArg(flags *flag.FlagSet, args []string, required bool) (string, error) 
 
 // readInput reads the file a command was given; "-" is stdin.
 func (c cli) readInput(file string) ([]byte, error) {
-	if file == "-" {
-		return io.ReadAll(c.stdin)
+	in := c.stdin
+	if file != "-" {
+		f, err := os.Open(file) //nolint:gosec // G703: reading the file the user named is the point
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		in = f
 	}
-	return os.ReadFile(file) //nolint:gosec // G703: reading the file the user named is the point
+	// Bounded: /dev/zero or a huge wrong file must fail, not exhaust memory.
+	data, err := io.ReadAll(io.LimitReader(in, output.MaxCaptureSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > output.MaxCaptureSize {
+		return nil, fmt.Errorf("%s: larger than %d MiB: not a hwspec capture", file, output.MaxCaptureSize>>20)
+	}
+	return data, nil
 }
 
 // appID is hwspec's application ID for systemd's app-specific machine IDs.
