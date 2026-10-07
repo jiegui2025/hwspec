@@ -116,7 +116,7 @@ CI runs only what a change needs ([`scripts/changed-areas.sh`](scripts/changed-a
 | Markdown | Mermaid rendering check for the files whose diagrams the PR touched ([`scripts/changed-diagrams.sh`](scripts/changed-diagrams.sh); a prose edit renders nothing; every file when the renderer or its image changes), ADR index check (every `docs/adr` record is listed) |
 | anything | commit messages, PR title |
 
-Pushes to `main` run everything except the VMs and the tamper test: `edge.yml` → `verify.yml` runs the tamper test on the published build, and the VMs boot for releases. **Every night, and by hand from the Actions tab, CI runs everything, VMs included**: the backstop for checks a PR skipped because its paths couldn't affect them, and for drift no commit causes (Go `stable`, `:latest` distro images, the runner image, new vulnerability advisories). A nightly failure blocks nothing and is reported to the owner; fix it in a PR like any other. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested. When `main` moved while the PR was open, the merged tree differs from the head, so the push runs in full and catches a clash between the two.
+Pushes to `main` run everything except the VMs and the tamper test: the VMs boot nightly and for releases, the tamper test weekly and for releases (`verify.yml`). **Every night, and by hand from the Actions tab, CI runs everything but the tamper test, VMs included**: the backstop for checks a PR skipped because its paths couldn't affect them, and for drift no commit causes (Go `stable`, `:latest` distro images, the runner image, new vulnerability advisories). A nightly failure blocks nothing and is reported to the owner; fix it in a PR like any other. A push whose tree is exactly the head of the merged PR it came from, whose CI run passed (this workflow's own `ci-ok`, not a check of that name from another app), runs only `changes` and `ci-ok`: that tree was just tested. When `main` moved while the PR was open, the merged tree differs from the head, so the push runs in full and catches a clash between the two.
 
 Jobs run on a pinned runner image, `ubuntu-24.04`, so the CI environment changes only when we choose. The [Canary workflow](.github/workflows/canary.yml) runs the tests on the next image (`ubuntu-26.04`) daily, and by hand from the Actions tab, to show breakage early; it never blocks a PR, and moving to the new image is its own PR.
 
@@ -272,15 +272,15 @@ flowchart LR
   tag[release.yml] --> rel[Release]
   pre --> verify
   rel --> verify["verify.yml: SHA256SUMS, attestations"]
-  verify --> tamper["tamper: tampered local copies must fail"]
-  verify --> ctr["containers: 8 distros on amd64, 5 on arm64"]
+  verify -->|"releases, weekly"| tamper["tamper: tampered local copies must fail"]
+  verify --> ctr["containers: releases 8 distros on amd64, 5 on arm64;<br/>edge one per architecture"]
   verify -->|releases| vms["vms.yml: KVM VMs (amd64)<br/>systemd, OpenRC, sysvinit"]
 ```
 
 | Workflow | Does |
 |---|---|
 | `edge.yml` | after CI passes on `main`: builds that commit, attests it, and replaces the `edge` pre-release (never Latest) |
-| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner, checks that tampered local copies of those assets fail the same checks, then runs the published binary in the distro containers on amd64 and arm64 runners, and, for releases, in the VMs (an `edge` build's tree booted them in its PR's CI). Run it by hand from the Actions tab for any tag, VMs included. |
+| `verify.yml` | after every publish: downloads the assets as a user would, checks `SHA256SUMS`, checks each tarball's attestation was signed by this repository's `release.yml` (or `edge.yml`) for that tag (or `main`) on a GitHub-hosted runner. **Releases** (and any run by hand) then get everything: tampered local copies of the assets must fail the same checks, the published binary runs in every distro container on amd64 and arm64 runners, and in the VMs. **Edge publishes** run the binary in one container per architecture (Ubuntu): their tree already ran in all 8 distros in its PR, and the VMs in its PR or the nightly run (#190). **Weekly**, the tamper test runs against the live `edge` release, since the verifier can drift with `gh` and the attestation service. |
 | `vms.yml` | boots each pinned cloud image below under KVM and runs `scripts/vm-run.sh` on it. Also runs in CI, with the binary just built, when a PR changes Go code, the VM harness (`scripts/vm-*.sh`, `vms.yml`) or CI itself. |
 | `vm-images.yml` | weekly: every pinned image URL still exists, and `vms.yml`'s matrix matches `scripts/vm-run.sh --list` |
 
@@ -315,7 +315,7 @@ hwspec always runs with no way out, and each VM asserts it: the check fails if t
   - `FAIL (checksums)` or `FAIL (attestation)`: the release is wrong. Fix it, then delete or supersede that release.
   - `FAIL (error)`: anything that isn't gh's definite "no" (no attestation for the digest, or one from another commit, ref or signer). It means the check couldn't run: auth, rate limit, outage, no network, or a gh message not seen before. That says nothing about the release: fix the cause and re-run.
 - The checksum and attestation checks live in `scripts/verify-release.sh`. `scripts/verify-release_test.sh TAG REPO [COMMIT]` proves they catch tampering, on local copies of a real release's assets. Nothing published changes.
-  - It runs in `verify.yml` after every publish, pinned to the commit `integrity` verified. It stops with an error if the tag moves or disappears while it runs (checked again after the download).
+  - It runs in `verify.yml` for releases, runs by hand and weekly against `edge`, pinned to the commit `integrity` verified. It stops with an error if the tag moves or disappears while it runs (checked again after the download).
   - It runs in CI, against the live `edge` release, on PRs that change `verify.yml` or these scripts. That job depends on `edge` existing. If `edge` is missing (a fork, deleted by hand, or a publish that died between delete and create), it fails with `release 'edge' not found`. The next push to `main` whose CI passes republishes it, or re-run the Edge workflow for `main`'s tip.
   - Each case must fail at the expected check, **and** for the expected reason, so an outage can't pass as "tampering caught":
 
