@@ -98,7 +98,7 @@ flowchart LR
 | PCI and USB devices | IDs, names, serial, revision; the bridge each PCI device sits behind (absent on a root bus) | USB device release | ✅ per interface | — |
 | Soldered or removable | for memory modules, storage, network, display, audio and wireless devices: onboard, socket or slot (which one when it can tell), with the evidence and how sure; the firmware's slot table needs root¹, onboard labels don't | — | — | — |
 
-Plus: OS, kernel (its module index, blacklisted modules, and the modules that could drive a device without a driver), boot mode, Secure Boot, VM/container; CPU cores, caches, clocks, flags; partitions; PCIe links; IOMMU groups; sensors (temperatures, fans, voltages, power). Text output ends with a **Needs attention** list of every warning and failure, with reasons.
+Plus: OS, kernel (its module index, blacklisted modules, the modules that could drive a device without a driver, and firmware that failed to load¹), boot mode, Secure Boot, VM/container; CPU cores, caches, clocks, flags; partitions; PCIe links; IOMMU groups; sensors (temperatures, fans, voltages, power). Text output ends with a **Needs attention** list of every warning and failure, with reasons.
 
 ¹ Needs root: `--full`. Life estimates only come from the hardware's own wear indicators and say how they were computed; rated values (TBW, rated cycles) come later from model data ([#25](https://github.com/jiegui2025/hwspec/issues/25)).
 

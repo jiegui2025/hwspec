@@ -1,0 +1,2 @@
+go test fuzz v1
+string(";Direct firmware load for 0 failed with error -00\n0")

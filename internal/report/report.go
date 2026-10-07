@@ -552,6 +552,20 @@ type Kernel struct {
 	// keep one from loading (an install script, a udev rule) isn't read,
 	// so it doesn't mean nothing can.
 	ModuleBlacklist []BlacklistedModule `json:"module_blacklist,omitzero"`
+	// FirmwareFailures are the "Direct firmware load … failed" warnings in
+	// the kernel log (/dev/kmsg, --full only). Absent: not read (no root,
+	// or a capture from before it). Empty: none logged, though a driver
+	// that asked quietly, or a log that wrapped, logs nothing.
+	FirmwareFailures []FirmwareFailure `json:"firmware_failures,omitzero"`
+}
+
+// FirmwareFailure is a firmware file the kernel log says failed to load,
+// for which device and driver (#213).
+type FirmwareFailure struct {
+	Device string `json:"device"` // its bus address, e.g. 0000:02:00.0
+	Driver string `json:"driver,omitempty"`
+	File   string `json:"file"`  // as requested, e.g. iwlwifi-cc-a0-77.ucode
+	Error  int    `json:"error"` // the loader's negative errno, e.g. -2 (ENOENT)
 }
 
 // BlacklistedModule is one module kept from loading, how, and where: the

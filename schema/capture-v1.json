@@ -2313,6 +2313,29 @@
               }
             }
           }
+        },
+        "firmware_failures": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "device": {
+                "type": "string"
+              },
+              "driver": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "error": {
+                "type": "integer"
+              }
+            }
+          }
         }
       }
     },
