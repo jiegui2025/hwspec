@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -26,7 +27,11 @@ func syncedKB(t *testing.T, version string) []byte {
 		t.Fatal(err)
 	}
 	k.Version = version
-	k.Rules[0].Title = "From the synced copy"
+	for i := range k.Rules {
+		if k.Rules[i].ID == "pci.no-driver" {
+			k.Rules[i].Title = "From the synced copy"
+		}
+	}
 	b, err := kb.Encode(k)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +69,8 @@ func TestTheNewerKnowledgeBaseIsUsed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := k.Rules[0].Title == "From the synced copy"; got != c.synced || (source != "embedded") != c.synced {
+		got := slices.ContainsFunc(k.Rules, func(r kb.Rule) bool { return r.Title == "From the synced copy" })
+		if got != c.synced || (source != "embedded") != c.synced {
 			t.Errorf("%s: synced copy used %v (source %q), want %v", c.name, got, source, c.synced)
 		}
 		w := strings.Join(warnings, "\n")
@@ -80,13 +86,13 @@ func TestAdviceFallsBackToTheBuiltInKnowledgeBase(t *testing.T) {
 	setupAdvise(t)
 	withSyncedKB(t, []byte("not gzip"), "x", nil)
 	a := readAdvice(t, out(t, "", "advise", "-f", "json"))
-	if len(a.Findings) != 1 || a.Findings[0].Title == "From the synced copy" ||
+	if f := noDriver(a); len(f) != 1 || f[0].Title == "From the synced copy" ||
 		!strings.Contains(strings.Join(a.Warnings, "\n"), "knowledge base: the synced copy can't be read") {
 		t.Errorf("findings %+v, warnings %q", a.Findings, a.Warnings)
 	}
 	withSyncedKB(t, syncedKB(t, "2099-01-01T00:00:00Z"), "2099-01-01T00:00:00Z", nil)
 	a = readAdvice(t, out(t, "", "advise", "-f", "json"))
-	if len(a.Findings) != 1 || a.Findings[0].Title != "From the synced copy" || a.KBVersion != "2099-01-01T00:00:00Z" {
+	if f := noDriver(a); len(f) != 1 || f[0].Title != "From the synced copy" || a.KBVersion != "2099-01-01T00:00:00Z" {
 		t.Errorf("the newer synced copy: %+v", a.Findings)
 	}
 	if got := out(t, "", "ids"); !strings.Contains(got, "advisor") || !strings.Contains(got, "advisor-v1.json.gz 2099-01-01T00:00:00Z") {

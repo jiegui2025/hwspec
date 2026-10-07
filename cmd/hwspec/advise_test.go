@@ -69,6 +69,19 @@ func readAdvice(t *testing.T, js string) advisor.Advice {
 	return a
 }
 
+// noDriver returns the advice's pci.no-driver findings: the test machine
+// has one driverless Wi-Fi card. Other rules (#107's memory answers) add
+// findings of their own, which these tests don't count.
+func noDriver(a advisor.Advice) []advisor.Finding {
+	var out []advisor.Finding
+	for _, f := range a.Findings {
+		if f.ID == "pci.no-driver" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 func out(t *testing.T, stdin string, args ...string) string {
 	t.Helper()
 	stdout, _ := mustRun(t, stdin, args...)
@@ -102,7 +115,7 @@ func TestAdviseASavedCaptureAsJSON(t *testing.T) {
 	if len(a.Warnings) == 0 || !strings.Contains(a.Warnings[0], "doesn't use a maintenance record") {
 		t.Errorf("warnings %q", a.Warnings)
 	}
-	if len(a.Findings) != 1 || a.Findings[0].ID != "pci.no-driver" || a.Findings[0].Device.Key != "0000:02:00.0" {
+	if f := noDriver(a); len(f) != 1 || f[0].Device.Key != "0000:02:00.0" {
 		t.Errorf("findings %+v", a.Findings)
 	}
 	// The same capture from stdin, as YAML: the same content, the same hash.
@@ -113,8 +126,8 @@ func TestAdviseASavedCaptureAsJSON(t *testing.T) {
 	}
 	// --redact advises on the redacted capture, and hashes that.
 	r := readAdvice(t, out(t, "", "advise", file, "--redact", "-f", "json"))
-	if !r.Redacted || r.CaptureSHA256 == a.CaptureSHA256 || len(r.Findings) != 1 {
-		t.Errorf("redacted: %v, sha %s, %d findings", r.Redacted, r.CaptureSHA256, len(r.Findings))
+	if !r.Redacted || r.CaptureSHA256 == a.CaptureSHA256 || len(noDriver(r)) != 1 {
+		t.Errorf("redacted: %v, sha %s, %d findings", r.Redacted, r.CaptureSHA256, len(noDriver(r)))
 	}
 }
 
@@ -143,8 +156,8 @@ func TestAdviseThisMachine(t *testing.T) {
 		}
 	}
 	a := readAdvice(t, out(t, "", "advise", "-f", "json"))
-	if !a.Live || len(a.Findings) != 1 || a.RulesApplied != 1 {
-		t.Errorf("live %v, %d findings, applied %d", a.Live, len(a.Findings), a.RulesApplied)
+	if !a.Live || len(noDriver(a)) != 1 || a.RulesApplied == 0 || a.RulesSkipped != 0 {
+		t.Errorf("live %v, %d findings, applied %d, skipped %d", a.Live, len(noDriver(a)), a.RulesApplied, a.RulesSkipped)
 	}
 	// The capture's own warnings are carried over: what it couldn't read
 	// can hide findings.
@@ -262,8 +275,8 @@ func TestAdviceWithoutStateSaysWhy(t *testing.T) {
 			if strings.Contains(joined, "root:") || strings.Contains(joined, "secret") {
 				t.Error("the state warning quotes the file it read")
 			}
-			if len(a.Findings) != 1 {
-				t.Errorf("%d findings, want the advice anyway", len(a.Findings))
+			if len(noDriver(a)) != 1 {
+				t.Errorf("%d findings, want the advice anyway", len(noDriver(a)))
 			}
 		})
 	}
@@ -330,7 +343,7 @@ func TestAdviseWritesPrivateFilesAndExplainsMistakes(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "advice.json")
 	_, stderr := mustRun(t, "", "advise", "--redact", "-o", file)
 	st, err := os.Stat(file)
-	if err != nil || st.Mode().Perm() != 0o600 || !strings.Contains(stderr, "(json, 1 finding, ") {
+	if err != nil || st.Mode().Perm() != 0o600 || !strings.Contains(stderr, "(json, 2 findings, ") {
 		t.Errorf("-o: %v, mode %v, %q", err, st, stderr)
 	}
 	if data, _ := os.ReadFile(file); readAdvice(t, string(data)).AdviceVersion != 1 {
@@ -378,8 +391,8 @@ func TestAdviseFullCapturesAsRoot(t *testing.T) {
 
 	t.Setenv("FAKE_PKEXEC", "")
 	a := readAdvice(t, out(t, "", "advise", "--full", "-f", "json"))
-	if !a.Live || len(a.Findings) != 1 {
-		t.Errorf("live %v, %d findings", a.Live, len(a.Findings))
+	if !a.Live || len(noDriver(a)) != 1 {
+		t.Errorf("live %v, %d findings", a.Live, len(noDriver(a)))
 	}
 	t.Setenv("FAKE_PKEXEC", "dismiss")
 	if code, _, stderr := hwspec(t, "", "advise", "--full"); code != 1 || !strings.Contains(stderr, "run hwspec advise without --full") {

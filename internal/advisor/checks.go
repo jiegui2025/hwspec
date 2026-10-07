@@ -17,7 +17,7 @@ func init() {
 	register("pci-without-driver", check{
 		run:       pciWithoutDriver,
 		needs:     []string{"pci[].class_code", "pci[].driver"},
-		available: func(r *report.Report) bool { return r.PCI != nil },
+		available: func(in *Input) bool { return in.Report.PCI != nil },
 		provides:  []string{"modalias"},
 		matches:   []string{"pci_class"},
 		// Bridges and other plumbing often have no driver by design, so the
@@ -92,9 +92,34 @@ func pciMatches(r *report.Report, match kb.Match) iter.Seq[pciMatch] {
 
 // claims is one data value as the knowledge base gives it: the claims of
 // its sources, each {value, src}.
-type claims[V any] []struct {
+type claims[V any] []claim[V]
+
+type claim[V any] struct {
 	Value V      `json:"value"`
 	Src   string `json:"src"`
+}
+
+// UnmarshalJSON reads a claim's value strictly and its source. Its other
+// keys are descriptive (a note, a page: ADR 0009), so a newer knowledge
+// base may add them without older binaries refusing the claim.
+func (c *claim[V]) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		Value json.RawMessage `json:"value"`
+		Src   string          `json:"src"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	if raw.Value == nil || raw.Src == "" {
+		return errors.New("a claim is {value, src}")
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw.Value))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&c.Value); err != nil {
+		return err
+	}
+	c.Src = raw.Src
+	return nil
 }
 
 // first returns the first claim's value and the source it cites, which

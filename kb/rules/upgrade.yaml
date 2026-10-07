@@ -1,0 +1,33 @@
+# Upgrade answers (#9): what the machine has, and what its documents say
+# fits. Format: ADR 0009 and kb/README.md. The checks read the model's
+# data from kb/models; a model without an entry gets the capture's facts
+# and "unknown" for the rest, with the reason.
+
+rules:
+  - id: memory.below-minimum
+    check: memory-below-minimum
+    category: upgrade
+    severity: warning
+    title: A memory module is rated slower than this model's documented minimum
+    detail: >-
+      The model's documents give a minimum module speed, and this module is
+      rated below it: it may not run, or may slow the other modules down.
+    actions:
+      - text: >-
+          Replace it with a module rated at the documented minimum or
+          faster, of the type and form factor the model takes (see the
+          memory answers).
+        risk: Switch the machine off and unplug it before opening it; touch bare metal first to discharge static.
+        undo: Put the old module back.
+    src: [capture]
+  - id: memory.upgrade
+    check: memory-upgrade
+    category: upgrade
+    severity: info
+    title: "Memory: slots, channels and speeds"
+    detail: >-
+      What is installed comes from the capture (the slot table needs
+      --full); the rules for adding or replacing modules come from the
+      model's documents, every claim with its source. Where documents
+      disagree, all of them are shown.
+    src: [capture]

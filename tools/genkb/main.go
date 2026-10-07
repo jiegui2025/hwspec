@@ -231,6 +231,11 @@ func compile(dir, version string) (*kb.KB, error) {
 			errs = append(errs, fmt.Errorf("%q: %w", r.ID, err))
 		}
 	}
+	for i := range k.Models {
+		for _, err := range advisor.ValidateModel(&k.Models[i]) {
+			errs = append(errs, fmt.Errorf("models entry %q: %w", k.Models[i].ID, err))
+		}
+	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, err
 	}
