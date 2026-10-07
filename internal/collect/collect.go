@@ -87,6 +87,7 @@ func collectNow(version string) *report.Report {
 		c.r.Kernel = &report.Kernel{}
 	}
 	c.r.Kernel.ModuleBlacklist = c.moduleBlacklist()
+	c.r.Kernel.FirmwareFailures = c.firmwareFailures()
 	c.mountings() // after pci, memory, storage and the firmware tables
 	c.displays()
 	c.network()

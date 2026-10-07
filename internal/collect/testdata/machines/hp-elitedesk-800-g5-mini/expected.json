@@ -1251,6 +1251,7 @@
     "SMBIOS table (memory modules and slots, CPU sockets, expansion slots, onboard devices): needs root (run with --full)",
     "dmi product_serial, product_uuid, chassis_serial, board_serial: needs root (run with --full)",
     "drive health (SMART): needs root (run with --full)",
+    "kernel log (missing firmware): needs root (run with --full)",
     "memory: SPD modules total 16.0 GiB, less than the 31.1 GiB usable: some modules' SPD isn't exposed (a likely cause: the kernel registers SPD EEPROMs only at 0x50 + slot index), so they aren't listed; --full lists every module"
   ]
 }
