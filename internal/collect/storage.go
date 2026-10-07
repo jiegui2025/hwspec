@@ -60,6 +60,9 @@ func (c *collector) storage() {
 		// block devices without a device link aren't drives.
 		if disk.Type != "virtual" && exists(base+"/device") {
 			disk.Firmware = diskFirmware(base, disk.Transport)
+			if disk.Transport == "nvme" {
+				disk.Firmware.InstanceIDs = nvmeInstanceIDs(base + "/device")
+			}
 		}
 		for _, part := range partitionNames(base, name) {
 			dir := base + "/" + part

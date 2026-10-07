@@ -50,6 +50,9 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["me firmware"] = r.System.MEFirmware != nil && r.System.MEFirmware.Version == "12.0.45.1509" && r.System.MEFirmware.Source == "mei"
 		want["ec firmware"] = r.System.ECFirmware != nil && r.System.ECFirmware.Version == "8.9" && r.System.ECFirmware.Source == "dmi"
 		want["tpm 2"] = r.TPM != nil && r.TPM.SpecVersionMajor == 2
+		// The ESRT has one entry, readable by root only (-r--------).
+		want["esrt needs --full"] = r.System.ESRT != nil && r.System.ESRT.Status == report.FirmwareUnknown &&
+			r.System.ESRT.Reason == "needs --full" && r.System.ESRT.Entries == nil
 		// The running kernel's module index (#131): installed, and no
 		// module claims the two driverless devices (the RAM controller and
 		// the LPC bridge), so the advisor has nothing to suggest for them.
@@ -131,6 +134,14 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 			want["nvme model"] = d.Identity != nil && d.Identity.Model == "SAMSUNG MZVLB256HAHQ-000L7"
 			want["nvme firmware"] = d.Firmware != nil && d.Firmware.Version == "1L2QEXD7" && d.Firmware.Source == "nvme"
 			want["nvme driver is the controller's"] = d.Driver != nil && d.Driver.Name == "nvme" && d.Driver.Module == "nvme"
+			// fwupd's instance IDs and GUIDs for the drive, as
+			// `fwupdmgr get-devices --json` lists them (fwupd 2.1.8,
+			// 2026-10-07): the IDs LVFS releases name (#224).
+			want["nvme instance ids are fwupd's"] = d.Firmware != nil && slices.Equal(d.Firmware.InstanceIDs, []report.InstanceID{
+				{ID: `NVME\VEN_144D&DEV_A808`, GUID: "47335265-a509-51f7-841e-1c94911af66b"},
+				{ID: `NVME\VEN_144D&DEV_A808&SUBSYS_144DA801`, GUID: "c9d531ea-ee7d-5562-8def-c64d0d144813"},
+				{ID: "SAMSUNG MZVLB256HAHQ-000L7", GUID: "9657ce89-450f-58d2-ade0-2c6ae667541a"},
+			})
 		} else {
 			want["nvme0n1 found"] = false
 		}

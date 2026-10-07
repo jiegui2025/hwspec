@@ -270,6 +270,9 @@ var (
 	}
 )
 
+// instanceIDText finds a capture's instance IDs: {"id": "...", "guid": ...}.
+var instanceIDText = regexp.MustCompile(`"id":\s*("(?:[^"\\]|\\.)*"),\s*"guid"`)
+
 // macText finds MAC addresses with any of the usual separators, and
 // interface names built from one (enx001122334455).
 var macText = regexp.MustCompile(`(?im)\b[0-9a-f]{2}(?::[0-9a-f]{2}){5}\b|\b[0-9a-f]{2}(?:-[0-9a-f]{2}){5}\b|\b[0-9a-f]{2}(?:_[0-9a-f]{2}){5}\b|\b(?:enx|wlx|wwx)[0-9a-f]{12}\b|^[A-Z0-9_]+=[0-9a-f]{12}$`)
@@ -340,8 +343,17 @@ func TestRecordingsHoldNoIdentifiers(t *testing.T) {
 					t.Errorf("%s holds MAC %s", rel, m)
 				}
 			}
+			// An instance ID's GUID is a hash of the ID beside it (a
+			// model, PCI IDs): it carries nothing the ID doesn't.
+			derived := map[string]bool{}
+			for _, m := range instanceIDText.FindAllStringSubmatch(text, -1) {
+				var id string
+				if json.Unmarshal([]byte(m[1]), &id) == nil {
+					derived[instanceGUID(id)] = true
+				}
+			}
 			for _, u := range uuidPattern.FindAllString(text, -1) {
-				if !standardGUIDs[strings.ToLower(u)] {
+				if !standardGUIDs[strings.ToLower(u)] && !derived[strings.ToLower(u)] {
 					t.Errorf("%s holds UUID %s", rel, u)
 				}
 			}

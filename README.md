@@ -87,10 +87,10 @@ flowchart LR
 
 | Device | Identity | Firmware | Driver | Health / longevity |
 |---|---|---|---|---|
-| System, board | model, SKU, serial¹, UUID¹; expansion slots and onboard devices as the firmware lists them¹ | BIOS/UEFI version, date; Intel ME (CSME) and embedded controller firmware; TPM spec version, manufacturer and firmware | — | — |
+| System, board | model, SKU, serial¹, UUID¹; expansion slots and onboard devices as the firmware lists them¹ | BIOS/UEFI version, date; Intel ME (CSME) and embedded controller firmware; TPM spec version, manufacturer and firmware; the UEFI ESRT (what the firmware can update by capsule, by GUID and version)¹ | — | — |
 | CPU | model, signature, codename, microarchitecture; socket package (LGA, BGA…), socketed or soldered¹ | microcode | frequency scaling | thermal throttling since boot |
 | RAM modules | maker, part no., serial, manufacture date (SPD, no root needed); slot, type, speed, rank, and every slot used or empty (SMBIOS¹) | — | — | ECC errors (EDAC) |
-| Disks | model, serial | ✅ | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
+| Disks | model, serial | ✅; NVMe: fwupd's instance IDs and GUIDs, which LVFS releases name | controller (nvme, ahci, usb-storage…) | SMART¹: status, % life used/left, hours, data written, errors |
 | GPUs, monitors | model, revision; monitor serial and manufacture date (EDID) | AMD/NVIDIA video BIOS; AMD per-block firmware (SMC, PSP, VCN, …); Intel GuC and HuC¹ | ✅; hardware clock range and the measured clock at capture (i915, amdgpu) | — |
 | Network, Wi-Fi, Bluetooth | model, MAC and its vendor | via ethtool; Bluetooth: HCI revision and LMP subversion | ✅ | error and drop rates |
 | Audio | card, codec chips | — | ✅ | — |

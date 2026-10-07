@@ -47,6 +47,10 @@
     "ec_firmware": {
       "version": "8.9",
       "source": "dmi"
+    },
+    "esrt": {
+      "status": "unknown",
+      "reason": "needs --full"
     }
   },
   "board": {
@@ -294,7 +298,21 @@
       },
       "firmware": {
         "version": "1L2QEXD7",
-        "source": "nvme"
+        "source": "nvme",
+        "instance_ids": [
+          {
+            "id": "NVME\\VEN_144D\u0026DEV_A808",
+            "guid": "47335265-a509-51f7-841e-1c94911af66b"
+          },
+          {
+            "id": "NVME\\VEN_144D\u0026DEV_A808\u0026SUBSYS_144DA801",
+            "guid": "c9d531ea-ee7d-5562-8def-c64d0d144813"
+          },
+          {
+            "id": "SAMSUNG MZVLB256HAHQ-000L7",
+            "guid": "9657ce89-450f-58d2-ade0-2c6ae667541a"
+          }
+        ]
       },
       "driver": {
         "name": "nvme",
