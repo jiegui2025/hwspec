@@ -92,9 +92,18 @@ var spdDrivers = []string{"ee1004", "spd5118"}
 // readSPD reads only the bytes spd.Parse uses into a zeroed image of the
 // full size. EEPROM reads go over SMBus at about 0.16 ms a byte, so a whole
 // DDR4 image costs about 80 ms per module, the spans about 8 ms. An image
-// too short for its type comes back short, for spd.Parse to report.
+// too short for its type comes back short, for spd.Parse to report. A
+// module that doesn't answer within slowAnswer is given up on.
 func readSPD(path string) ([]byte, error) {
-	f, err := openFile(path)
+	full, err := under(path)
+	if err != nil {
+		return nil, err
+	}
+	return within(slowAnswer, func() ([]byte, error) { return readSPDFile(full) })
+}
+
+func readSPDFile(full string) ([]byte, error) {
+	f, err := os.Open(full)
 	if err != nil {
 		return nil, err
 	}

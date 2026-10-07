@@ -11,6 +11,7 @@ func (c *collector) storage() {
 	c.r.Storage = []report.Disk{}
 	mounted := mounts()
 	needRoot := false
+	var health []int // the disks whose health is read, by index
 	for _, name := range list("/sys/block") {
 		base := "/sys/block/" + name
 		size := readUint(base+"/size") * 512 // always in 512-byte sectors
@@ -83,12 +84,13 @@ func (c *collector) storage() {
 			// no SMART on optical drives, virtual (virtio, Xen) disks or
 			// eMMC/SD cards, as root or not (diskHealth)
 		case c.privileged:
-			disk.Health = c.diskHealth(name, disk.Transport)
+			health = append(health, len(c.r.Storage))
 		default:
 			needRoot = true
 		}
 		c.r.Storage = append(c.r.Storage, disk)
 	}
+	c.diskHealths(health)
 	if needRoot {
 		c.warn("drive health (SMART): needs root (run with --full)")
 	}

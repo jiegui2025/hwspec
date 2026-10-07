@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -20,41 +21,69 @@ import (
 	"github.com/jiegui2025/hwspec/internal/trust"
 )
 
+// diskHealths reads the health of the disks at these indexes in
+// r.Storage, all at once: a check can take its whole timeout (an HDD
+// spinning up, a hung USB bridge), and one disk's mustn't wait for
+// another's. Each writes only its own disk; the warnings follow, in disk
+// order.
+func (c *collector) diskHealths(disks []int) {
+	warnings := make([]error, len(disks))
+	slots := make(chan struct{}, maxHealthChecks)
+	var wg sync.WaitGroup
+	for k, i := range disks {
+		d := &c.r.Storage[i]
+		wg.Go(func() {
+			slots <- struct{}{}
+			defer func() { <-slots }()
+			d.Health, warnings[k] = diskHealth(d.Name, d.Transport)
+		})
+	}
+	wg.Wait()
+	for k, err := range warnings {
+		if err != nil {
+			c.warn("drive health %s: %v", c.r.Storage[disks[k]].Name, err)
+		}
+	}
+}
+
+// maxHealthChecks is how many disks are checked at once: a server with
+// dozens of disks doesn't start dozens of smartctl at once.
+const maxHealthChecks = 8
+
 // diskHealth reads SMART data (root only). NVMe drives are queried directly
 // with the kernel's admin-command ioctl; other drives use smartctl when it's
 // installed.
-func (c *collector) diskHealth(name, transport string) *report.Health {
+func diskHealth(name, transport string) (*report.Health, error) {
 	if transport == "nvme" {
-		ctrl := nvmeCtrl.FindString(name)
-		h, err := nvmeHealthFn("/dev/" + ctrl)
-		if err != nil {
-			c.warn("drive health %s: %v", name, err)
-			return nil
-		}
-		return h
+		// The command's own timeout doesn't bound a controller reset.
+		health, dev := nvmeHealthFn, "/dev/"+nvmeCtrl.FindString(name)
+		return within(2*nvmeTimeout, func() (*report.Health, error) { return health(dev) })
 	}
 	if transport == "mmc" || transport == "virtio" || transport == "xen" {
-		return nil // no SMART
+		return nil, nil // no SMART
 	}
-	h, err := smartctlHealth("/dev/" + name)
-	if err != nil {
-		c.warn("drive health %s: %v", name, err)
-		return nil
-	}
-	return h
+	return smartctlHealth("/dev/" + name)
 }
 
 var nvmeCtrl = regexp.MustCompile(`^nvme\d+`)
+
+// nvmeTimeout is the health command's timeout; tests shorten it.
+var nvmeTimeout = 5 * time.Second
 
 // nvmeHealthFn is a seam: the real ioctl needs root and an NVMe drive.
 var nvmeHealthFn = nvmeHealth
 
 // runCommand runs a program with a time limit (a hung USB bridge must not
-// hang the capture). Tests replace it.
+// hang the capture): killed at the timeout, its output closed commandGrace
+// later, and given up on after another commandGrace. Tests replace it.
 var runCommand = func(timeout time.Duration, name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return exec.CommandContext(ctx, name, args...).Output()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = commandGrace // output a child of it holds open
+	// Wait returns only once the program exits, and one in uninterruptible
+	// sleep doesn't exit when killed.
+	return within(timeout+2*commandGrace, cmd.Output)
 }
 
 func isExecutable(path string) bool {
@@ -100,7 +129,7 @@ func nvmeHealth(dev string) (*report.Health, error) {
 		Addr:      uint64(uintptr(unsafe.Pointer(&log[0]))), //nolint:gosec // G103: the kernel ABI takes a buffer address
 		DataLen:   uint32(len(log)),
 		Cdw10:     uint32(len(log)/4-1)<<16 | 0x02, // NUMDL, LID 2 = SMART / Health
-		TimeoutMS: 5000,
+		TimeoutMS: uint32(nvmeTimeout / time.Millisecond),
 	}
 	status, _, errno := syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), nvmeIoctlAdminCmd, uintptr(unsafe.Pointer(&cmd))) //nolint:gosec // G103: ioctl argument
 	runtime.KeepAlive(log)
@@ -183,7 +212,8 @@ func parseNVMeSMART(b []byte) *report.Health {
 // root, so a smartctl earlier in a user-controlled PATH must not be used.
 var smartctlDirs = []string{"/usr/sbin", "/usr/bin", "/sbin", "/bin", "/usr/local/sbin", "/usr/local/bin", "/run/current-system/sw/bin"}
 
-const smartctlTimeout = 30 * time.Second
+// smartctlTimeout bounds one drive's smartctl; tests shorten it.
+var smartctlTimeout = 30 * time.Second
 
 // findSmartctl returns a smartctl that root alone can change, or "".
 // Tests replace it.

@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -414,9 +416,12 @@ func TestDiskTransportFromItsSysfsPath(t *testing.T) {
 func TestRootCaptureReadsDriveHealth(t *testing.T) {
 	oldNVMe, oldFind, oldRun := nvmeHealthFn, findSmartctl, runCommand
 	t.Cleanup(func() { nvmeHealthFn, findSmartctl, runCommand = oldNVMe, oldFind, oldRun })
-	var asked string
+	var mu sync.Mutex // the disks are checked at once
+	asked := map[string]bool{}
 	nvmeHealthFn = func(dev string) (*report.Health, error) {
-		asked = dev
+		mu.Lock()
+		asked[dev] = true
+		mu.Unlock()
 		if dev == "/dev/nvme1" {
 			return nil, errors.New("permission denied")
 		}
@@ -430,24 +435,33 @@ func TestRootCaptureReadsDriveHealth(t *testing.T) {
 		return []byte(`{"smart_status":{"passed":true},"temperature":{"current":31},"power_cycle_count":12,
 			"nvme_smart_health_information_log":null,"endurance_used":{"current_percent":3}}`), nil
 	}
-	c := &collector{r: &report.Report{}, privileged: true}
-	if h := c.diskHealth("nvme0n1", "nvme"); h == nil || asked != "/dev/nvme0" {
-		t.Errorf("nvme: %+v, asked %s", h, asked)
+	c := &collector{r: &report.Report{Storage: []report.Disk{
+		{Name: "sdc", Transport: "sata"}, {Name: "nvme0n1", Transport: "nvme"}, {Name: "nvme1n1", Transport: "nvme"},
+		{Name: "mmcblk0", Transport: "mmc"}, {Name: "vda", Transport: "virtio"}, {Name: "xvda", Transport: "xen"},
+		{Name: "sda", Transport: "sata"}, {Name: "sdb", Transport: "usb"},
+	}}, privileged: true}
+	c.diskHealths([]int{1, 2, 3, 4, 5, 6, 7}) // not sdc
+	d := slices.Concat(c.r.Storage[1:], c.r.Storage[:1])
+	if d[0].Health == nil || !asked["/dev/nvme0"] || !asked["/dev/nvme1"] || len(asked) != 2 {
+		t.Errorf("nvme: %+v, asked %v", d[0].Health, asked)
 	}
-	if h := c.diskHealth("nvme1n1", "nvme"); h != nil || !hasWarning(c.r, "drive health nvme1n1: permission denied") {
-		t.Errorf("nvme error: %+v, %v", h, c.r.Warnings)
+	if d[1].Health != nil || !hasWarning(c.r, "drive health nvme1n1: permission denied") {
+		t.Errorf("nvme error: %+v, %v", d[1].Health, c.r.Warnings)
 	}
-	for _, tr := range []string{"mmc", "virtio", "xen"} {
-		if h := c.diskHealth("x", tr); h != nil {
-			t.Errorf("%s has SMART? %+v", tr, h)
+	for _, i := range []int{2, 3, 4} {
+		if d[i].Health != nil {
+			t.Errorf("%s has SMART? %+v", d[i].Transport, d[i].Health)
 		}
 	}
-	h := c.diskHealth("sda", "sata")
+	h := d[5].Health
 	if h == nil || h.Metrics[report.MetricTemperatureC] != 31 || h.Metrics[report.MetricPowerCycles] != 12 || *h.LifeUsedPercent != 3 {
 		t.Errorf("sata = %+v", h)
 	}
-	if h := c.diskHealth("sdb", "usb"); h != nil || !hasWarning(c.r, "smartctl 7.0 or newer") {
-		t.Errorf("smartctl failure: %+v, %v", h, c.r.Warnings)
+	if d[6].Health != nil || !hasWarning(c.r, "drive health sdb: ") || !hasWarning(c.r, "smartctl 7.0 or newer") || d[7].Health != nil {
+		t.Errorf("smartctl failure: %+v, %v", d[6].Health, c.r.Warnings)
+	}
+	if len(c.r.Warnings) != 2 {
+		t.Errorf("warnings %q", c.r.Warnings)
 	}
 }
 

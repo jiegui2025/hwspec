@@ -33,7 +33,8 @@ func (c *collector) network() {
 		// The driver reports the adapter's firmware (no root needed).
 		// An empty answer, or a driver without the query, is "none
 		// reported"; any other error means the question wasn't answered.
-		fw, err := ethtoolDrvinfo(name)
+		drvinfo := ethtoolDrvinfo // read here, not by a query left behind
+		fw, err := within(slowAnswer, func() (string, error) { return drvinfo(name) })
 		switch {
 		case err == nil || errors.Is(err, unix.EOPNOTSUPP):
 			nic.Firmware = firmwareOrUnknown(firmwareVersion(fw, "ethtool"), "the driver reports no firmware version (ethtool)")
@@ -113,7 +114,9 @@ func (c *collector) audio() {
 		card.Driver = c.driverAt("/sys/class/sound/card" + m[1] + "/device")
 		card.Codecs = codecsSysfs(m[1])
 		if card.Codecs == nil {
-			card.Codecs = codecs("/proc/asound/card" + m[1])
+			if card.Codecs, err = codecs("/proc/asound/card" + m[1]); err != nil {
+				c.warn("audio card%s codecs: %v", m[1], err)
+			}
 		}
 		c.r.Audio = append(c.r.Audio, card)
 	}
@@ -156,15 +159,19 @@ func codecsSysfs(card string) []report.AudioCodec {
 // (/proc/asound/cardN/codec#M); the kernel already names the chip. Reading
 // one queries every widget of the codec (about 50 ms for a laptop codec,
 // and it may wake a powered-down codec), so codecsSysfs comes first.
-func codecs(cardDir string) []report.AudioCodec {
+func codecs(cardDir string) ([]report.AudioCodec, error) {
 	var out []report.AudioCodec
 	for _, f := range list(cardDir) {
 		if !strings.HasPrefix(f, "codec#") {
 			continue
 		}
+		b, err := readWithin(cardDir + "/" + f)
+		if errors.As(err, new(noAnswer)) {
+			return nil, err
+		}
 		var codec report.AudioCodec
 		id := &report.Identity{}
-		for line := range strings.SplitSeq(readStr(cardDir+"/"+f), "\n") {
+		for line := range strings.SplitSeq(string(b), "\n") {
 			k, v, ok := strings.Cut(line, ":")
 			if !ok || strings.HasPrefix(line, " ") {
 				continue // indented lines describe widgets and pins
@@ -188,7 +195,7 @@ func codecs(cardDir string) []report.AudioCodec {
 			out = append(out, codec)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func (c *collector) batteries() {
@@ -320,56 +327,80 @@ func unsetThreshold(kind string, v int64) bool {
 	return kind == "temp" && v >= nvmeUnsetMilliC
 }
 
-// sensors takes one reading of every hwmon sensor.
-func (c *collector) sensors() {
+// sensors takes one reading of every hwmon sensor. It runs alongside the
+// other collectors, so it returns its warnings instead of adding them. A
+// chip whose file doesn't answer within slowAnswer (a read over SMBus) is
+// left out.
+func (c *collector) sensors() (warnings []string) {
 	c.r.Sensors = []report.Sensor{}
 	for _, h := range list("/sys/class/hwmon") {
-		d := "/sys/class/hwmon/" + h + "/"
-		s := report.Sensor{Chip: readStr(d + "name"), Readings: []report.SensorReading{}}
-		_, s.Device = busOf(d + "device")
-		seen := map[string]bool{}
-		for _, f := range list(d) {
-			m := hwmonInput.FindStringSubmatch(f)
-			if m == nil || seen[m[1]+m[2]] {
-				continue
+		var stuck error
+		read := func(path string) string {
+			if stuck != nil {
+				return ""
 			}
-			seen[m[1]+m[2]] = true
-			raw, ok := readInt(d + f)
-			if !ok {
-				continue
+			b, err := readWithin(path)
+			if errors.As(err, new(noAnswer)) {
+				stuck = err
 			}
-			prefix := d + m[1] + m[2] + "_"
-			label := readStr(prefix + "label")
-			if label == "" {
-				label = m[1] + m[2]
-			}
-			r := report.SensorReading{Label: label}
-			scale := 1.0
-			switch m[1] {
-			case "temp":
-				r.Kind, r.Unit, scale = "temperature", "C", 1000
-			case "fan":
-				r.Kind, r.Unit = "fan", "RPM"
-			case "in":
-				r.Kind, r.Unit, scale = "voltage", "V", 1000
-			case "power":
-				r.Kind, r.Unit, scale = "power", "W", 1e6
-			case "curr":
-				r.Kind, r.Unit, scale = "current", "A", 1000
-			}
-			r.Value = round(float64(raw)/scale, 3)
-			if v, ok := readInt(prefix + "max"); ok && !unsetThreshold(m[1], v) {
-				r.Max = round(float64(v)/scale, 3)
-			}
-			if v, ok := readInt(prefix + "crit"); ok && !unsetThreshold(m[1], v) {
-				r.Crit = round(float64(v)/scale, 3)
-			}
-			s.Readings = append(s.Readings, r)
+			return strings.TrimSpace(string(b))
 		}
-		if len(s.Readings) > 0 {
+		s := chipReadings(h, read)
+		switch {
+		case stuck != nil:
+			warnings = append(warnings, fmt.Sprintf("sensors %s: %v", h, stuck))
+		case len(s.Readings) > 0:
 			c.r.Sensors = append(c.r.Sensors, s)
 		}
 	}
+	return warnings
+}
+
+// chipReadings reads one hwmon chip's sensors, each file through read.
+func chipReadings(h string, read func(path string) string) report.Sensor {
+	d := "/sys/class/hwmon/" + h + "/"
+	s := report.Sensor{Chip: read(d + "name"), Readings: []report.SensorReading{}}
+	_, s.Device = busOf(d + "device")
+	seen := map[string]bool{}
+	for _, f := range list(d) {
+		m := hwmonInput.FindStringSubmatch(f)
+		if m == nil || seen[m[1]+m[2]] {
+			continue
+		}
+		seen[m[1]+m[2]] = true
+		raw, ok := parseInt(read(d + f))
+		if !ok {
+			continue
+		}
+		prefix := d + m[1] + m[2] + "_"
+		label := read(prefix + "label")
+		if label == "" {
+			label = m[1] + m[2]
+		}
+		r := report.SensorReading{Label: label}
+		scale := 1.0
+		switch m[1] {
+		case "temp":
+			r.Kind, r.Unit, scale = "temperature", "C", 1000
+		case "fan":
+			r.Kind, r.Unit = "fan", "RPM"
+		case "in":
+			r.Kind, r.Unit, scale = "voltage", "V", 1000
+		case "power":
+			r.Kind, r.Unit, scale = "power", "W", 1e6
+		case "curr":
+			r.Kind, r.Unit, scale = "current", "A", 1000
+		}
+		r.Value = round(float64(raw)/scale, 3)
+		if v, ok := parseInt(read(prefix + "max")); ok && !unsetThreshold(m[1], v) {
+			r.Max = round(float64(v)/scale, 3)
+		}
+		if v, ok := parseInt(read(prefix + "crit")); ok && !unsetThreshold(m[1], v) {
+			r.Crit = round(float64(v)/scale, 3)
+		}
+		s.Readings = append(s.Readings, r)
+	}
+	return s
 }
 
 // usb lists USB devices (not interfaces, not root hubs).

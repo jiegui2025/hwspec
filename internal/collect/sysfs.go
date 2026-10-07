@@ -41,23 +41,45 @@ func p(path string) string {
 	return filepath.Join(root, path)
 }
 
-// readFile reads a file under root. Every collector read goes through it
-// (or openFile), so recordings can replay files they couldn't copy.
-func readFile(path string) ([]byte, error) {
+// under gives a path's place under root, or the error a recording
+// replays for it. Every collector read goes through it (readFile,
+// openFile, readWithin), so recordings can replay files they couldn't
+// copy.
+func under(path string) (string, error) {
 	full := p(path)
 	if err, ok := unreadable[path]; ok {
-		return nil, &fs.PathError{Op: "open", Path: full, Err: err}
+		return "", &fs.PathError{Op: "open", Path: full, Err: err}
+	}
+	return full, nil
+}
+
+// readFile reads a file under root.
+func readFile(path string) ([]byte, error) {
+	full, err := under(path)
+	if err != nil {
+		return nil, err
 	}
 	return os.ReadFile(full)
 }
 
 // openFile opens a file under root for streaming reads.
 func openFile(path string) (*os.File, error) {
-	full := p(path)
-	if err, ok := unreadable[path]; ok {
-		return nil, &fs.PathError{Op: "open", Path: full, Err: err}
+	full, err := under(path)
+	if err != nil {
+		return nil, err
 	}
 	return os.Open(full)
+}
+
+// readWithin is readFile for a file the kernel may answer slowly or
+// never, given up on after slowAnswer. Only the read runs apart, so one
+// left behind touches nothing of the capture's.
+func readWithin(path string) ([]byte, error) {
+	full, err := under(path)
+	if err != nil {
+		return nil, err
+	}
+	return within(slowAnswer, func() ([]byte, error) { return os.ReadFile(full) })
 }
 
 // readStr returns the trimmed file contents, or "" if it can't be read.
@@ -76,8 +98,8 @@ func readStrErr(path string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
-func readInt(path string) (int64, bool) {
-	s := readStr(path)
+// parseInt reads a sysfs number (decimal, or 0x hex).
+func parseInt(s string) (int64, bool) {
 	if s == "" {
 		return 0, false
 	}
