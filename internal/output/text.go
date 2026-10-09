@@ -1,10 +1,12 @@
 package output
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -313,6 +315,19 @@ func writeText(w io.Writer, r *report.Report) error {
 			}
 			line(bt.Name, "%s", withParts(s, healthText(bt.Health)))
 			watch("battery "+bt.Name, bt.Health)
+		}
+	}
+
+	if r.Power != nil {
+		section("Power")
+		for _, s := range r.Power.Supplies {
+			line("Supply", "%s", supplyText(s))
+		}
+		if r.Power.RatingUnknown != "" {
+			line("Rating", "unknown: %s", r.Power.RatingUnknown)
+		}
+		for _, l := range limitLines(r.Power.Limits) {
+			line(l[0], "%s", l[1])
 		}
 	}
 
@@ -648,6 +663,81 @@ func mountingText(m *report.Mounting) string {
 		s += " (medium confidence; " + m.Reason + ")"
 	}
 	return s
+}
+
+// supplyText is a supply in a few words: what it is, whether it powers
+// the machine, the contract in force and its rating.
+func supplyText(s report.PowerSupply) string {
+	t := s.Name
+	if s.Port != "" {
+		t += " (USB-C " + s.Port + ")"
+	}
+	switch {
+	case s.Online == nil:
+	case *s.Online:
+		t += ": powering the machine"
+		if s.ContractMV > 0 && s.ContractMA > 0 {
+			t += " at " + milli(s.ContractMV) + " V × " + milli(s.ContractMA) + " A"
+		}
+	default:
+		t += ": not powering the machine"
+	}
+	if s.RatedMaxMW > 0 {
+		t += "; rated " + milli(s.RatedMaxMW) + " W (" + map[string]string{
+			report.RatingFromPDOs: "the charger's largest fixed PD offer", report.RatingFromInputLimit: "the driver's input power limit"}[s.RatingSource] + ")"
+	}
+	return t
+}
+
+// milli writes a milli-unit value in units, exactly: 3250 is "3.25".
+func milli(n int) string { return strconv.FormatFloat(float64(n)/1000, 'f', -1, 64) }
+
+// limitNames are the RAPL constraints' usual names.
+var limitNames = map[string]string{"long_term": "PL1", "short_term": "PL2", "peak_power": "PL4"}
+
+// limitLines groups power limits by zone, in order: a label ("CPU",
+// "Platform", "GPU"; "(MMIO)" for the MMIO interface's zones) and
+// "package-0: PL1 35 W (28 s), PL2 69 W", with "enable bit off" on a PL1
+// whose zone reads disabled.
+func limitLines(limits []report.PowerLimit) [][2]string {
+	var out [][2]string
+	var items [][]string
+	at := map[string]int{}
+	for _, l := range limits {
+		key := l.Source + " " + l.Zone + " " + l.Device
+		i, seen := at[key]
+		if !seen {
+			label := map[string]string{report.DomainCPUPackage: "CPU", report.DomainPlatform: "Platform", report.DomainGPU: "GPU"}[l.Domain]
+			label = cmp.Or(label, l.Domain)
+			if l.Source == "intel-rapl-mmio" {
+				label += " (MMIO)"
+			}
+			zone := l.Zone
+			if l.Device != "" {
+				zone += " " + l.Device
+			}
+			out = append(out, [2]string{label, zone})
+			items = append(items, nil)
+			i = len(out) - 1
+			at[key] = i
+		}
+		var notes []string
+		if l.TimeWindowUS >= 1000000 {
+			notes = append(notes, trimFloat(math.Round(float64(l.TimeWindowUS)/1e5)/10)+" s")
+		}
+		if l.Enabled != nil && !*l.Enabled {
+			notes = append(notes, "enable bit off")
+		}
+		item := cmp.Or(limitNames[l.Name], l.Name) + " " + milli(l.LimitMW) + " W"
+		if len(notes) > 0 {
+			item += " (" + strings.Join(notes, ", ") + ")"
+		}
+		items[i] = append(items[i], item)
+	}
+	for i := range out {
+		out[i][1] += ": " + strings.Join(items[i], ", ")
+	}
+	return out
 }
 
 // portName is where a USB-C port is ("top-left", from its location), or

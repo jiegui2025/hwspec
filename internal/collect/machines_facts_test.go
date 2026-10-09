@@ -176,7 +176,20 @@ var machineFacts = map[string]func(t *testing.T, r *report.Report){
 		want["USB-C port0 top-left-upper, source only, can't charge, 5 V / 3 A out"] = len(r.USBC) == 1 && r.USBC[0].Name == "port0" &&
 			r.USBC[0].Location != nil && *r.USBC[0].Location == (report.PortLocation{Panel: "top", Horizontal: "left", Vertical: "upper"}) &&
 			slices.Equal(r.USBC[0].PowerRoles, []string{"source"}) && !r.USBC[0].CanCharge &&
-			slices.Equal(r.USBC[0].SourcePDOs, []report.PDO{{Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 3000, PowerMW: 15000}})
+			slices.Equal(r.USBC[0].SourcePDOs, []report.PDO{{Position: 1, Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 3000, PowerMW: 15000}})
+		// #105: one offline USB supply on port0, no rating, and the RAPL
+		// limits by zone name; core, uncore and dram are 0, so none.
+		off, on := false, true
+		want["power: the UCSI supply, offline, port0, no rating"] = r.Power != nil && len(r.Power.Supplies) == 1 &&
+			r.Power.Supplies[0].Name == "ucsi-source-psy-USBC000:001" && r.Power.Supplies[0].Type == "usb" && r.Power.Supplies[0].Online != nil &&
+			!*r.Power.Supplies[0].Online && r.Power.Supplies[0].Port == "port0" && r.Power.Supplies[0].RatedMaxMW == 0 && r.Power.RatingUnknown != "" &&
+			!strings.Contains(strings.Join(r.Warnings, "\n"), "power")
+		want["power: package-0 PL1 35 W over 28 s and PL2 69 W, psys 61 W (PL1 enable bit off) and 69 W"] = r.Power != nil && slices.EqualFunc(r.Power.Limits, []report.PowerLimit{
+			{Domain: "cpu-package", Zone: "package-0", Name: "long_term", LimitMW: 35000, TimeWindowUS: 27983872, Enabled: &on, Source: "intel-rapl"},
+			{Domain: "cpu-package", Zone: "package-0", Name: "short_term", LimitMW: 69000, TimeWindowUS: 2440, Source: "intel-rapl"},
+			{Domain: "platform", Zone: "psys", Name: "long_term", LimitMW: 61000, TimeWindowUS: 7995392, Enabled: &off, Source: "intel-rapl"},
+			{Domain: "platform", Zone: "psys", Name: "short_term", LimitMW: 69000, TimeWindowUS: 976, Source: "intel-rapl"},
+		}, sameLimit)
 		want["eno1 is ethernet"] = find(r.Network, func(n report.NIC) bool { return n.Name == "eno1" && n.Type == "ethernet" }) != nil
 		// Root-only DMI files are replayed as root-only.
 		want["dmi serials need root"] = len(r.Warnings) > 0 && strings.Contains(strings.Join(r.Warnings, "\n"), "dmi product_serial")
@@ -212,4 +225,11 @@ func find[T any](items []T, match func(T) bool) *T {
 		}
 	}
 	return nil
+}
+
+// sameLimit compares power limits by value, Enabled included.
+func sameLimit(a, b report.PowerLimit) bool {
+	ea, eb := a.Enabled, b.Enabled
+	a.Enabled, b.Enabled = nil, nil
+	return a == b && (ea == nil) == (eb == nil) && (ea == nil || *ea == *eb)
 }

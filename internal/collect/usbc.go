@@ -105,7 +105,7 @@ func (c *collector) pdos(who, dir string, sink bool) []report.PDO {
 		if sink {
 			current, power = "operational_current", "operational_power"
 		}
-		p.Type = typ
+		p.Type, p.Position = typ, position(e)
 		switch typ {
 		case report.PDOFixed:
 			p.MaxVoltageMV = val("voltage")

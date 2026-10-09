@@ -581,6 +581,7 @@
       "typec_revision": "1.3",
       "source_pdos": [
         {
+          "position": 1,
           "type": "fixed",
           "min_voltage_mv": 5000,
           "max_voltage_mv": 5000,
@@ -590,6 +591,54 @@
       ]
     }
   ],
+  "power": {
+    "supplies": [
+      {
+        "name": "ucsi-source-psy-USBC000:001",
+        "type": "usb",
+        "online": false,
+        "usb_type": "C",
+        "port": "port0"
+      }
+    ],
+    "limits": [
+      {
+        "domain": "cpu-package",
+        "zone": "package-0",
+        "name": "long_term",
+        "limit_mw": 35000,
+        "time_window_us": 27983872,
+        "enabled": true,
+        "source": "intel-rapl"
+      },
+      {
+        "domain": "cpu-package",
+        "zone": "package-0",
+        "name": "short_term",
+        "limit_mw": 69000,
+        "time_window_us": 2440,
+        "source": "intel-rapl"
+      },
+      {
+        "domain": "platform",
+        "zone": "psys",
+        "name": "long_term",
+        "limit_mw": 61000,
+        "time_window_us": 7995392,
+        "enabled": false,
+        "source": "intel-rapl"
+      },
+      {
+        "domain": "platform",
+        "zone": "psys",
+        "name": "short_term",
+        "limit_mw": 69000,
+        "time_window_us": 976,
+        "source": "intel-rapl"
+      }
+    ],
+    "rating_unknown": "no supply in power_supply reports a rating (a barrel-jack adapter isn't exposed to the kernel)"
+  },
   "tpm": {
     "spec_version_major": 2,
     "firmware": {

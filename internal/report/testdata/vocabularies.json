@@ -82,6 +82,22 @@
     "pps",
     "avs"
   ],
+  "PowerLimit.Domain": [
+    "cpu-package",
+    "cpu-core",
+    "cpu-uncore",
+    "dram",
+    "platform",
+    "gpu"
+  ],
+  "PowerSupply.RatingSource": [
+    "usb-pd-source-capabilities",
+    "input_power_limit"
+  ],
+  "PowerSupply.Type": [
+    "mains",
+    "usb"
+  ],
   "RTC.BattStatus": [
     "okay",
     "dead"

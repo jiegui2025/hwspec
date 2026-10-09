@@ -49,6 +49,7 @@ type Report struct {
 	Audio     []SoundCard           `json:"audio"`
 	Batteries []Battery             `json:"batteries"`
 	USBC      []USBCPort            `json:"usb_c_ports"`
+	Power     *Power                `json:"power,omitempty"`
 	TPM       *TPM                  `json:"tpm,omitempty"`
 	RTC       *RTC                  `json:"rtc,omitempty"`
 	Sensors   []Sensor              `json:"sensors"`
@@ -268,12 +269,15 @@ var Vocabularies = map[string][]string{
 		FirmwareFromMMC, FirmwareFromEthtool, FirmwareFromUSB, FirmwareFromVBIOS, FirmwareFromMEI,
 		FirmwareFromUdev, FirmwareFromTPM, FirmwareFromTPMCaps, FirmwareFromDebugfs, FirmwareFromAMDGPU,
 		FirmwareFromHCI},
-	"ModuleIndex.Status":     {ModulesFound, ModulesOtherRelease, ModulesNone},
-	"BlacklistedModule.Kind": {BlacklistAlias, BlacklistKernel, BlacklistInstall},
-	"RTC.BattStatus":         {RTCBattOkay, RTCBattDead},
-	"Mounting.Kind":          {MountedOnboard, MountedSocket, MountedSlot, MountedInCPU, MountedUnknown},
-	"USBCPort.PowerRole":     {PowerSource, PowerSink},
-	"PDO.Type":               {PDOFixed, PDOVariable, PDOBattery, PDOPPS, PDOAVS},
+	"ModuleIndex.Status":       {ModulesFound, ModulesOtherRelease, ModulesNone},
+	"BlacklistedModule.Kind":   {BlacklistAlias, BlacklistKernel, BlacklistInstall},
+	"RTC.BattStatus":           {RTCBattOkay, RTCBattDead},
+	"Mounting.Kind":            {MountedOnboard, MountedSocket, MountedSlot, MountedInCPU, MountedUnknown},
+	"USBCPort.PowerRole":       {PowerSource, PowerSink},
+	"PDO.Type":                 {PDOFixed, PDOVariable, PDOBattery, PDOPPS, PDOAVS},
+	"PowerSupply.Type":         {SupplyMains, SupplyUSB},
+	"PowerSupply.RatingSource": {RatingFromPDOs, RatingFromInputLimit},
+	"PowerLimit.Domain":        {DomainCPUPackage, DomainCPUCore, DomainCPUUncore, DomainDRAM, DomainPlatform, DomainGPU},
 }
 
 // --- Devices ---
@@ -384,6 +388,9 @@ type PortLocation struct {
 // PDO is one USB Power Delivery power data object: a supply a port
 // offers or accepts.
 type PDO struct {
+	// Position is the PDO's number in its list, from 1, as the kernel
+	// names it ("2:fixed_supply"): a PD contract selects a PDO by it.
+	Position int `json:"position,omitempty"`
 	// Type is fixed, variable, battery, pps (programmable) or avs
 	// (adjustable voltage).
 	Type         string `json:"type"`
@@ -409,6 +416,78 @@ const (
 	PDOBattery  = "battery"
 	PDOPPS      = "pps"
 	PDOAVS      = "avs"
+)
+
+// Power is what can supply the machine and what its parts may draw
+// (#105): facts only; whether a supply is enough is the advisor's. Absent
+// in captures from before it.
+type Power struct {
+	Supplies []PowerSupply `json:"supplies"`
+	Limits   []PowerLimit  `json:"limits"`
+	// RatingUnknown says why no supply has a rating, e.g. that a
+	// barrel-jack adapter isn't exposed to the kernel.
+	RatingUnknown string `json:"rating_unknown,omitempty"`
+}
+
+// PowerSupply is an external supply the kernel knows (power_supply type
+// Mains or USB); batteries are in batteries.
+type PowerSupply struct {
+	Name    string `json:"name"`               // the power_supply name
+	Type    string `json:"type"`               // mains, usb
+	Online  *bool  `json:"online,omitempty"`   // whether it's powering the machine now; absent if unreadable
+	USBType string `json:"usb_type,omitempty"` // the one in use: C, PD, PD_PPS...
+	Port    string `json:"port,omitempty"`     // its USB-C port, as in usb_c_ports
+	// RatedMaxMW is the most the supply can give, in mW: the largest fixed
+	// PDO a connected charger offers (never voltage_max × current_max,
+	// which the kernel takes from different PDOs), or the driver's
+	// input_power_limit.
+	RatedMaxMW int `json:"rated_max_mw,omitempty"`
+	// RatingSource is usb-pd-source-capabilities or input_power_limit.
+	RatingSource string `json:"rating_source,omitempty"`
+	ContractMV   int    `json:"contract_mv,omitempty"` // the voltage of the contract in force
+	ContractMA   int    `json:"contract_ma,omitempty"` // its current
+	// SelectedPDO is the position of the charger's fixed PDO the contract
+	// uses, when exactly one has its voltage.
+	SelectedPDO int       `json:"selected_pdo,omitempty"`
+	Identity    *Identity `json:"identity,omitempty"` // manufacturer, model and serial, when the supply gives them
+}
+
+// PowerLimit is a power limit a part runs under: a RAPL constraint or a
+// GPU driver's limit. Limits are settings, so a capture records the one
+// in force, which may not be the firmware's default.
+type PowerLimit struct {
+	Domain string `json:"domain"` // cpu-package, cpu-core, cpu-uncore, dram, platform, gpu
+	// Zone is the RAPL zone's name (package-0, psys) or the GPU's hwmon
+	// name.
+	Zone   string `json:"zone"`
+	Device string `json:"device,omitempty"` // a GPU's PCI address
+	// Name is the constraint (long_term, short_term, peak_power) or the
+	// GPU limit (cap, cap_max, max, rated_max, crit; power2_... for a
+	// second channel).
+	Name         string `json:"name"`
+	LimitMW      int    `json:"limit_mw"`                 // the limit, in mW
+	TimeWindowUS int64  `json:"time_window_us,omitempty"` // the constraint's averaging window
+	// Enabled is the RAPL zone's enable bit, which is PL1's, so it's on
+	// long_term only; false also when the BIOS locked PL1, which may still
+	// be enforced. Absent for other limits: their bits aren't exposed.
+	Enabled *bool `json:"enabled,omitempty"`
+	// Source is the RAPL control type (intel-rapl, intel-rapl-mmio) or the
+	// GPU driver (amdgpu, i915, xe).
+	Source string `json:"source"`
+}
+
+// PowerSupply.Type, PowerSupply.RatingSource and PowerLimit.Domain values.
+const (
+	SupplyMains          = "mains"
+	SupplyUSB            = "usb"
+	RatingFromPDOs       = "usb-pd-source-capabilities"
+	RatingFromInputLimit = "input_power_limit"
+	DomainCPUPackage     = "cpu-package"
+	DomainCPUCore        = "cpu-core"
+	DomainCPUUncore      = "cpu-uncore"
+	DomainDRAM           = "dram"
+	DomainPlatform       = "platform"
+	DomainGPU            = "gpu"
 )
 
 // RTC is the real-time clock: what its driver says about the coin cell
