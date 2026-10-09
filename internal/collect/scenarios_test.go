@@ -885,6 +885,76 @@ func TestRootCaptureRecordsTheFirmwareTables(t *testing.T) {
 	}
 }
 
+// An installed module with unknown capacity keeps its identity and metadata,
+// while the installed-byte total counts only sizes the firmware supplied.
+func TestInstalledMemoryWithUnknownSizeIsListed(t *testing.T) {
+	for _, size := range []uint16{0xFFFF, 0x7FFF} {
+		t.Run(fmt.Sprintf("size_%04x", size), func(t *testing.T) {
+			file, _ := fakeRoot(t)
+			table := smbiostest.MemoryArray(0x1000, 64<<20, 3, 0x03)
+			for _, mod := range []smbiostest.Module{
+				{Array: 0x1000, SizeMiB: size, Locator: "DIMM_A1", Bank: "BANK 0", Manufacturer: "Samsung", Serial: "12345678", Part: "UNKNOWN_SIZE", SpeedMTs: 3200, FormFactor: 0x09, Type: 0x1A},
+				{Array: 0x1000, SizeMiB: 8192, Locator: "DIMM_B1"},
+				{Array: 0x1000, Locator: "DIMM_C1"},
+			} {
+				table = append(table, smbiostest.MemoryDevice(mod)...)
+			}
+			file("/sys/firmware/dmi/tables/DMI", string(append(table, smbiostest.End()...)))
+			col := &collector{r: &report.Report{}, privileged: true}
+			col.memory()
+			mem := col.r.Memory
+			if len(mem.Modules) != 2 || mem.InstalledBytes != 8<<30 {
+				t.Fatalf("modules %+v, installed bytes %d", mem.Modules, mem.InstalledBytes)
+			}
+			mod := mem.Modules[0]
+			if mod.Locator != "DIMM_A1" || mod.BankLocator != "BANK 0" || mod.Type != "DDR4" || mod.SpeedMTs != 3200 || mod.Identity == nil || mod.Identity.Vendor != "Samsung" || mod.Identity.PartNumber != "UNKNOWN_SIZE" {
+				t.Errorf("unknown-size module lost its other fields: %+v", mod)
+			}
+			b, err := json.Marshal(mod)
+			if err != nil || strings.Contains(string(b), "size_bytes") {
+				t.Errorf("size should be absent: %s, %v", b, err)
+			}
+			if !hasWarning(col.r, "DIMM_A1") || !hasWarning(col.r, "known sizes") {
+				t.Errorf("unknown size not explained: %v", col.r.Warnings)
+			}
+		})
+	}
+}
+
+func TestUnknownSizeMemoryStillMatchesItsSPD(t *testing.T) {
+	for _, serial := range []string{"12345678", ""} {
+		t.Run("serial_"+serial, func(t *testing.T) {
+			file, _ := fakeRoot(t)
+			table := smbiostest.MemoryArray(0x1000, 64<<20, 2, 0x03)
+			for _, mod := range []smbiostest.Module{
+				{Array: 0x1000, SizeMiB: 0xFFFF, Locator: "DIMM_A1", Serial: serial, Part: "UNKNOWN_SIZE", Type: 0x1A},
+				{Array: 0x1000, SizeMiB: 8192, Locator: "DIMM_B1", Part: "KNOWN_SIZE", Type: 0x1A},
+			} {
+				table = append(table, smbiostest.MemoryDevice(mod)...)
+			}
+			file("/sys/firmware/dmi/tables/DMI", string(append(table, smbiostest.End()...)))
+			image := make([]byte, 512)
+			image[2], image[3], image[4], image[12], image[13] = 0x0C, 0x01, 0x85, 0x01, 0x03
+			image[320], image[321], image[323], image[324] = 0x80, 0xCE, 0x22, 0x05
+			copy(image[325:329], []byte{0x12, 0x34, 0x56, 0x78})
+			copy(image[329:349], "UNKNOWN_SIZE")
+			file("/sys/bus/i2c/drivers/ee1004/0-0050/eeprom", string(image))
+			col := &collector{r: &report.Report{}, privileged: true}
+			col.memory()
+			mods := col.r.Memory.Modules
+			if len(mods) != 2 {
+				t.Fatalf("modules = %+v", mods)
+			}
+			if mods[0].Identity.ManufactureDate != "2022-W05" || mods[0].SizeBytes == 0 || mods[1].Identity.ManufactureDate != "" {
+				t.Errorf("SPD attached to the wrong module: %+v", mods)
+			}
+			if got, want := col.r.Memory.InstalledBytes, uint64(16<<30); got != want {
+				t.Errorf("installed bytes %d, want %d", got, want)
+			}
+		})
+	}
+}
+
 // Every memory slot the firmware describes is listed, used or empty: the
 // reference machine's two SODIMM slots (DIMM1/ChannelB, DIMM3/ChannelA,
 // both used, as `dmidecode -t 17` printed them on 2026-10-06), and a

@@ -253,6 +253,13 @@ func TestModulesBelowTheMinimumAreFlagged(t *testing.T) {
 	if n != 1 {
 		t.Errorf("%d below-minimum findings", n)
 	}
+	// An installed module whose capacity is unknown should not be labelled 0 MiB.
+	r.Memory.Modules[0].SizeBytes = 0
+	_, a = adviseMemory(t, r, `{"speed_mts": {"min": [{"value": 2400, "src": "guide"}]}}`)
+	if f := findingOf(t, a, "memory.below-minimum"); f.Device.Name != "DDR4" {
+		t.Errorf("unknown-size device name %q", f.Device.Name)
+	}
+	r.Memory.Modules[0].SizeBytes = 16 << 30
 	wantAnswer(t, got, "minimum_speed", true, "Minimum 2133 MT/s per sheet (2019-12); 2400 MT/s per guide (2019-09)", "slower: DIMM1 (2133 MT/s)")
 	// Below every minimum: no other documents to show.
 	_, a = adviseMemory(t, r, `{"speed_mts": {"min": [{"value": 2400, "src": "guide"}]}}`)
