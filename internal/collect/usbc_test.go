@@ -67,21 +67,21 @@ func TestUSBCPorts(t *testing.T) {
 	}
 	p := col.r.USBC[0]
 	wantSink := []report.PDO{
-		{Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 3000, PowerMW: 15000},
-		{Type: "fixed", MinVoltageMV: 20000, MaxVoltageMV: 20000, CurrentMA: 3250, PowerMW: 65000},
-		{Type: "battery", MinVoltageMV: 5000, MaxVoltageMV: 20000, PowerMW: 45000},
-		{Type: "pps", MinVoltageMV: 3300, MaxVoltageMV: 11000, CurrentMA: 3000, PowerMW: 33000},
-		{Type: "variable", MinVoltageMV: 5000, MaxVoltageMV: 12000, CurrentMA: 1000, PowerMW: 12000},
+		{Position: 1, Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 3000, PowerMW: 15000},
+		{Position: 2, Type: "fixed", MinVoltageMV: 20000, MaxVoltageMV: 20000, CurrentMA: 3250, PowerMW: 65000},
+		{Position: 3, Type: "battery", MinVoltageMV: 5000, MaxVoltageMV: 20000, PowerMW: 45000},
+		{Position: 4, Type: "pps", MinVoltageMV: 3300, MaxVoltageMV: 11000, CurrentMA: 3000, PowerMW: 33000},
+		{Position: 10, Type: "variable", MinVoltageMV: 5000, MaxVoltageMV: 12000, CurrentMA: 1000, PowerMW: 12000},
 	}
 	wantSource := []report.PDO{
-		{Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 1500, PowerMW: 7500},
-		{Type: "battery", MinVoltageMV: 5000, MaxVoltageMV: 20000, PowerMW: 10000},
-		{Type: "avs", MinVoltageMV: 9000, MaxVoltageMV: 20000, CurrentMA: 2250, PowerMW: 45000},
+		{Position: 1, Type: "fixed", MinVoltageMV: 5000, MaxVoltageMV: 5000, CurrentMA: 1500, PowerMW: 7500},
+		{Position: 2, Type: "battery", MinVoltageMV: 5000, MaxVoltageMV: 20000, PowerMW: 10000},
+		{Position: 3, Type: "avs", MinVoltageMV: 9000, MaxVoltageMV: 20000, CurrentMA: 2250, PowerMW: 45000},
 	}
 	if p.Name != "port0" || !p.CanCharge || p.MaxChargeW != 65 || p.PowerRole != "sink" || !slices.Equal(p.PowerRoles, []string{"source", "sink"}) ||
 		p.PDRevision != "3.0" || p.TypeCRevision != "1.3" || !slices.Equal(p.SinkPDOs, wantSink) || !slices.Equal(p.SourcePDOs, wantSource) ||
 		*p.Location != (report.PortLocation{Panel: "left", Horizontal: "center", Vertical: "lower", Lid: true}) ||
-		!slices.Equal(p.PartnerSourcePDOs, []report.PDO{{Type: "fixed", MinVoltageMV: 20000, MaxVoltageMV: 20000, CurrentMA: 4500, PowerMW: 90000}}) {
+		!slices.Equal(p.PartnerSourcePDOs, []report.PDO{{Position: 1, Type: "fixed", MinVoltageMV: 20000, MaxVoltageMV: 20000, CurrentMA: 4500, PowerMW: 90000}}) {
 		t.Errorf("port0 %+v", p)
 	}
 	q := col.r.USBC[1]

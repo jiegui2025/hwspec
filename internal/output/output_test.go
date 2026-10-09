@@ -707,6 +707,59 @@ func TestMountingTextInCPU(t *testing.T) {
 	}
 }
 
+// The power section (#105): supplies with their state, contract and
+// rating, the rating's absence with its reason, and the limits by zone,
+// PL names and windows, a disabled zone said so; no section without one.
+func TestTextPower(t *testing.T) {
+	on, off := true, false
+	r := sample()
+	r.Power = &report.Power{
+		Supplies: []report.PowerSupply{
+			{Name: "AC", Type: "mains", Online: &on},
+			{Name: "ucsi-source-psy-USBC000:001", Type: "usb", Online: &on, Port: "port0", ContractMV: 20000, ContractMA: 3250, RatedMaxMW: 65000, RatingSource: report.RatingFromPDOs},
+			{Name: "tcpm-source-psy-x", Type: "usb", Online: &off, RatedMaxMW: 60000, RatingSource: report.RatingFromInputLimit},
+			{Name: "odd", Type: "mains"},
+			{Name: "half", Type: "usb", Online: &on, ContractMV: 5000},
+		},
+		Limits: []report.PowerLimit{
+			{Domain: "cpu-package", Zone: "package-0", Name: "long_term", LimitMW: 35000, TimeWindowUS: 27983872, Enabled: &on, Source: "intel-rapl"},
+			{Domain: "platform", Zone: "psys2", Name: "long_term", LimitMW: 61000, TimeWindowUS: 7995392, Enabled: &off, Source: "intel-rapl"},
+			{Domain: "cpu-package", Zone: "package-0", Name: "short_term", LimitMW: 69000, TimeWindowUS: 2440, Enabled: &on, Source: "intel-rapl"},
+			{Domain: "platform", Zone: "psys", Name: "long_term", LimitMW: 61000, Enabled: &off, Source: "intel-rapl"},
+			{Domain: "platform", Zone: "psys", Name: "short_term", LimitMW: 69000, Source: "intel-rapl"},
+			{Domain: "cpu-package", Zone: "package-0", Name: "long_term", LimitMW: 15000, Source: "intel-rapl-mmio"},
+			{Domain: "gpu", Zone: "amdgpu", Device: "0000:03:00.0", Name: "cap", LimitMW: 120000, Source: "amdgpu"},
+			{Domain: "dram", Zone: "dram", Name: "long_term", LimitMW: 5500, Source: "intel-rapl"},
+		},
+	}
+	var buf bytes.Buffer
+	if err := Write(&buf, r, "text"); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Power\n", "Supply     AC: powering the machine\n",
+		"Supply     ucsi-source-psy-USBC000:001 (USB-C port0): powering the machine at 20 V × 3.25 A; rated 65 W (the charger's largest fixed PD offer)\n",
+		"Supply     tcpm-source-psy-x: not powering the machine; rated 60 W (the driver's input power limit)\n", "Supply     odd\n", "Supply     half: powering the machine\n",
+		"CPU        package-0: PL1 35 W (28 s), PL2 69 W\n", "Platform   psys: PL1 61 W (enable bit off), PL2 69 W\n", "CPU (MMIO) package-0: PL1 15 W\n", "Platform   psys2: PL1 61 W (8 s, enable bit off)\n",
+		"GPU        amdgpu 0000:03:00.0: cap 120 W\n", "dram       dram: PL1 5.5 W\n"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("no %q in:\n%s", want, buf.String())
+		}
+	}
+	if strings.Contains(buf.String(), "Rating") {
+		t.Errorf("a rated supply, yet:\n%s", buf.String())
+	}
+	r.Power = &report.Power{Supplies: []report.PowerSupply{}, Limits: []report.PowerLimit{}, RatingUnknown: "no supply reports one"}
+	buf.Reset()
+	if err := Write(&buf, r, "text"); err != nil || !strings.Contains(buf.String(), "Rating     unknown: no supply reports one") {
+		t.Errorf("unrated: %v\n%s", err, buf.String())
+	}
+	r.Power = nil
+	buf.Reset()
+	if err := Write(&buf, r, "text"); err != nil || strings.Contains(buf.String(), "Power\n") {
+		t.Errorf("no power: %v\n%s", err, buf.String())
+	}
+}
+
 // One line per USB-C port: whether it charges the machine, up to how
 // much, and a connected charger's offer (#115).
 func TestTextUSBC(t *testing.T) {

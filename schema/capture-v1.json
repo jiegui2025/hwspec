@@ -3230,6 +3230,10 @@
             "items": {
               "type": "object",
               "properties": {
+                "position": {
+                  "type": "integer",
+                  "description": "Position is the PDO's number in its list, from 1, as the kernel names it (\"2:fixed_supply\"): a PD contract selects a PDO by it."
+                },
                 "type": {
                   "type": "string",
                   "description": "Type is fixed, variable, battery, pps (programmable) or avs (adjustable voltage).",
@@ -3269,6 +3273,10 @@
             "items": {
               "type": "object",
               "properties": {
+                "position": {
+                  "type": "integer",
+                  "description": "Position is the PDO's number in its list, from 1, as the kernel names it (\"2:fixed_supply\"): a PD contract selects a PDO by it."
+                },
                 "type": {
                   "type": "string",
                   "description": "Type is fixed, variable, battery, pps (programmable) or avs (adjustable voltage).",
@@ -3308,6 +3316,10 @@
             "items": {
               "type": "object",
               "properties": {
+                "position": {
+                  "type": "integer",
+                  "description": "Position is the PDO's number in its list, from 1, as the kernel names it (\"2:fixed_supply\"): a PD contract selects a PDO by it."
+                },
                 "type": {
                   "type": "string",
                   "description": "Type is fixed, variable, battery, pps (programmable) or avs (adjustable voltage).",
@@ -3342,6 +3354,174 @@
         }
       },
       "description": "USBCPort is a USB Type-C port the kernel's Type-C class manages (a UCSI or TCPM port controller), and whether it can charge the machine (#115). A Type-C connector without a PD controller the kernel sees isn't listed, so there may be more on the chassis."
+    },
+    "power": {
+      "type": [
+        "null",
+        "object"
+      ],
+      "properties": {
+        "supplies": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "the power_supply name"
+              },
+              "type": {
+                "type": "string",
+                "description": "mains, usb",
+                "examples": [
+                  "mains",
+                  "usb"
+                ]
+              },
+              "online": {
+                "type": [
+                  "null",
+                  "boolean"
+                ],
+                "description": "whether it's powering the machine now; absent if unreadable"
+              },
+              "usb_type": {
+                "type": "string",
+                "description": "the one in use: C, PD, PD_PPS..."
+              },
+              "port": {
+                "type": "string",
+                "description": "its USB-C port, as in usb_c_ports"
+              },
+              "rated_max_mw": {
+                "type": "integer",
+                "description": "RatedMaxMW is the most the supply can give, in mW: the largest fixed PDO a connected charger offers (never voltage_max × current_max, which the kernel takes from different PDOs), or the driver's input_power_limit."
+              },
+              "rating_source": {
+                "type": "string",
+                "description": "RatingSource is usb-pd-source-capabilities or input_power_limit.",
+                "examples": [
+                  "usb-pd-source-capabilities",
+                  "input_power_limit"
+                ]
+              },
+              "contract_mv": {
+                "type": "integer",
+                "description": "the voltage of the contract in force"
+              },
+              "contract_ma": {
+                "type": "integer",
+                "description": "its current"
+              },
+              "selected_pdo": {
+                "type": "integer",
+                "description": "SelectedPDO is the position of the charger's fixed PDO the contract uses, when exactly one has its voltage."
+              },
+              "identity": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "vendor": {
+                    "type": "string",
+                    "description": "the maker's name"
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "the product's name"
+                  },
+                  "part_number": {
+                    "type": "string",
+                    "description": "the maker's part number"
+                  },
+                  "serial": {
+                    "type": "string",
+                    "description": "removed by --redact"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "description": "the hardware revision"
+                  },
+                  "manufacture_date": {
+                    "type": "string",
+                    "description": "ManufactureDate is ISO 8601 at the precision the part reports: \"2020\", \"2020-03\", \"2020-W10\" or \"2020-03-14\"."
+                  },
+                  "manufacture_date_source": {
+                    "type": "string",
+                    "description": "spd, edid, battery"
+                  }
+                },
+                "description": "manufacturer, model and serial, when the supply gives them"
+              }
+            }
+          },
+          "description": "PowerSupply is an external supply the kernel knows (power_supply type Mains or USB); batteries are in batteries."
+        },
+        "limits": {
+          "type": [
+            "null",
+            "array"
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "domain": {
+                "type": "string",
+                "description": "cpu-package, cpu-core, cpu-uncore, dram, platform, gpu",
+                "examples": [
+                  "cpu-package",
+                  "cpu-core",
+                  "cpu-uncore",
+                  "dram",
+                  "platform",
+                  "gpu"
+                ]
+              },
+              "zone": {
+                "type": "string",
+                "description": "Zone is the RAPL zone's name (package-0, psys) or the GPU's hwmon name."
+              },
+              "device": {
+                "type": "string",
+                "description": "a GPU's PCI address"
+              },
+              "name": {
+                "type": "string",
+                "description": "Name is the constraint (long_term, short_term, peak_power) or the GPU limit (cap, cap_max, max, rated_max, crit; power2_... for a second channel)."
+              },
+              "limit_mw": {
+                "type": "integer",
+                "description": "the limit, in mW"
+              },
+              "time_window_us": {
+                "type": "integer",
+                "description": "the constraint's averaging window"
+              },
+              "enabled": {
+                "type": [
+                  "null",
+                  "boolean"
+                ],
+                "description": "Enabled is the RAPL zone's enable bit, which is PL1's, so it's on long_term only; false also when the BIOS locked PL1, which may still be enforced. Absent for other limits: their bits aren't exposed."
+              },
+              "source": {
+                "type": "string",
+                "description": "Source is the RAPL control type (intel-rapl, intel-rapl-mmio) or the GPU driver (amdgpu, i915, xe)."
+              }
+            }
+          },
+          "description": "PowerLimit is a power limit a part runs under: a RAPL constraint or a GPU driver's limit. Limits are settings, so a capture records the one in force, which may not be the firmware's default."
+        },
+        "rating_unknown": {
+          "type": "string",
+          "description": "RatingUnknown says why no supply has a rating, e.g. that a barrel-jack adapter isn't exposed to the kernel."
+        }
+      },
+      "description": "Power is what can supply the machine and what its parts may draw (#105): facts only; whether a supply is enough is the advisor's. Absent in captures from before it."
     },
     "tpm": {
       "type": [

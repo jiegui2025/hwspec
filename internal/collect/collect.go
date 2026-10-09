@@ -99,6 +99,7 @@ func collectNow(version string) *report.Report {
 	c.audio()
 	c.batteries()
 	c.usbCPorts()
+	c.power() // after usbCPorts and gpus
 	c.usb()
 	c.usbCandidates() // after usb and kernelModules
 
