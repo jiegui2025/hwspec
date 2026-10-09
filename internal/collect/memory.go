@@ -60,8 +60,11 @@ func (c *collector) smbiosModules() {
 		m.SlotUsage = append(m.SlotUsage, report.MemorySlot{
 			Locator: d.Locator, BankLocator: d.BankLocator, Populated: d.Installed, FormFactor: d.FormFactor,
 		})
-		if d.SizeBytes == 0 {
+		if d.Installed == nil || !*d.Installed {
 			continue // empty slot
+		}
+		if d.SizeBytes == 0 {
+			c.warn("memory: module %q has unknown size; installed_bytes includes only known sizes", d.Locator)
 		}
 		m.InstalledBytes += d.SizeBytes
 		mod := report.MemoryModule{
@@ -184,7 +187,9 @@ func (c *collector) spdModules() {
 			i = len(m.Modules) - 1
 		}
 		used[i] = true
-		applySPD(&m.Modules[i], info)
+		if added := applySPD(&m.Modules[i], info); i < smbiosCount {
+			m.InstalledBytes += added
+		}
 	}
 	c.missingSPD(exposed, m.Modules[:smbiosCount], found)
 }
@@ -258,7 +263,7 @@ func matchModule(mods []report.MemoryModule, info *spd.Info, used map[int]bool) 
 
 // applySPD fills what SMBIOS left out; where both report something, the
 // firmware's value is kept.
-func applySPD(mod *report.MemoryModule, info *spd.Info) {
+func applySPD(mod *report.MemoryModule, info *spd.Info) uint64 {
 	id := report.EnsureIdentity(&mod.Identity)
 	if id.Vendor == "" {
 		id.Vendor = info.ModuleVendorCode // decoded by resolve
@@ -278,7 +283,9 @@ func applySPD(mod *report.MemoryModule, info *spd.Info) {
 	mod.DRAMVendorID = info.DRAMVendorCode
 	if mod.SizeBytes == 0 {
 		mod.SizeBytes = info.SizeBytes
+		return info.SizeBytes
 	}
+	return 0
 }
 
 // edac adds corrected and uncorrected memory error counts per module on

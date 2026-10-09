@@ -604,8 +604,10 @@ type Memory struct {
 	// InstalledBytes because firmware and the kernel reserve some.
 	TotalBytes uint64 `json:"total_bytes"`
 	SwapBytes  uint64 `json:"swap_bytes"` // swap space (SwapTotal)
-	// InstalledBytes is the modules' total, from SMBIOS (root only), as
-	// are MaxCapacityBytes, Slots and ECC.
+	// InstalledBytes is the total of known module sizes from SMBIOS, including
+	// a size SMBIOS leaves unknown when its matching SPD EEPROM supplies it
+	// (root only), as are MaxCapacityBytes, Slots and ECC. A warning says when
+	// a module's size is unknown and therefore left out of this total.
 	InstalledBytes   uint64 `json:"installed_bytes,omitempty"`
 	MaxCapacityBytes uint64 `json:"max_capacity_bytes,omitempty"` // the most the board takes, as the firmware states
 	Slots            int    `json:"slots,omitempty"`              // memory slots on the board
@@ -632,9 +634,10 @@ type MemorySlot struct {
 type MemoryModule struct {
 	// Locator is the slot's label, e.g. DIMM A1; for a module read from
 	// SPD alone, "SPD" and its I2C device, e.g. "SPD 0-0050".
-	Locator       string `json:"locator"`
-	BankLocator   string `json:"bank_locator,omitempty"`          // e.g. BANK 0, P0 CHANNEL A
-	SizeBytes     uint64 `json:"size_bytes"`                      // the module's capacity
+	Locator     string `json:"locator"`
+	BankLocator string `json:"bank_locator,omitempty"` // e.g. BANK 0, P0 CHANNEL A
+	// SizeBytes is the module's capacity in bytes; absent when unknown.
+	SizeBytes     uint64 `json:"size_bytes,omitempty"`
 	Type          string `json:"type,omitempty"`                  // DDR4, DDR5, LPDDR5...
 	FormFactor    string `json:"form_factor,omitempty"`           // DIMM, SODIMM...
 	SpeedMTs      int    `json:"speed_mts,omitempty"`             // the rated speed, in MT/s

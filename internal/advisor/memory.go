@@ -805,8 +805,12 @@ func memoryBelowMinimum(in *Input, _ *kb.Rule) ([]hit, error) {
 			text += "; other documents give " + say(b, others, ints("%d MT/s"))
 		}
 		b.add("minimum_speed", true, text)
+		name := m.Type
+		if m.SizeBytes > 0 {
+			name = size(m.SizeBytes) + " " + name
+		}
 		hits = append(hits, hit{
-			device:   &DeviceRef{Kind: "memory", Key: cmp.Or(m.Locator, fmt.Sprintf("modules[%d]", i)), Name: strings.TrimSpace(size(m.SizeBytes) + " " + m.Type)},
+			device:   &DeviceRef{Kind: "memory", Key: cmp.Or(m.Locator, fmt.Sprintf("modules[%d]", i)), Name: strings.TrimSpace(name)},
 			evidence: b.evidence, answers: b.list, used: b.used,
 		})
 	}

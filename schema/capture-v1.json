@@ -1020,7 +1020,7 @@
         },
         "installed_bytes": {
           "type": "integer",
-          "description": "InstalledBytes is the modules' total, from SMBIOS (root only), as are MaxCapacityBytes, Slots and ECC.",
+          "description": "InstalledBytes is the total of known module sizes from SMBIOS, including a size SMBIOS leaves unknown when its matching SPD EEPROM supplies it (root only), as are MaxCapacityBytes, Slots and ECC. A warning says when a module's size is unknown and therefore left out of this total.",
           "minimum": 0
         },
         "max_capacity_bytes": {
@@ -1085,7 +1085,7 @@
               },
               "size_bytes": {
                 "type": "integer",
-                "description": "the module's capacity",
+                "description": "SizeBytes is the module's capacity in bytes; absent when unknown.",
                 "minimum": 0
               },
               "type": {
