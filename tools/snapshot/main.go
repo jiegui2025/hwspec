@@ -240,6 +240,11 @@ func replicate(dest, path string, unreadable map[string]int) error {
 	return replicateDepth(dest, filepath.Clean(path), path, unreadable, 0)
 }
 
+// selfLinks are the links to the recorder's own process: what's under
+// them is recorded under the link's name, as a plain directory, never
+// under the recorder's PID, which means nothing in a recording (#184).
+var selfLinks = map[string]bool{"/proc/self": true, "/proc/thread-self": true}
+
 func replicateDepth(dest, path, asked string, unreadable map[string]int, depth int) error {
 	if depth > 40 {
 		return fmt.Errorf("too many symlinks")
@@ -257,6 +262,10 @@ func replicateDepth(dest, path, asked string, unreadable map[string]int, depth i
 		}
 		out := filepath.Join(dest, macs.text(next))
 		switch {
+		case fi.Mode()&os.ModeSymlink != 0 && selfLinks[next]:
+			if err := os.MkdirAll(out, 0o755); err != nil {
+				return err
+			}
 		case fi.Mode()&os.ModeSymlink != 0:
 			target, err := os.Readlink(next)
 			if err != nil {
