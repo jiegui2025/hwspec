@@ -161,7 +161,7 @@ Tests describe **behaviour**, not lines: "a laptop whose battery holds 80% of it
 
 | How | Where | When to add one |
 |---|---|---|
-| Recorded machines | `internal/collect/testdata/machines/<name>/` (record with `go run ./tools/snapshot internal/collect/testdata/machines/<name>/root`, then add facts in `machines_facts_test.go` and run `go test ./internal/collect -run RecordedMachines -update`) | new hardware you own; review the recording, `TestRecordingsHoldNoIdentifiers` checks it too |
+| Recorded machines | `internal/collect/testdata/machines/<name>/` (record with `go run ./tools/snapshot internal/collect/testdata/machines/<name>/root`, then add facts in `machines_facts_test.go` and run `go test ./internal/collect -run RecordedMachines -update`, then `go test ./internal/output -run Markdown -update` for its `expected.md`) | new hardware you own; review the recording, `TestRecordingsHoldNoIdentifiers` checks it too |
 | Synthetic machines | `internal/collect/scenarios_test.go` | hardware you can describe but not record (root-only data, other architectures) |
 | Real kernel | `internal/collect/kernel_test.go` | thin wrappers around syscalls |
 | Fuzzing | `FuzzParse`/`FuzzValidate`/`FuzzRead` in `internal/{spd,edid,smbios,ids,output,kb}` | a new parser of untrusted bytes; its seeds run in every `go test`, and the weekly [Fuzz workflow](.github/workflows/fuzz.yml) fuzzes it (add a failing input it uploads under the package's `testdata/fuzz/`) |

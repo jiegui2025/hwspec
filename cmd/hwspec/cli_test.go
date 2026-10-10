@@ -665,7 +665,7 @@ func TestAnEndlessInputIsNotReadWhole(t *testing.T) {
 
 // Re-exporting a capture from a newer build writes only the fields this
 // build knows, and says so (owner, #145: warn, don't refuse); showing it as
-// text isn't re-exporting, so it doesn't warn.
+// text or Markdown isn't re-exporting, so it doesn't warn.
 func TestReexportingWarnsAboutFieldsItDrops(t *testing.T) {
 	setup(t)
 	capture, _ := mustRun(t, "", "capture", "-f", "json")
@@ -681,8 +681,10 @@ func TestReexportingWarnsAboutFieldsItDrops(t *testing.T) {
 	if !strings.Contains(errOut, `has fields this build doesn't know (such as "l3_topology")`) || strings.Contains(out, "l3_topology") {
 		t.Errorf("stderr = %q; field in output: %v", errOut, strings.Contains(out, "l3_topology"))
 	}
-	if _, errOut := mustRun(t, "", "show", file); strings.Contains(errOut, "doesn't know") {
-		t.Errorf("text output warned: %q", errOut)
+	for _, format := range []string{"text", "md"} { // summaries, not re-exports
+		if _, errOut := mustRun(t, "", "show", file, "-f", format); strings.Contains(errOut, "doesn't know") {
+			t.Errorf("%s output warned: %q", format, errOut)
+		}
 	}
 	if _, errOut := mustRun(t, capture, "show", "-", "-f", "yaml"); strings.Contains(errOut, "doesn't know") {
 		t.Errorf("a capture with no unknown fields warned: %q", errOut)
