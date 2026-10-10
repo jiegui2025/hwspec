@@ -98,6 +98,36 @@ func mounts() map[string]mount {
 	return out
 }
 
+// mountsByDevice maps each device number ("179:2") in mountinfo to its
+// first mount, preferring one of the filesystem's root over a bind
+// mount of part of it. It finds what mounts can't by name: a kernel
+// that mounts the root filesystem itself, without an initramfs, lists it
+// as /dev/root (init/do_mounts.c), which names no partition (#168).
+func mountsByDevice() map[string]mount {
+	b, err := readFile("/proc/self/mountinfo")
+	if err != nil {
+		return nil
+	}
+	out := map[string]mount{}
+	whole := map[string]bool{}
+	sc := bufio.NewScanner(bytes.NewReader(b))
+	for sc.Scan() {
+		// id parent major:minor root mount-point options [optional...] -
+		// fstype source super-options (proc(5))
+		f := strings.Fields(sc.Text())
+		sep := slices.Index(f, "-")
+		if len(f) < 5 || sep < 6 || sep+1 >= len(f) {
+			continue
+		}
+		dev, isRoot := f[2], f[3] == "/"
+		if _, seen := out[dev]; !seen || isRoot && !whole[dev] {
+			out[dev] = mount{point: unescapeOctal(f[4]), fstype: f[sep+1]}
+			whole[dev] = isRoot
+		}
+	}
+	return out
+}
+
 // unescapeOctal decodes the mount table's \ooo escapes (space, tab,
 // newline, backslash).
 func unescapeOctal(s string) string {

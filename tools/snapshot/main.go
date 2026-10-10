@@ -341,7 +341,8 @@ var (
 	macName = regexp.MustCompile(`(?i)\b(enx|wlx|wwx)([0-9a-f]{12})\b`)
 	// Block devices a mount table may name; anything else (mapper names
 	// holding host or volume names, network shares) is dropped.
-	mountSource = regexp.MustCompile(`^/dev/(nvme\d+n\d+(p\d+)?|sd[a-z]+\d*|hd[a-z]+\d*|mmcblk\d+(p\d+)?|vd[a-z]+\d*|xvd[a-z]+\d*)$`)
+	// /dev/root is the root filesystem a kernel mounted itself (#168).
+	mountSource = regexp.MustCompile(`^/dev/(root|nvme\d+n\d+(p\d+)?|sd[a-z]+\d*|hd[a-z]+\d*|mmcblk\d+(p\d+)?|vd[a-z]+\d*|xvd[a-z]+\d*)$`)
 )
 
 // ueventKeys are the uevent properties ghw reads; true marks the ones
@@ -419,6 +420,8 @@ func scrubFile(rel string, data []byte) (out []byte, keep bool) {
 	case macFile.MatchString(rel):
 		mac, ok := macs.mac(strings.TrimSpace(string(data)))
 		return []byte(mac + "\n"), ok
+	case mountsFile.MatchString(rel) && strings.HasSuffix(rel, "/mountinfo"):
+		return scrubMountinfo(data), true
 	case mountsFile.MatchString(rel):
 		return scrubMounts(data), true
 	case strings.HasPrefix(rel, "/run/udev/data/"):
@@ -572,6 +575,33 @@ func scrubMounts(data []byte) []byte {
 		}
 		f[3] = strings.Join(opts, ",")
 		b.WriteString(strings.Join(f, " ") + "\n")
+	}
+	return b.Bytes()
+}
+
+// scrubMountinfo keeps mountinfo's lines for block devices at system
+// places, as scrubMounts does: the device number, the filesystem's own
+// root (a subvolume or bind path may name a person), the place, the
+// options without subvolumes, no optional fields (peer group numbers),
+// the type, the source and the super options without subvolumes.
+func scrubMountinfo(data []byte) []byte {
+	var b bytes.Buffer
+	noSubvol := func(opts string) string {
+		var keep []string
+		for o := range strings.SplitSeq(opts, ",") {
+			if !strings.HasPrefix(o, "subvol=") && !strings.HasPrefix(o, "subvolid=") {
+				keep = append(keep, o)
+			}
+		}
+		return strings.Join(keep, ",")
+	}
+	for _, line := range strings.SplitAfter(string(data), "\n") {
+		f := strings.Fields(line)
+		sep := slices.Index(f, "-")
+		if sep < 6 || len(f) < sep+4 || !mountSource.MatchString(f[sep+2]) || !mountPoints[f[4]] {
+			continue
+		}
+		b.WriteString(strings.Join([]string{f[0], f[1], f[2], "/", f[4], noSubvol(f[5]), "-", f[sep+1], f[sep+2], noSubvol(f[sep+3])}, " ") + "\n")
 	}
 	return b.Bytes()
 }
