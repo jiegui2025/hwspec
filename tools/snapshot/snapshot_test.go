@@ -323,6 +323,33 @@ func TestMountsKeepOnlySystemBlockDevices(t *testing.T) {
 	if got := string(scrubMounts([]byte(in))); got != want {
 		t.Errorf("mounts:\n%s", got)
 	}
+	if got := string(scrubMounts([]byte("/dev/root / ext4 rw 0 0\n"))); got != "/dev/root / ext4 rw 0 0\n" {
+		t.Errorf("/dev/root: %q", got)
+	}
+}
+
+// mountinfo is scrubbed like mounts (#168): system places on block
+// devices only, a filesystem root that may name a person replaced by /,
+// subvolume options and peer-group fields dropped.
+func TestScrubMountinfo(t *testing.T) {
+	in := "22 1 179:2 / / rw,noatime shared:1 - ext4 /dev/root rw\n" +
+		"23 22 0:31 /@ /home rw,subvol=/@home shared:2 master:1 - btrfs /dev/nvme0n1p2 rw,ssd,subvolid=256,subvol=/@home\n" +
+		"29 22 0:45 / /srv rw - nfs4 nas.local:/export rw\n" +
+		"24 22 0:31 /@home/alice /var/log rw - btrfs /dev/nvme0n1p2 rw,subvol=/@home/alice\n" +
+		"25 22 8:17 / /media/alice/Backup rw - vfat /dev/sdb1 rw\n" +
+		"26 22 253:0 / /data rw - ext4 /dev/mapper/luks-deadbeef01 rw\n" +
+		"27 22 0:45 / /mnt/nas rw - nfs4 nas.local:/export rw\n" +
+		"28 22 0:5 / /proc rw - proc proc rw\n" +
+		"bad\n1 2 3 4 /tmp 6 -\n"
+	want := "22 1 179:2 / / rw,noatime - ext4 /dev/root rw\n" +
+		"23 22 0:31 / /home rw - btrfs /dev/nvme0n1p2 rw,ssd\n" +
+		"24 22 0:31 / /var/log rw - btrfs /dev/nvme0n1p2 rw\n"
+	if got := string(scrubMountinfo([]byte(in))); got != want {
+		t.Errorf("mountinfo:\n%s", got)
+	}
+	if got, ok := scrubFile("/proc/self/mountinfo", []byte(in)); !ok || string(got) != want {
+		t.Errorf("scrub dispatch: %v %q", ok, got)
+	}
 }
 
 // udev records keep only what ghw reads; serials, labels and partition

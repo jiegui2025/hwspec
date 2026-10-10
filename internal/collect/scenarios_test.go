@@ -1068,3 +1068,42 @@ func TestModeArea(t *testing.T) {
 		}
 	}
 }
+
+// A kernel that mounts the root filesystem itself, without an initramfs,
+// lists it as /dev/root (Raspberry Pi OS): its partition is found by
+// device number in mountinfo, and a bind mount of part of a filesystem
+// doesn't win over the filesystem's own (#168).
+func TestRootMountedAsDevRoot(t *testing.T) {
+	file, link := fakeRoot(t)
+	dev := "/sys/devices/platform/emmc2bus/fe340000.mmc/mmc_host/mmc0/mmc0:0001/block/mmcblk0"
+	link("/sys/block/mmcblk0", "../devices/platform/emmc2bus/fe340000.mmc/mmc_host/mmc0/mmc0:0001/block/mmcblk0")
+	link(dev+"/device", "../..")
+	file(dev+"/size", "62333952")
+	file(dev+"/dev", "179:0")
+	for i, n := range []string{"1", "2", "3", "4"} {
+		file(dev+"/mmcblk0p"+n+"/partition", n)
+		file(dev+"/mmcblk0p"+n+"/size", "2048")
+		file(dev+"/mmcblk0p"+n+"/dev", "179:"+string(rune('1'+i)))
+	}
+	file("/proc/self/mounts", "/dev/mmcblk0p1 /boot/firmware vfat rw 0 0\n/dev/root / ext4 rw 0 0\n/dev/root /mnt/bind ext4 rw 0 0\n")
+	file("/proc/self/mountinfo", "22 1 179:2 / / rw,noatime shared:1 - ext4 /dev/root rw\n"+
+		"25 22 179:1 / /boot/firmware rw,relatime shared:2 - vfat /dev/mmcblk0p1 rw\n"+
+		"26 22 179:3 /sub /mnt/part-of-it rw - ext4 /dev/mmcblk0p3x rw\n"+
+		"27 22 179:3 / /data rw - ext4 /dev/mmcblk0p3x rw\n"+
+		"28 22 179:2 /var/x /mnt/bind rw - ext4 /dev/root rw\n"+
+		"29 22 179:4 / /my\\040data rw - ext4 /dev/sdz rw\n"+
+		"31 22 0:5 / /proc rw - proc proc rw\nbad line\n1 2 3 4 5 6 - \n")
+	c := &collector{r: &report.Report{}}
+	c.storage()
+	if len(c.r.Storage) != 1 {
+		t.Fatalf("disks %+v", c.r.Storage)
+	}
+	var got []string
+	for _, p := range c.r.Storage[0].Partitions {
+		got = append(got, p.Name+" "+p.MountPoint+" "+p.Filesystem)
+	}
+	want := []string{"mmcblk0p1 /boot/firmware vfat", "mmcblk0p2 / ext4", "mmcblk0p3 /data ext4", "mmcblk0p4 /my data ext4"}
+	if !slices.Equal(got, want) {
+		t.Errorf("partitions %q, want %q", got, want)
+	}
+}

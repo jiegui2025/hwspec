@@ -9,7 +9,7 @@ import (
 
 func (c *collector) storage() {
 	c.r.Storage = []report.Disk{}
-	mounted := mounts()
+	mounted, byDevice := mounts(), mountsByDevice()
 	needRoot := false
 	var health []int // the disks whose health is read, by index
 	for _, name := range list("/sys/block") {
@@ -68,7 +68,10 @@ func (c *collector) storage() {
 		for _, part := range partitionNames(base, name) {
 			dir := base + "/" + part
 			pu := udevProps(dir)
-			m := mounted["/dev/"+part]
+			m, ok := mounted["/dev/"+part]
+			if !ok {
+				m = byDevice[readStr(dir+"/dev")] // a mount named /dev/root
+			}
 			disk.Partitions = append(disk.Partitions, report.Partition{
 				Name:       part,
 				SizeBytes:  readUint(dir+"/size") * 512,
