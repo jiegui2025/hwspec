@@ -164,6 +164,31 @@ func TestReplicateKeepsSymlinks(t *testing.T) {
 	}
 }
 
+// What's under /proc/self is recorded under proc/self as a plain
+// directory, not under the recorder's PID (#184).
+func TestReplicateRecordsProcSelfUnderItsName(t *testing.T) {
+	src, dest := t.TempDir(), t.TempDir()
+	write(t, filepath.Join(src, "1234/mounts"), []byte("/dev/sda1 / ext4 rw 0 0\n"))
+	if err := os.Symlink("1234", filepath.Join(src, "self")); err != nil {
+		t.Fatal(err)
+	}
+	saved := selfLinks
+	selfLinks = map[string]bool{filepath.Join(src, "self"): true}
+	t.Cleanup(func() { selfLinks = saved })
+	if err := replicate(dest, filepath.Join(src, "self/mounts"), map[string]int{}); err != nil {
+		t.Fatal(err)
+	}
+	if fi, err := os.Lstat(filepath.Join(dest, src, "self")); err != nil || !fi.IsDir() {
+		t.Errorf("self: %v, %v", fi, err)
+	}
+	if got := read(t, filepath.Join(dest, src, "self/mounts")); got != "/dev/sda1 / ext4 rw 0 0\n" {
+		t.Errorf("mounts: %q", got)
+	}
+	if _, err := os.Lstat(filepath.Join(dest, src, "1234")); !os.IsNotExist(err) {
+		t.Errorf("the PID's directory was recorded: %v", err)
+	}
+}
+
 // The real test of a recording: capturing it gives the same result as
 // capturing the machine, apart from identifiers and readings that change
 // by the second.
@@ -186,6 +211,13 @@ func TestHostRecordingReproducesThisMachine(t *testing.T) {
 	recorded, err := collect.CollectRecorded(dir, "test")
 	if err != nil {
 		t.Fatal(err)
+	}
+	// No process's directory but init's (os.init reads /proc/1) (#184).
+	pids, _ := filepath.Glob(filepath.Join(dir, "root/proc/[0-9]*"))
+	for _, p := range pids {
+		if filepath.Base(p) != "1" {
+			t.Errorf("the recording holds %s", strings.TrimPrefix(p, dir))
+		}
 	}
 	live := collect.Collect("test")
 	// Nothing that identifies this machine or its user is in the recording.
