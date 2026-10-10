@@ -1,4 +1,5 @@
-// Package output writes a report as JSON, YAML or a human-readable summary.
+// Package output writes a report as JSON, YAML, a human-readable summary,
+// or a Markdown report with tables and diagrams.
 package output
 
 import (
@@ -15,7 +16,7 @@ import (
 	"github.com/jiegui2025/hwspec/internal/report"
 )
 
-var Formats = []string{"json", "yaml", "text"}
+var Formats = []string{"json", "yaml", "text", "md"}
 
 // FormatFromPath guesses the format from a file extension ("" if unknown).
 func FormatFromPath(path string) string {
@@ -26,6 +27,8 @@ func FormatFromPath(path string) string {
 		return "yaml"
 	case ".txt":
 		return "text"
+	case ".md":
+		return "md"
 	}
 	return ""
 }
@@ -40,6 +43,8 @@ func Write(w io.Writer, r *report.Report, format string) error {
 		return YAML(w, r)
 	case "text":
 		return writeText(w, r)
+	case "md":
+		return writeMarkdown(w, r)
 	}
 	return fmt.Errorf("unknown format %q (want one of %s)", format, strings.Join(Formats, ", "))
 }

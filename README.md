@@ -4,7 +4,7 @@
 [![ID databases](https://github.com/jiegui2025/hwspec/actions/workflows/ids.yml/badge.svg)](https://github.com/jiegui2025/hwspec/releases/tag/ids-latest)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 
-**Capture a Linux machine's complete hardware specification to a JSON, YAML or text file. One static binary, any distro, works offline.**
+**Capture a Linux machine's complete hardware specification to a JSON, YAML, text or Markdown file. One static binary, any distro, works offline.**
 
 ```console
 $ hwspec capture -f text
@@ -67,7 +67,7 @@ flowchart LR
   k["kernel: /sys, /proc,<br/>SMBIOS, EDID, ioctls"] --> c[collect raw facts]
   c --> n["name from IDs<br/>(offline databases)"]
   n --> s[sanitise untrusted strings]
-  s --> o["JSON · YAML · text"]
+  s --> o["JSON · YAML · text · Markdown"]
   saved[(saved capture)] -->|hwspec show| n
 ```
 
@@ -132,7 +132,8 @@ Each run checks the capture's schema and the names it resolves; the VMs also che
 
 | Command | Does |
 |---|---|
-| `hwspec capture -o spec.json` | capture to JSON (format follows the extension: `.json`, `.yaml`, `.txt`) |
+| `hwspec capture -o spec.json` | capture to JSON (format follows the extension: `.json`, `.yaml`, `.txt`, `.md`) |
+| `hwspec show spec.json -o spec.md` | a Markdown report of a capture: a table per section, and diagrams of the memory slots, disks and partitions, GPUs and their connectors, and the USB tree |
 | `hwspec capture -f text` | readable summary on stdout |
 | `hwspec capture --full -o spec.json` | include root-only data (asks via polkit) |
 | `hwspec capture --redact -o share.json` | strip serials, UUIDs, MACs, hostname, personal paths (captures of one machine stay linkable: see [SECURITY.md](SECURITY.md#what-redaction-doesnt-do)) |

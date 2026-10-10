@@ -34,8 +34,8 @@ var version = "dev"
 const usage = `hwspec captures this machine's hardware specification.
 
 Usage:
-  hwspec capture [-o FILE] [-f json|yaml|text] [--full] [--redact]
-  hwspec show FILE [-o FILE] [-f text|json|yaml] [--redact]
+  hwspec capture [-o FILE] [-f json|yaml|text|md] [--full] [--redact]
+  hwspec show FILE [-o FILE] [-f text|json|yaml|md] [--redact]
   hwspec advise [FILE] [--full] [--redact] [-o FILE] [-f text|json|yaml]
   hwspec ids [update [--check] | lookup KIND ID | template]
   hwspec firmware update [--dry-run] [--allow-older]
@@ -593,7 +593,7 @@ func (c cli) show(args []string) error {
 	fs.BoolVar(&redact, "redact", false, "")
 	file, err := fileArg(fs, args, true)
 	if errors.Is(err, errArgs) {
-		return errors.New("usage: hwspec show FILE [-o FILE] [-f text|json|yaml] [--redact]")
+		return errors.New("usage: hwspec show FILE [-o FILE] [-f text|json|yaml|md] [--redact]")
 	}
 	if err != nil {
 		return err
@@ -612,7 +612,7 @@ func (c cli) show(args []string) error {
 	}
 	// Re-exporting writes only the fields this build knows (owner, #145:
 	// warn, don't refuse).
-	if format != "text" {
+	if format == "json" || format == "yaml" { // text and md are summaries
 		if f := output.UnknownField(data); f != "" {
 			fmt.Fprintf(c.stderr, "hwspec: %s has fields this build doesn't know (such as %q); the %s output leaves them out: update hwspec to keep them\n",
 				file, f, format)
