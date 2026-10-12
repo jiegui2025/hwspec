@@ -52,13 +52,14 @@ func TestRunCommandIsBounded(t *testing.T) {
 }
 
 // #151's acceptance: smartctl hanging on two disks costs about one
-// timeout, not two.
+// timeout, not two. The bound sits between one and two timeouts, with
+// room for a loaded CI runner (521 ms against 500 ms once, at 300 ms).
 func TestDisksHungInSmartctlAreCheckedAtOnce(t *testing.T) {
 	file, link := fakeRoot(t)
 	asMachine(t, "x86_64", 0)
 	old := smartctlTimeout
 	t.Cleanup(func() { smartctlTimeout = old })
-	smartctlTimeout = 300 * time.Millisecond
+	smartctlTimeout = time.Second
 	findSmartctl = func() string { return "/usr/sbin/smartctl" }
 	runCommand = func(timeout time.Duration, _ string, _ ...string) ([]byte, error) {
 		time.Sleep(timeout)
@@ -74,8 +75,8 @@ func TestDisksHungInSmartctlAreCheckedAtOnce(t *testing.T) {
 	c := &collector{r: &report.Report{}, privileged: true}
 	start := time.Now()
 	c.storage()
-	if took := time.Since(start); took > 500*time.Millisecond {
-		t.Errorf("took %v for two hung disks (timeout 300ms)", took)
+	if took := time.Since(start); took > 1800*time.Millisecond {
+		t.Errorf("took %v for two hung disks (timeout 1s; one after the other would be 2s)", took)
 	}
 	if len(c.r.Storage) != 2 || !hasWarning(c.r, "drive health sda: ") || !hasWarning(c.r, "drive health sdb: ") {
 		t.Errorf("disks %+v, warnings %q", c.r.Storage, c.r.Warnings)
