@@ -50,7 +50,7 @@ jobs:
           gh api "repos/$REPO/commits/$SHA/check-runs?check_name=ci-ok" \
             --jq '[.check_runs[] | select(.conclusion == "success" and .app.slug == "github-actions")] | length > 0' | grep -qx true \
             || { echo "::error::no passing ci-ok on $SHA"; exit 1; }
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: stable
           cache: false
@@ -73,7 +73,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false # the build never sees the write token
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: stable
           cache: false # release builds never reuse a cache other workflows wrote
